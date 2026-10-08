@@ -442,6 +442,24 @@ export const createCollectionMutationController = (
         });
     };
 
+    const clearCollection = () => {
+        const { descriptor, port } = inputs;
+        return runSourceAction('clearCollection', async () => {
+            const removeSongs = port.local?.removePlaylistSongs;
+            if (descriptor.source !== 'local' || !descriptor.playlistId || !removeSongs) return;
+            const tracks = inputs.resource?.getSnapshot().tracks ?? [];
+            const songIds = [...new Set(tracks.map(localPlaylistSongIdOf))];
+            if (songIds.length === 0) return;
+            await removeSongs(descriptor.playlistId, songIds);
+            try {
+                await inputs.resource?.removeTracks(() => true);
+            } catch (error) {
+                console.warn('[LibraryUi] Failed to commit local playlist clear:', error);
+            }
+            followUp('Refreshing local library', () => inputs.port.local?.refresh?.());
+        });
+    };
+
     const setDailyDate = async (date: string, { afresh = false }: { afresh?: boolean } = {}): Promise<LibraryMutationResult> => {
         if (disposed) return fail('stale');
         const resource = inputs.resource;
@@ -485,6 +503,7 @@ export const createCollectionMutationController = (
         toggleSubscribe,
         rename,
         deleteCollection,
+        clearCollection,
         resyncFolder: () => {
             const { descriptor, port } = inputs;
             return runSourceAction('resyncFolder', () => (

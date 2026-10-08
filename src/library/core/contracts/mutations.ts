@@ -59,6 +59,8 @@ export type CollectionMutationCapabilities = {
     editCollection: LibraryCapability;
     rename: LibraryCapability;
     deleteCollection: LibraryCapability;
+    /** 清空歌单里的全部歌曲（保留歌单本身）；目前只有本地歌单。 */
+    clearCollection: LibraryCapability;
     resyncFolder: LibraryCapability;
     resyncAllFolders: LibraryCapability;
     exportPlaylist: LibraryCapability;
@@ -119,6 +121,8 @@ export interface CollectionMutationController {
     rename(name: string): Promise<LibraryMutationResult>;
     /** 成功后由 renderer 返回上一层。 */
     deleteCollection(): Promise<LibraryMutationResult>;
+    /** 清空本地歌单的歌曲，歌单留着；调用前由 renderer 确认。 */
+    clearCollection(): Promise<LibraryMutationResult>;
     resyncFolder(): Promise<LibraryMutationResult>;
     resyncAllFolders(): Promise<LibraryMutationResult>;
     exportPlaylist(): Promise<LibraryMutationResult>;

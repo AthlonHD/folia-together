@@ -207,6 +207,7 @@ suite 自己的外观操作（bravais 的缝等级、打开面板、定位正在
 | `sort` | 本地文件夹排序 | 推荐（有本地曲库时） | `useLocalTrackSortStore` |
 | `rename` | 改名（本地 / Navidrome 歌单） | 可选，需要输入框 | `mutations.rename` |
 | `delete-collection` | 删除歌单 / 文件夹 | 可选，需要确认 | `mutations.deleteCollection` |
+| `clear-collection` | 清空本地歌单（歌单保留） | 可选，需要确认 | `mutations.clearCollection` |
 | `resync-folder` / `resync-all-folders` | 重新扫描文件夹 | 可选 | `mutations.resyncFolder` / `resyncAllFolders` |
 | `export-playlist` | 导出本地歌单 | 可选 | `mutations.exportPlaylist` |
 | `edit-entity` / `organize-song-info` / `match-song` | 打开宿主的编辑 / 整理 / 匹配对话框 | 可选，几乎零成本（对话框由宿主提供） | `mutations.editEntity` / `organizeSongInfo` / `matchSong` |

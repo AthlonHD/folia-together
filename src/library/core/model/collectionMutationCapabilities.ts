@@ -204,6 +204,10 @@ export const resolveCollectionMutationCapabilities = ({
             branches.isLocalFolderCollection || branches.isLocalPlaylistCollection || branches.isNavidromePlaylistCollection,
             pending,
         ),
+        clearCollection: gated(
+            branches.isLocalPlaylistCollection && Boolean(port.local?.removePlaylistSongs),
+            pending || state.pendingRemovalCount > 0,
+        ),
         resyncFolder: gated(branches.isLocalFolderCollection && Boolean(port.local?.resyncFolder), pending),
         resyncAllFolders: gated(branches.isLocalAllSongsCollection && Boolean(port.local?.resyncAllFolders), pending),
         // 与网格的导出按钮同一条件：收藏这类虚拟歌单也能导出。
