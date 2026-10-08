@@ -1,3 +1,4 @@
+import { isStageRemoteMode } from '../../../services/stageRemote';
 import React, { useEffect, useState } from 'react';
 import { Activity, AlertCircle, Check, Loader2, Server, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -358,6 +359,16 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
             </div>
         </div>
     );
+
+    // 遥控模式:Stage、OBS、Discord、歌词接口、Navidrome 这些都作用在运行播放的那台机器(服务器 Host)上,
+    // 在遥控页开关不会影响 Host,也连不到 Host 本机的服务,所以这里只给出说明
+    if (isStageRemoteMode()) {
+        return (
+            <div className={`p-4 rounded-xl border text-sm ${settingsCardClass}`} style={{ color: 'var(--text-secondary)' }}>
+                {t('options.integrationHostOnly', '这些集成设置作用在服务器 Host 上,请在服务器的 Host 页里设置。')}
+            </div>
+        );
+    }
 
     return (
         <>

@@ -1,3 +1,4 @@
+import { isStageRemoteMode } from '../../../services/stageRemote';
 import React, { useState } from 'react';
 import { AudioLines, ChevronRight, ListFilter, Monitor, PlayCircle, Radio, RefreshCw, Settings2, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -437,6 +438,13 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                             {renderToggle(enableTranscodeFallback, () => onToggleTranscodeFallback(!enableTranscodeFallback))}
                         </div>
                     )}
+                    {isStageRemoteMode() ? (
+                        // 声音从服务器 Host 页输出,输出设备只能在 Host 上选;这里列出的是本机设备,选了也没用
+                        <div className="text-xs opacity-60" style={{ color: 'var(--text-secondary)' }}>
+                            {t('options.audioOutputHostOnly', '遥控模式下声音从服务器输出,输出设备请在服务器的 Host 页里选择。')}
+                        </div>
+                    ) : (
+                        <>
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                             <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -496,6 +504,8 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                 </div>
                             )}
                         </div>
+                    )}
+                        </>
                     )}
                 </div>
             </SettingsAnchor>

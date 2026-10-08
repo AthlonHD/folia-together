@@ -1,3 +1,4 @@
+import { isStageRemoteMode } from '../../../services/stageRemote';
 import { useMemo, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -158,8 +159,13 @@ export const useLibraryAccountProviders = (controller: LibraryAccountController)
     providers: ProviderAccountSummary[];
     activeProviderId: OnlineProviderId;
 } => {
-    const providers = useLibraryAccountSelector(controller, selectProviders);
+    const allProviders = useLibraryAccountSelector(controller, selectProviders);
     const activeProviderId = useLibraryAccountSelector(controller, selectActiveProviderId);
+    // 遥控模式只能让服务器 Host 播网易云,其他平台的入口在遥控页上点了也播不了,不列出来
+    const providers = useMemo(
+        () => (isStageRemoteMode() ? allProviders.filter(provider => provider.providerId === 'netease') : allProviders),
+        [allProviders],
+    );
     return useMemo(() => ({ providers, activeProviderId }), [activeProviderId, providers]);
 };
 

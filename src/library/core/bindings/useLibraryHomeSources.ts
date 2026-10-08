@@ -1,3 +1,4 @@
+import { isStageRemoteMode } from '../../../services/stageRemote';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -54,7 +55,8 @@ export const useLibraryHomeSources = ({
         playlist: state.showHomeTabPlaylist,
         radio: state.showHomeTabRadio,
         albums: state.showHomeTabAlbums,
-        local: state.showHomeTabLocal,
+        // 遥控模式不能播放本地曲库(声音在服务器上),不显示本地页签
+        local: state.showHomeTabLocal && !isStageRemoteMode(),
     })));
     // The FM card doubles as the mode readout: the card is the only place the current mode shows
     // up outside the player, and the picker can change it while this grid stays mounted.
