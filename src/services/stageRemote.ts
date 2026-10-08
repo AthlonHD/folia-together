@@ -7,7 +7,7 @@ import { readProviderSessionValue, writeProviderSessionValue } from './onlineMus
 
 // ?host=1 为 Host,?local=1 强制本地播放;配置了 VITE_STAGE_RELAY=1 时其余访问默认遥控,?stageremote=1 手动开启
 export const isStageRemoteMode = (): boolean => {
-    if (typeof window === 'undefined') return false;
+    if (typeof window === 'undefined' || !window.location) return false;
     const params = new URLSearchParams(window.location.search);
     if (params.get('host') === '1' || params.get('local') === '1') return false;
     return params.get('stageremote') === '1' || import.meta.env.VITE_STAGE_RELAY === '1';
@@ -40,6 +40,8 @@ const request = async <T = any>(path: string, body?: unknown): Promise<T> => {
     return data as T;
 };
 
+export const remoteSetLoopMode = (loopMode: 'off' | 'all' | 'one' | 'shuffle') =>
+    request('control', { action: 'set-loop', loopMode });
 export const fetchRemoteStatus = () => request('status');
 export const fetchRemoteQueue = () => request('queue?limit=500');
 export const remotePlaySong = (songId: number, appendToQueue = false) => request('play', { songId, appendToQueue });

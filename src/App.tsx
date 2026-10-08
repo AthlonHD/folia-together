@@ -56,6 +56,7 @@ import { createQueueMutations } from './components/app/player-panel/createQueueM
 import { Album, Artist, LyricData, Theme, PlayerState, SongResult, ReplayGainMode, StatusMessage, PlaybackContext, StageLoopMode, UnifiedSong } from './types';
 import type { LocalSong } from './types';
 import { getLocalSongArrayBuffer } from './services/localMusicService';
+import { getLoopDisplayMode } from './utils/loopDisplayMode';
 import { createLibraryPlaybackPort } from './library/app/createLibraryPlaybackPort';
 import { isStageHostMode } from './services/stageWebChannel';
 import { isStageRemoteMode, remoteControl } from './services/stageRemote';
@@ -505,6 +506,8 @@ export default function App() {
     const effectiveLyricTimelineOffsetMs = lyricTimelineOffsetMs + globalLyricTimelineOffsetMs;
 
     const effectiveLoopMode: StageLoopMode = loopMode;
+    const shuffleEnabled = useAudioSettingsStore(state => state.shuffleEnabled);
+    const loopDisplayMode = getLoopDisplayMode(effectiveLoopMode, shuffleEnabled);
 
     const getTargetPlaybackVolume = useCallback(() => (isMuted ? 0 : volume), [isMuted, volume]);
 
@@ -1262,7 +1265,8 @@ export default function App() {
         isFmMode,
         isStageActive: isNowPlayingStageActive,
         fallbackToQueueHead: true,
-    }), [playQueue, currentSong, effectiveLoopMode, isFmMode, isNowPlayingStageActive]);
+        useShuffle: true,
+    }), [playQueue, currentSong, effectiveLoopMode, isFmMode, isNowPlayingStageActive, shuffleEnabled]);
 
     /**
      * The track a running blend is bringing in: the queue successor of the DISPLAYED song.
@@ -2217,7 +2221,7 @@ export default function App() {
         currentSong: playerDisplayCurrentSong,
         handleAlbumSelect: handlePlayerPanelAlbumSelect,
         handleArtistSelect: handlePlayerPanelArtistSelect,
-        effectiveLoopMode,
+        effectiveLoopMode: loopDisplayMode,
         toggleLoop,
         handleLike,
         generateAITheme: generateCurrentSongTheme,
@@ -2284,6 +2288,7 @@ export default function App() {
         handleSearchResultAlbumOpen,
         devDebugSnapshot,
         effectiveLoopMode,
+        loopDisplayMode,
         canToggleCurrentPlayback,
         isNowPlayingControlDisabled,
         stageActiveEntryKind,
@@ -2710,7 +2715,7 @@ export default function App() {
                     >
                         <Suspense fallback={<div className="absolute inset-0 bg-[#070707]" />}>
                             <Lattice
-                                controls={{ playback: commandPaletteContext.playback, loopMode: effectiveLoopMode,
+                                controls={{ playback: commandPaletteContext.playback, loopMode: loopDisplayMode,
                                     invokeCommandById: commandPalette.invokeCommandById, canInvokeCommandById: commandPalette.canInvokeCommandById,
                                     isStageActive: isNowPlayingStageActive, disabled: isNowPlayingControlDisabled }}
                                 lyrics={commandPaletteContext.shared.lyrics}

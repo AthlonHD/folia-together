@@ -43,7 +43,9 @@ const STAGE_PLAYER_CONTROL_ACTION_CAPABILITIES = {
   pause: 'pause',
   resume: 'resume',
   seek: 'seek',
+  'set-loop': 'loop',
 };
+const STAGE_LOOP_MODE_VALUES = new Set(['off', 'all', 'one', 'shuffle']);
 const STAGE_PLAYER_QUEUE_ACTION_CAPABILITIES = {
   append: 'append',
   'insert-next': 'insertNext',
@@ -330,6 +332,8 @@ function createStageApi({
       seek: Boolean(provided.seek ?? canControlTransport),
       previous: Boolean(isNormalPlayback && provided.previous),
       next: Boolean(isNormalPlayback && provided.next),
+      // 切换循环/随机模式不依赖当前有没有歌
+      loop: true,
     };
   };
 
@@ -417,6 +421,7 @@ function createStageApi({
       controlCapabilities: buildStagePlayerControlCapabilities(playbackContext, current, source.controlCapabilities),
       queueCapabilities: buildStagePlayerQueueCapabilities(playbackContext, source.queueCapabilities),
       queue,
+      loopMode: STAGE_LOOP_MODE_VALUES.has(source.loopMode) ? source.loopMode : 'off',
     };
   };
 
@@ -466,6 +471,7 @@ function createStageApi({
       controlCapabilities: snapshot.controlCapabilities,
       queueCapabilities: snapshot.queueCapabilities,
       queue: buildStagePlayerQueueSummary(snapshot),
+      loopMode: snapshot.loopMode,
     });
   };
 
@@ -1758,9 +1764,18 @@ function createStageApi({
       }
     }
 
+    let loopMode;
+    if (action === 'set-loop') {
+      loopMode = normalizeStageText(payload.loopMode);
+      if (!STAGE_LOOP_MODE_VALUES.has(loopMode)) {
+        throw createStageValidationError('Stage player set-loop requires loopMode off, all, one or shuffle.', 'INVALID_STAGE_PLAYER_LOOP_MODE');
+      }
+    }
+
     await requestStagePlayerControl({
       action,
       ...(positionMs !== undefined ? { positionMs } : {}),
+      ...(loopMode !== undefined ? { loopMode } : {}),
     });
 
     return withStagePlayerOutsideInMetadata({

@@ -1,6 +1,7 @@
 import { ChartBar, Heart, ListMusic, PanelsTopLeft, Repeat, Repeat1, RepeatOff, Shuffle, SkipBack, SkipForward, Timer, Volume2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { PlayerControlSlotActionId } from '../../types/playerControlSlots';
+import type { LoopDisplayMode } from '../../utils/loopDisplayMode';
 import { noteLoopButtonPress } from '../../services/ponder/loopShuffleHint';
 
 // src/components/floating-player/playerControlSlotActions.ts
@@ -15,7 +16,7 @@ export type { PlayerControlSlotActionId };
 
 /** 槽位渲染所需的全部输入；由 buildAppOverlaysModel 组装，全部来自已有 handler。 */
 export type PlayerControlSlotContext = {
-    loopMode: 'off' | 'all' | 'one';
+    loopMode: LoopDisplayMode;
     onToggleLoop: () => void;
     onPrev: () => void;
     onNext: () => void;
@@ -68,6 +69,7 @@ export const PLAYER_CONTROL_SLOT_OPTIONS: readonly { id: PlayerControlSlotAction
 
 /** 循环按钮的图标反映当前模式，是这批动作里唯一的三态图标。 */
 const resolveLoopIcon = (loopMode: PlayerControlSlotContext['loopMode']): LucideIcon => {
+    if (loopMode === 'shuffle') return Shuffle;
     if (loopMode === 'off') return RepeatOff;
     if (loopMode === 'one') return Repeat1;
     return Repeat;
@@ -75,6 +77,7 @@ const resolveLoopIcon = (loopMode: PlayerControlSlotContext['loopMode']): Lucide
 
 /** 循环按钮的提示文本反映当前模式。 */
 const resolveLoopLabelKey = (loopMode: PlayerControlSlotContext['loopMode']): string => {
+    if (loopMode === 'shuffle') return 'player.loopShuffle';
     if (loopMode === 'off') return 'player.loopOff';
     if (loopMode === 'one') return 'player.loopOne';
     return 'player.loopAll';

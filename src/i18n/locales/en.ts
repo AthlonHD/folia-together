@@ -2882,6 +2882,7 @@ export default {
     "loopOff": "Loop off",
     "loopAll": "Loop all",
     "loopOne": "Loop one",
+    "loopShuffle": "Shuffle",
     "unknownArtist": "Unknown Artist",
     "unknownAlbum": "Unknown Album",
   },

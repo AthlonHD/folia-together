@@ -1,3 +1,4 @@
+import type { LoopDisplayMode } from '../utils/loopDisplayMode';
 import React from 'react';
 import { PANEL_SLIDE_CLAMP_PX, PANEL_SLIDE_TRACK_BASE_PX, PANEL_SLIDE_TRACK_FULL_PX, PANEL_SLIDE_TRIGGER_PX } from '../utils/panelSlideGesture';
 import { motion, AnimatePresence, useTransform } from 'framer-motion';
@@ -43,7 +44,7 @@ type UnifiedPanelPlaybackProps = {
     currentSong: SongResult | null;
     onAlbumSelect: (song: SongResult, album: Album) => void;
     onSelectArtist: (song: SongResult, artist: Artist) => void;
-    loopMode: 'off' | 'all' | 'one';
+    loopMode: LoopDisplayMode;
     onToggleLoop: () => void;
     onLike: () => void;
     isLiked: boolean;

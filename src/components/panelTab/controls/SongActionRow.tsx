@@ -1,5 +1,6 @@
 import React from 'react';
-import { Heart, Repeat, Repeat1, RepeatOff, Sparkle, Sparkles } from 'lucide-react';
+import { Heart, Repeat, Repeat1, RepeatOff, Shuffle, Sparkle, Sparkles } from 'lucide-react';
+import type { LoopDisplayMode } from '../../../utils/loopDisplayMode';
 import { useTranslation } from 'react-i18next';
 import type { ThemeSourceModel } from '../../../hooks/themeControllerState';
 import { noteLoopButtonPress } from '../../../services/ponder/loopShuffleHint';
@@ -8,7 +9,7 @@ import { noteLoopButtonPress } from '../../../services/ponder/loopShuffleHint';
 // 当前歌曲的三个动作：循环、喜欢、生成 AI 主题。面板里唯一一排大触控目标，保持原样。
 
 interface SongActionRowProps {
-    loopMode: 'off' | 'all' | 'one';
+    loopMode: LoopDisplayMode;
     /** Receives the click so the handler can stop it from reaching the panel container. */
     onToggleLoop: (event?: React.MouseEvent) => void;
     loopToggleDisabled: boolean;
@@ -55,7 +56,7 @@ const SongActionRow: React.FC<SongActionRowProps> = ({
                 aria-label={loopTitle}
                 className={`h-12 rounded-xl flex items-center justify-center transition-colors ${loopButtonBg} ${loopToggleDisabled ? 'opacity-35 cursor-not-allowed' : ''}`}
             >
-                {loopMode === 'off' ? <RepeatOff size={20} /> : loopMode === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
+                {loopMode === 'shuffle' ? <Shuffle size={20} /> : loopMode === 'off' ? <RepeatOff size={20} /> : loopMode === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
             </button>
 
             <button

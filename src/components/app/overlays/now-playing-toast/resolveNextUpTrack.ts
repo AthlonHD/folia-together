@@ -1,5 +1,6 @@
 import { getPlaybackSongKey } from '../../../../utils/appPlaybackGuards';
 import type { SongResult } from '../../../../types';
+import { getShuffleNextSong } from '../../../../utils/shuffleNavigation';
 // src/components/app/overlays/now-playing-toast/resolveNextUpTrack.ts
 
 type ResolveNextUpTrackParams = {
@@ -14,6 +15,8 @@ type ResolveNextUpTrackParams = {
     isStageActive: boolean;
     /** 基准曲目不在队列里时是否退回队首，对齐 handleNextTrack 的下标规则 */
     fallbackToQueueHead?: boolean;
+    /** 随机模式下以预选的下一首为准；只对"当前歌"的预览成立,混合期间画面上的歌不是它 */
+    useShuffle?: boolean;
 };
 
 /**
@@ -28,10 +31,16 @@ export const resolveNextUpTrack = ({
     isFmMode,
     isStageActive,
     fallbackToQueueHead = false,
+    useShuffle = false,
 }: ResolveNextUpTrackParams): SongResult | null => {
     // 舞台播放不推进主队列，单曲循环原地重播，两种情况都没有「下一首」
     if (!song || playQueue.length === 0 || isStageActive || loopMode === 'one') {
         return null;
+    }
+
+    if (useShuffle && !isFmMode) {
+        const shuffleNext = getShuffleNextSong(playQueue);
+        if (shuffleNext) return shuffleNext;
     }
 
     const songKey = getPlaybackSongKey(song);

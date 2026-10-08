@@ -94,6 +94,7 @@ exports[`store contract > keeps every localStorage key the stores read or write 
   "player_control_slot_primary",
   "player_control_slot_secondary",
   "player_loop_mode",
+  "player_shuffle",
   "player_volume",
   "playercap_host",
   "playercap_player",

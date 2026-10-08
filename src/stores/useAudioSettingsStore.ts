@@ -6,6 +6,7 @@
 // they are audio-output state, and this is their nearest owner until the Phase B transport store
 // exists — at which point they may move once more.
 
+import { isStageRemoteMode, remoteSetLoopMode } from '../services/stageRemote';
 import { create } from 'zustand';
 import type { AudioQualityPreference } from '../types/onlineMusic';
 import { type QueueAddBehavior } from '../types';
@@ -120,6 +121,15 @@ const readStoredLoopMode = (): 'off' | 'all' | 'one' => {
     return saved === 'all' || saved === 'one' ? saved : 'off';
 };
 
+// 随机只在列表循环下才成立(见 loopDisplayMode),存的值不一致时按"没开随机"处理
+const readStoredShuffleEnabled = (): boolean => {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    return localStorage.getItem('player_shuffle') === 'true' && readStoredLoopMode() === 'all';
+};
+
 const readStoredVolume = () => {
     if (typeof window === 'undefined') {
         return 1;
@@ -150,6 +160,8 @@ export type AudioSettingsState = {
     volume: number;
     isMuted: boolean;
     loopMode: 'off' | 'all' | 'one';
+    /** 随机播放:loopMode 为 'all' 时下一首随机挑,不改动队列顺序。 */
+    shuffleEnabled: boolean;
     setAudioQuality: (quality: AudioQuality) => void;
     handleToggleMediaCache: (enable: boolean) => void;
     handleSetMediaCacheLimitGb: (gigabytes: number) => void;
@@ -166,6 +178,8 @@ export type AudioSettingsState = {
     handleSetVolume: (val: number) => void;
     handleToggleMute: () => void;
     handleToggleLoopMode: () => void;
+    /** 直接设为某个循环展示态(含随机);persist 为 false 时只改内存,遥控页镜像 Host 用。 */
+    setLoopDisplayMode: (mode: 'off' | 'all' | 'one' | 'shuffle', options?: { persist?: boolean }) => void;
 };
 
 export const useAudioSettingsStore = create<AudioSettingsState>((set, get) => ({
@@ -187,6 +201,7 @@ export const useAudioSettingsStore = create<AudioSettingsState>((set, get) => ({
     volume: readStoredVolume(),
     isMuted: getStoredBoolean('player_is_muted', false),
     loopMode: readStoredLoopMode(),
+    shuffleEnabled: readStoredShuffleEnabled(),
     setAudioQuality: (quality) => {
         if (typeof window !== 'undefined') {
             localStorage.setItem('default_audio_quality', quality);
@@ -284,18 +299,44 @@ export const useAudioSettingsStore = create<AudioSettingsState>((set, get) => ({
         setStoredBoolean('player_is_muted', next);
         set({ isMuted: next });
     },
+    setLoopDisplayMode: (mode, options) => {
+        const nextLoop = mode === 'shuffle' ? 'all' : mode;
+        const nextShuffle = mode === 'shuffle';
+        if (options?.persist !== false && typeof window !== 'undefined') {
+            localStorage.setItem('player_loop_mode', nextLoop);
+            localStorage.setItem('player_shuffle', String(nextShuffle));
+        }
+        set({ loopMode: nextLoop, shuffleEnabled: nextShuffle });
+    },
+    // 四态循环:关闭 → 列表循环 → 单曲循环 → 随机 → 关闭。随机 = 列表循环 + shuffleEnabled。
     handleToggleLoopMode: () => {
-        const prev = get().loopMode;
-        const next = prev === 'off'
-            ? 'all'
-            : prev === 'all'
-                ? 'one'
-                : 'off';
+        const { loopMode: prev, shuffleEnabled: wasShuffle } = get();
+        // 遥控页没有本地播放:把下一个模式发给 Host,本页先乐观地显示,之后由镜像校正
+        if (isStageRemoteMode()) {
+            const current: 'off' | 'all' | 'one' | 'shuffle' = wasShuffle ? 'shuffle' : prev;
+            const nextMode = current === 'off' ? 'all' : current === 'all' ? 'one' : current === 'one' ? 'shuffle' : 'off';
+            get().setLoopDisplayMode(nextMode, { persist: false });
+            void remoteSetLoopMode(nextMode).catch(() => undefined);
+            return;
+        }
+        let next: 'off' | 'all' | 'one';
+        let nextShuffle = false;
+        if (wasShuffle) {
+            next = 'off';
+        } else if (prev === 'off') {
+            next = 'all';
+        } else if (prev === 'all') {
+            next = 'one';
+        } else {
+            next = 'all';
+            nextShuffle = true;
+        }
         if (typeof window !== 'undefined') {
             localStorage.setItem('player_loop_mode', next);
+            localStorage.setItem('player_shuffle', String(nextShuffle));
         }
-        set({ loopMode: next });
-        const loopModeKey = next === 'off' ? 'loopOff' : next === 'one' ? 'loopOne' : 'loopAll';
+        set({ loopMode: next, shuffleEnabled: nextShuffle });
+        const loopModeKey = nextShuffle ? 'loopShuffle' : next === 'off' ? 'loopOff' : next === 'one' ? 'loopOne' : 'loopAll';
         setStatusMessage({
             type: 'success',
             text: i18n.t(`player.${loopModeKey}`),

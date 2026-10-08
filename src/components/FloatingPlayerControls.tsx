@@ -14,6 +14,7 @@ import { playerBottomBarLiveOffset } from '../stores/motionSignals';
 import { usePlayerBottomBarLayoutStore } from '../stores/usePlayerBottomBarLayoutStore';
 import { usePlayerChromeSettingsStore } from '../stores/usePlayerChromeSettingsStore';
 import { PLAYER_BOTTOM_BAR_BASE_OFFSET_PX, clampPlayerBottomBarOffset, resolvePlayerBottomBarMaxOffset } from '../utils/playerBottomBarLayout';
+import type { LoopDisplayMode } from '../utils/loopDisplayMode';
 import type { PlayerControlSlotActionId, PlayerControlSlotContext } from './floating-player/playerControlSlotActions';
 
 export interface TrackNavigation {
@@ -60,7 +61,7 @@ interface FloatingPlayerControlsProps {
     currentTime: MotionValue<number>;
     lyricCurrentTime?: MotionValue<number>;
     duration: number;
-    loopMode: 'off' | 'all' | 'one';
+    loopMode: LoopDisplayMode;
     currentView: 'home' | 'player' | 'lattice';
     audioSrc: string | null;
     canTogglePlay?: boolean;
@@ -411,8 +412,6 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                                     secondaryColor={secondaryColor}
                                     trackColor={trackColor}
                                     controlsDisabled={controlsDisabled}
-                                    isDaylight={isDaylight}
-                                    slotContext={resolvedSlotContext}
                                 />
                             )}
                         </motion.div>
@@ -558,7 +557,7 @@ const ExpandedView: React.FC<ExpandedViewProps> = ({
                 />
 
                 {/* 窄屏下第二个槽位和队列按钮并排放在右侧格里;宽屏下 contents 让它们并入上面的 flex 行 */}
-                <div className="col-start-3 row-start-2 flex items-center justify-self-start sm:contents">
+                <div className="col-start-3 row-start-2 flex items-center gap-1 justify-self-start sm:contents">
                     <PlayerControlSlotButton
                         actionId={slotSecondary}
                         context={slotContext}
@@ -605,8 +604,6 @@ interface CollapsedViewProps {
     secondaryColor: string;
     trackColor?: string;
     controlsDisabled?: boolean;
-    isDaylight?: boolean;
-    slotContext: PlayerControlSlotContext;
 }
 
 const CollapsedView: React.FC<CollapsedViewProps> = ({
@@ -617,11 +614,9 @@ const CollapsedView: React.FC<CollapsedViewProps> = ({
     secondaryColor,
     trackColor,
     controlsDisabled = false,
-    isDaylight,
-    slotContext,
 }) => {
     return (
-        <div className="flex items-center w-full justify-center h-8 px-4 gap-2">
+        <div className="flex items-center w-full justify-center h-8 px-4">
             <ProgressBar
                 currentTime={currentTime}
                 duration={duration}
@@ -631,15 +626,6 @@ const CollapsedView: React.FC<CollapsedViewProps> = ({
                 trackColor={trackColor}
                 disabled={controlsDisabled}
                 collapsed
-            />
-            {/* 收起状态也留一个队列入口,不必先悬停展开(触屏上没有悬停) */}
-            <PlayerControlSlotButton
-                actionId="queue"
-                context={slotContext}
-                primaryColor={primaryColor}
-                isDaylight={isDaylight}
-                controlsDisabled={controlsDisabled}
-                className="-mr-2 shrink-0 p-1"
             />
         </div>
     );

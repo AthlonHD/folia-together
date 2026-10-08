@@ -9,6 +9,7 @@ import { PlayerState } from '../../../types';
 import type { SongResult, UnifiedSong, LyricData } from '../../../types';
 import { resolvePlaybackNeighbors } from '../../../utils/playbackNeighbors';
 import { getPlaybackSongKey } from '../../../utils/appPlaybackGuards';
+import type { LoopDisplayMode } from '../../../utils/loopDisplayMode';
 import { getSongArtistLabel } from '../../../services/onlineMusic/songMetadata';
 import { setPlayerState } from '../../../stores/usePlaybackStore';
 import { focusLatticeCurrentSong } from '../../../stores/useLatticeControlsStore';
@@ -89,6 +90,8 @@ export type AppOverlaysDeps = {
     handleSearchResultAlbumOpen: SearchOverlayProps['onOpenAlbum'];
     devDebugSnapshot: any;
     effectiveLoopMode: 'off' | 'all' | 'one';
+    /** 循环按钮的展示态(含随机);逻辑判断仍用 effectiveLoopMode */
+    loopDisplayMode: LoopDisplayMode;
     canToggleCurrentPlayback: boolean;
     isNowPlayingControlDisabled: boolean;
     stageActiveEntryKind: string | null;
@@ -144,6 +147,7 @@ export const buildAppOverlaysModel = ({
     playerState,
     duration,
     effectiveLoopMode,
+    loopDisplayMode,
     audioSrc,
     canToggleCurrentPlayback,
     isNowPlayingControlDisabled,
@@ -255,7 +259,7 @@ export const buildAppOverlaysModel = ({
             currentTime,
             lyricCurrentTime,
             duration,
-            loopMode: effectiveLoopMode,
+            loopMode: loopDisplayMode,
             currentView,
             audioSrc,
             canTogglePlay: canToggleCurrentPlayback,

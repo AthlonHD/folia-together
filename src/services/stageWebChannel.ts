@@ -95,7 +95,7 @@ let webChannel: StageBridge | null = null;
 
 // Host 模式由 URL 参数 ?host=1 开启
 export const isStageHostMode = (): boolean =>
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('host') === '1';
+    typeof window !== 'undefined' && Boolean(window.location) && new URLSearchParams(window.location.search).get('host') === '1';
 
 // 桌面版返回 Electron 桥,Web Host 页返回 WebSocket 通道,其余情况返回 null
 export const getStageBridge = (): StageBridge | null => {

@@ -2769,6 +2769,7 @@ export default {
     "loopOff": "Ulangi Mati",
     "loopAll": "Ulangi Semua",
     "loopOne": "Ulangi Satu",
+    "loopShuffle": "Acak",
     "unknownArtist": "Artis Tidak Dikenal",
     "unknownAlbum": "Album Tidak Dikenal"
   },

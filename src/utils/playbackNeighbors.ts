@@ -1,6 +1,7 @@
 import { getPlaybackSongKey } from './appPlaybackGuards';
 import { resolvePlaybackSongArtist, resolvePlaybackSongCoverUrl } from './playbackSongMeta';
 import type { SongResult } from '../types';
+import { getShuffleNextSong, getShufflePrevSong } from './shuffleNavigation';
 // src/utils/playbackNeighbors.ts
 
 export type PlaybackNeighbor = {
@@ -71,15 +72,25 @@ export const resolvePlaybackNeighbors = ({
         };
     };
 
+    // 随机模式:下一首是预选的那首,上一首是历史栈顶(FM 自己拉新歌,不参与)
+    const shuffleNext = isFmMode ? null : getShuffleNextSong(playQueue);
+    const shufflePrev = isFmMode ? null : getShufflePrevSong(playQueue);
+    const shuffleNextIndex = shuffleNext ? playQueue.findIndex(song => getPlaybackSongKey(song) === getPlaybackSongKey(shuffleNext)) : -1;
+    const shufflePrevIndex = shufflePrev ? playQueue.findIndex(song => getPlaybackSongKey(song) === getPlaybackSongKey(shufflePrev)) : -1;
+
     let prevIndex = -1;
-    if (currentIndex > 0) {
+    if (shufflePrevIndex >= 0) {
+        prevIndex = shufflePrevIndex;
+    } else if (currentIndex > 0) {
         prevIndex = currentIndex - 1;
     } else if (loopMode === 'all') {
         prevIndex = lastIndex;
     }
 
     let nextIndex = -1;
-    if (currentIndex >= 0 && currentIndex < lastIndex) {
+    if (shuffleNextIndex >= 0) {
+        nextIndex = shuffleNextIndex;
+    } else if (currentIndex >= 0 && currentIndex < lastIndex) {
         nextIndex = currentIndex + 1;
     } else if (currentIndex < 0) {
         nextIndex = 0;

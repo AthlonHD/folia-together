@@ -26,6 +26,7 @@ import {
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { getStageBridge } from '../services/stageWebChannel';
 import { openAddToPlaylist } from '../stores/useAddToPlaylistStore';
+import { usePlayOrderStore } from '../stores/usePlayOrderStore';
 import { isStageRemoteMode, remoteAddToQueue, remoteClearQueue, remoteControl, remotePlayNow, remotePlaySongWithQueue, remoteSelectQueueSong, remoteShuffleQueue } from '../services/stageRemote';
 import { buildStagePlayerSnapshot, resolveStagePlayerQueueItemIndex } from '../utils/stagePlayerSnapshot';
 import type { LocalLibraryDisplayCatalog } from '../services/playbackAdapters';
@@ -190,6 +191,7 @@ export function usePlaybackQueueController({
     const audioQuality = useAudioSettingsStore(state => state.audioQuality);
     const queueAddBehavior = useAudioSettingsStore(state => state.queueAddBehavior);
     const loopMode = useAudioSettingsStore(state => state.loopMode);
+    const shuffleEnabled = useAudioSettingsStore(state => state.shuffleEnabled);
     const activePlaybackContext = usePlaybackStore(state => state.activePlaybackContext);
     const currentSong = usePlaybackStore(state => state.currentSong);
     const playQueue = usePlaybackStore(state => state.playQueue);
@@ -950,6 +952,22 @@ export function usePlaybackQueueController({
             }
         }
 
+        // 随机模式:取预先选好的下一首(没有就现挑),不动队列顺序。FM 本身是拉新歌,不参与随机。
+        if (shuffleEnabled && !isFmMode && playQueue.length > 1) {
+            const upcomingKey = usePlayOrderStore.getState().ensureUpcoming(playQueue, currentSongKey);
+            const upcomingSong = upcomingKey
+                ? playQueue.find(song => getPlaybackSongKey(song) === upcomingKey)
+                : null;
+            if (upcomingSong) {
+                void playSong(upcomingSong, playQueue, isFmMode, {
+                    shouldNavigateToPlayer,
+                    unavailableSkipCount: options?.unavailableSkipCount,
+                    isAutomixAdvance: options?.isAutomixAdvance,
+                });
+                return;
+            }
+        }
+
         let nextIndex = -1;
 
         if (currentIndex >= 0 && currentIndex < playQueue.length - 1) {
@@ -969,7 +987,7 @@ export function usePlaybackQueueController({
         } else if (options?.allowStopOnMissing) {
             stopAtQueueEnd();
         }
-    }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState, shouldNavigateToPlayerOnTrackChange]);
+    }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState, shouldNavigateToPlayerOnTrackChange, shuffleEnabled]);
 
     const handlePrevTrack = useCallback(() => {
         if (isStageRemoteMode()) {
@@ -986,6 +1004,22 @@ export function usePlaybackQueueController({
         if (heldSong) endHeldTransition?.();
         const currentSongKey = getPlaybackSongKey(heldSong ?? currentSong);
         const currentIndex = playQueue.findIndex(song => getPlaybackSongKey(song) === currentSongKey);
+
+        // 随机模式:回到刚才播放的那首(历史栈顶),历史里没有再回落到队列里的上一首
+        if (shuffleEnabled && !isFmMode) {
+            const previousKey = usePlayOrderStore.getState().popHistory(currentSongKey);
+            const previousSong = previousKey
+                ? playQueue.find(song => getPlaybackSongKey(song) === previousKey)
+                : null;
+            if (previousSong) {
+                skipShuffleHistoryPushRef.current = true;
+                void playSong(previousSong, playQueue, isFmMode, {
+                    shouldNavigateToPlayer: shouldNavigateToPlayerOnTrackChange,
+                });
+                return;
+            }
+        }
+
         let prevIndex = -1;
 
         if (currentIndex > 0) {
@@ -999,7 +1033,37 @@ export function usePlaybackQueueController({
                 shouldNavigateToPlayer: shouldNavigateToPlayerOnTrackChange,
             });
         }
-    }, [currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, shouldNavigateToPlayerOnTrackChange]);
+    }, [currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, shouldNavigateToPlayerOnTrackChange, shuffleEnabled]);
+
+    // 随机模式的历史与预选:订阅播放 store,在歌曲/队列变化的同一时刻(早于 React 重渲染)
+    // 把离开的那首压进历史("上一首"用),并为新的当前歌预选好下一首,
+    // 这样自动混音、"即将播放"提示等读取预选时看到的总是最新的。遥控页自己不播放,由 Host 维护。
+    const skipShuffleHistoryPushRef = useRef(false);
+    useEffect(() => {
+        usePlayOrderStore.getState().reset();
+        if (!shuffleEnabled || isStageRemoteMode()) return;
+
+        // 换歌过程中 currentSong 可能先短暂变成 null 再变成新歌,所以"上一首"用最近一个非空的歌曲 key,
+        // 不能取 subscribe 回调里的 previous
+        let lastSongKey: string | null = null;
+        const refreshUpcoming = (state: ReturnType<typeof usePlaybackStore.getState>) => {
+            const songKey = state.currentSong ? getPlaybackSongKey(state.currentSong) : null;
+            const order = usePlayOrderStore.getState();
+            if (songKey && songKey !== lastSongKey) {
+                const viaPrev = skipShuffleHistoryPushRef.current && lastSongKey !== null;
+                if (viaPrev) skipShuffleHistoryPushRef.current = false;
+                order.onSongChanged(lastSongKey, songKey, viaPrev);
+                lastSongKey = songKey;
+            }
+            order.ensureUpcoming(state.playQueue, songKey ?? lastSongKey);
+        };
+
+        refreshUpcoming(usePlaybackStore.getState());
+        return usePlaybackStore.subscribe((state, previous) => {
+            if (state.currentSong === previous.currentSong && state.playQueue === previous.playQueue) return;
+            refreshUpcoming(state);
+        });
+    }, [shuffleEnabled]);
 
     const skipAfterPlaybackFailure = useCallback(() => {
         clearPendingUnavailableSkip();

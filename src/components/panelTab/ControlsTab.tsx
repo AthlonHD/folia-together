@@ -1,3 +1,4 @@
+import type { LoopDisplayMode } from '../../utils/loopDisplayMode';
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowUpDown, Check, Moon, RefreshCw, Sun } from 'lucide-react';
@@ -15,7 +16,7 @@ import VolumeRow from './controls/VolumeRow';
 // 控制标签页只负责装配：歌曲动作、音量、外观区，以及底部的当前主题行。
 
 interface ControlsTabProps {
-    loopMode: 'off' | 'all' | 'one';
+    loopMode: LoopDisplayMode;
     onToggleLoop: () => void;
     onLike: () => void;
     isLiked: boolean;

@@ -275,6 +275,8 @@ export interface StagePlayerControlCapabilities {
   seek: boolean;
   previous: boolean;
   next: boolean;
+  /** 切换循环/随机模式。旧快照没有这一项,按可用处理。 */
+  loop?: boolean;
 }
 
 export interface StagePlayerQueueCapabilities {
@@ -334,12 +336,15 @@ export interface StagePlayerSnapshot {
   controlCapabilities: StagePlayerControlCapabilities;
   queueCapabilities: StagePlayerQueueCapabilities;
   queue: StagePlayerQueueSnapshot;
+  /** 循环/随机模式(含随机),供遥控端镜像显示。 */
+  loopMode?: 'off' | 'all' | 'one' | 'shuffle';
 }
 
 export interface StagePlayerControlRequest {
   requestId: string;
-  action: 'next' | 'prev' | 'pause' | 'resume' | 'seek';
+  action: 'next' | 'prev' | 'pause' | 'resume' | 'seek' | 'set-loop';
   positionMs?: number;
+  loopMode?: 'off' | 'all' | 'one' | 'shuffle';
 }
 
 export interface StagePlayerQueueRequest {

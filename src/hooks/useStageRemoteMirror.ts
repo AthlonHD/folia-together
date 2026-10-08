@@ -12,6 +12,7 @@ import {
     setPlayQueue,
     setPlayerState,
 } from '../stores/usePlaybackStore';
+import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { fetchRemoteQueue, fetchRemoteStatus, remoteClock } from '../services/stageRemote';
 
 // src/hooks/useStageRemoteMirror.ts
@@ -94,6 +95,9 @@ export function useStageRemoteMirror({
                     }
                 }
 
+                if (status.loopMode) {
+                    useAudioSettingsStore.getState().setLoopDisplayMode(status.loopMode, { persist: false });
+                }
                 setPlayerState(status.playerState as PlayerState);
                 setDuration((status.durationMs ?? 0) / 1000);
                 setIsFmMode(false);

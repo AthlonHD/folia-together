@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { PlayerState } from '../../types';
 import type { LyricData, SongResult, StageLoopMode } from '../../types';
+import { getShuffleNextSong } from '../../utils/shuffleNavigation';
 import type { AudioQualityPreference } from '../../types/onlineMusic';
 import type { PlaybackRecoveryTarget } from '../../types/playbackRecovery';
 import { getPlaybackSongKey, isNavidromePlaybackSong, resolveNavidromePlaybackCarrier } from '../../utils/appPlaybackGuards';
@@ -101,9 +102,10 @@ const resolveNextQueueSong = (
     const currentKey = getPlaybackSongKey(currentSong);
     const index = queue.findIndex(song => getPlaybackSongKey(song) === currentKey);
 
-    const next = index >= 0 && index < queue.length - 1
+    // 随机模式下一首是预选的那首,不是队列里的后继
+    const next = getShuffleNextSong(queue) ?? (index >= 0 && index < queue.length - 1
         ? queue[index + 1]
-        : loopMode === 'all' ? queue[0] : null;
+        : loopMode === 'all' ? queue[0] : null);
 
     // Wrapping onto ourselves is a repeat, not a transition.
     return next && getPlaybackSongKey(next) !== currentKey ? next : null;

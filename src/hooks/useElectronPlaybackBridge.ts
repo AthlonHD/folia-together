@@ -20,6 +20,8 @@ import {
 } from '../utils/playbackSyncBridge';
 import { resolveStagePlayerPositionSec } from '../utils/stagePlayerSnapshot';
 import { getStageBridge } from '../services/stageWebChannel';
+import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
+import { getLoopDisplayMode } from '../utils/loopDisplayMode';
 import { getPlaybackSourceRef } from '../utils/appPlaybackGuards';
 import { omni } from '../services/onlineMusic/omni';
 import { subscribeToTransitionCue } from '../services/automix/transitionCue';
@@ -296,7 +298,7 @@ export const useElectronPlaybackBridge = ({
         return buildDiscordPresenceSnapshotFromPlaybackSyncBridge(buildPlaybackSyncBridgeModelFromCurrentState());
     };
 
-    const buildCurrentStagePlayerSnapshot = () => {
+    const buildStagePlayerSnapshotBase = () => {
         const model = buildPlaybackSyncBridgeModelFromCurrentState();
         const cache = stageSnapshotCacheRef.current;
         if (
@@ -339,6 +341,12 @@ export const useElectronPlaybackBridge = ({
             snapshot,
         };
         return snapshot;
+    };
+
+    // 快照带上循环/随机模式,遥控页据此镜像显示
+    const buildCurrentStagePlayerSnapshot = () => {
+        const { loopMode, shuffleEnabled } = useAudioSettingsStore.getState();
+        return { ...buildStagePlayerSnapshotBase(), loopMode: getLoopDisplayMode(loopMode, shuffleEnabled) };
     };
 
     const publishDiscordPresenceSnapshot = () => {
@@ -661,6 +669,13 @@ export const useElectronPlaybackBridge = ({
 
         return stageBridge.onStagePlayerControlRequest((request) => {
             try {
+                // 切换循环/随机模式不需要当前有歌,先于"控制是否可用"的判断处理
+                if (request.action === 'set-loop' && request.loopMode) {
+                    useAudioSettingsStore.getState().setLoopDisplayMode(request.loopMode);
+                    complete(request.requestId, true);
+                    return;
+                }
+
                 if (isNowPlayingControlDisabledRef.current || !taskbarHasTrackRef.current) {
                     throw new Error('Player controls are disabled in the current context.');
                 }
