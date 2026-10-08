@@ -1,3 +1,4 @@
+import { getRemotePositionSec, isStageRemoteMode } from '../services/stageRemote';
 import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import type { MotionValue } from 'framer-motion';
@@ -143,6 +144,24 @@ export function usePlaybackVisualizerBridge({
                     currentLineIndexRef.current = foundIndex;
                     setCurrentLineIndex(foundIndex);
                 }
+            }
+        } else if (isStageRemoteMode()) {
+            // 遥控模式没有本地音频,时间取自服务器播放进度的本地推算
+            const time = getRemotePositionSec();
+            currentTime.set(time);
+
+            const effectiveLyricTime = time - lyricTimelineOffsetMs / 1000;
+            lyricCurrentTime.set(effectiveLyricTime);
+
+            if (lyrics) {
+                const foundIndex = findLatestActiveLineIndex(lyrics.lines, effectiveLyricTime);
+                if (foundIndex !== currentLineIndexRef.current) {
+                    currentLineIndexRef.current = foundIndex;
+                    setCurrentLineIndex(foundIndex);
+                }
+            } else if (currentLineIndexRef.current !== -1) {
+                currentLineIndexRef.current = -1;
+                setCurrentLineIndex(-1);
             }
         } else if (isNowPlayingStageActive) {
             const nextTime = getNowPlayingDisplayTime();

@@ -144,7 +144,7 @@ const SearchResultRow: React.FC<SearchResultRowProps> = ({
                         type="button"
                         onClick={() => onAddTrackToQueue(track)}
                         className="shrink-0 rounded-full p-2 opacity-60 transition-all hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10 sm:opacity-0 sm:group-hover:opacity-100"
-                        title={t('navidrome.addToQueue')}
+                        title={t('localMusic.addToPlaylist')}
                     >
                         <Plus size={16} />
                     </button>

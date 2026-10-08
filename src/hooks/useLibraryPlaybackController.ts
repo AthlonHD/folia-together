@@ -57,6 +57,7 @@ import { useTranslation } from 'react-i18next';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useLibraryStore } from '../stores/useLibraryStore';
+import { useAddToPlaylistStore } from '../stores/useAddToPlaylistStore';
 import { setIsPanelOpen } from '../stores/useAppViewStore';
 import { currentTime } from '../stores/motionSignals';
 import { resolveLocalSongLyrics } from '../utils/lyrics/localSongLyrics';
@@ -272,15 +273,19 @@ export function useLibraryPlaybackController({
         await loadLocalPlaylists();
     }, [loadLocalPlaylists, playQueue, resolveLocalSongRecord]);
 
+    // 列表"+"指定的歌曲优先于当前播放的歌曲(见 useAddToPlaylistStore.targetSong)
+    const addToPlaylistTarget = useAddToPlaylistStore(state => state.targetSong);
+    const playlistTargetSong = addToPlaylistTarget ?? currentSong;
+
     const addCurrentSongToLocalPlaylist = useCallback(async (playlistId: string) => {
-        const localSong = resolveLocalSongRecord(currentSong);
-        if (!isLocalPlaybackSong(currentSong) || !localSong) {
+        const localSong = resolveLocalSongRecord(playlistTargetSong);
+        if (!isLocalPlaybackSong(playlistTargetSong) || !localSong) {
             throw new Error('Current song is not local');
         }
 
         await addSongsToLocalPlaylist(playlistId, [localSong]);
         await loadLocalPlaylists();
-    }, [currentSong, loadLocalPlaylists, resolveLocalSongRecord]);
+    }, [playlistTargetSong, loadLocalPlaylists, resolveLocalSongRecord]);
 
     const createCurrentLocalPlaylist = useCallback(async (name: string) => {
         const trimmedName = name.trim();
@@ -288,20 +293,20 @@ export function useLibraryPlaybackController({
             throw new Error('Playlist name is empty');
         }
 
-        const localSong = resolveLocalSongRecord(currentSong);
-        if (!isLocalPlaybackSong(currentSong) || !localSong) {
+        const localSong = resolveLocalSongRecord(playlistTargetSong);
+        if (!isLocalPlaybackSong(playlistTargetSong) || !localSong) {
             throw new Error('Current song is not local');
         }
 
         await createLocalPlaylist(trimmedName, [localSong]);
         await loadLocalPlaylists();
         setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '' });
-    }, [currentSong, loadLocalPlaylists, resolveLocalSongRecord, setStatusMsg, t]);
+    }, [playlistTargetSong, loadLocalPlaylists, resolveLocalSongRecord, setStatusMsg, t]);
 
     const addCurrentSongToOnlinePlaylist = useCallback(async (playlist: ProviderCollection) => {
-        if (!currentSong) throw new Error('No current song');
-        if (!omni.canAddSongToPlaylist(currentSong)) {
-            const source = getPlaybackSourceRef(currentSong);
+        if (!playlistTargetSong) throw new Error('No current song');
+        if (!omni.canAddSongToPlaylist(playlistTargetSong)) {
+            const source = getPlaybackSourceRef(playlistTargetSong);
             const provider = source.kind === 'online' ? omni.getProviderLabel(source.providerId) : '';
             setStatusMsg({
                 type: 'info',
@@ -309,19 +314,19 @@ export function useLibraryPlaybackController({
             });
             return;
         }
-        await omni.addSongToPlaylist(currentSong, playlist);
+        await omni.addSongToPlaylist(playlistTargetSong, playlist);
         await removeFromCache(getProviderCacheKey(playlist.providerId, `playlist_tracks_${playlist.id}`));
         await removeFromCache(getProviderCacheKey(playlist.providerId, `playlist_detail_${playlist.id}`));
         setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '' });
-    }, [currentSong, setStatusMsg, t]);
+    }, [playlistTargetSong, setStatusMsg, t]);
 
     const addCurrentSongToNavidromePlaylist = useCallback(async (playlistId: string) => {
-        if (!isNavidromePlaybackSong(currentSong)) {
+        if (!isNavidromePlaybackSong(playlistTargetSong)) {
             throw new Error('Current song is not a Navidrome song');
         }
 
         const config = getNavidromeConfig();
-        const navidromeSong = resolveNavidromePlaybackCarrier(currentSong);
+        const navidromeSong = resolveNavidromePlaybackCarrier(playlistTargetSong);
         if (!config || !navidromeSong?.navidromeData?.id) {
             throw new Error('Navidrome is not configured');
         }
@@ -330,22 +335,22 @@ export function useLibraryPlaybackController({
             songIdsToAdd: [navidromeSong.navidromeData.id],
         });
         setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '' });
-    }, [currentSong, setStatusMsg, t]);
+    }, [playlistTargetSong, setStatusMsg, t]);
 
     const createCurrentNavidromePlaylist = useCallback(async (name: string) => {
-        if (!isNavidromePlaybackSong(currentSong)) {
+        if (!isNavidromePlaybackSong(playlistTargetSong)) {
             throw new Error('Current song is not a Navidrome song');
         }
 
         const config = getNavidromeConfig();
-        const navidromeSong = resolveNavidromePlaybackCarrier(currentSong);
+        const navidromeSong = resolveNavidromePlaybackCarrier(playlistTargetSong);
         if (!config || !navidromeSong?.navidromeData?.id) {
             throw new Error('Navidrome is not configured');
         }
 
         await navidromeApi.createPlaylist(config, name, [navidromeSong.navidromeData.id]);
         setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '' });
-    }, [currentSong, setStatusMsg, t]);
+    }, [playlistTargetSong, setStatusMsg, t]);
 
     const handleLocalSongMatch = useCallback(async (localSong: LocalSong): Promise<{ updatedLocalSong: LocalSong; matchedSongResult: SongResult | null; }> => {
         let updatedLocalSong = localSong;

@@ -106,7 +106,9 @@ const fetchWithCreds = async (endpoint: string, options: RequestInit = {}) => {
   const needsTimestamp =
     endpoint.includes('/login') ||
     endpoint.includes('/user') ||
-    endpoint.includes('/playlist/detail');
+    endpoint.includes('/playlist/detail') ||
+    // 加歌后立刻重新读取歌单,不能被 API 服务端对同一 URL 的短时缓存挡住
+    endpoint.includes('/playlist/track/all');
 
   let finalUrl = url;
   if (needsTimestamp) {

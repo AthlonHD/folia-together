@@ -177,6 +177,12 @@ function createStageApi({
   defaultStageApiPort,
   getNeteasePort,
   searchStageSongs,
+  // @note 以下四项供无 Electron 的 Web 中继使用,默认值与桌面版行为一致。
+  listenHost = '127.0.0.1',
+  skipAuth = false,
+  routeFilter = null,
+  extraUpgradeHandler = null,
+  extraHttpHandler = null,
 }) {
   let stageServer = null;
   let stageLyricsSession = null;
@@ -646,6 +652,10 @@ function createStageApi({
   };
 
   const handleStageWebSocketUpgrade = (req, socket, head) => {
+    if (extraUpgradeHandler && extraUpgradeHandler(req, socket, head)) {
+      return;
+    }
+
     const requestUrl = new URL(req.url || '/', 'http://127.0.0.1');
     if (requestUrl.pathname !== '/stage/player/ws') {
       rejectStageWebSocketUpgrade(socket, 404, 'Not Found');
@@ -909,6 +919,9 @@ function createStageApi({
   };
 
   const matchesStageBearerToken = (req, requestUrl = null) => {
+    if (skipAuth) {
+      return true;
+    }
     const requestToken = getStageBearerTokenFromRequest(req, requestUrl);
     const expectedToken = getStageToken();
     return Boolean(requestToken && expectedToken && requestToken === expectedToken);
@@ -1838,6 +1851,15 @@ function createStageApi({
     const requestUrl = new URL(req.url || '/', 'http://127.0.0.1');
     const pathname = requestUrl.pathname;
 
+    if (extraHttpHandler && await extraHttpHandler(req, res, requestUrl)) {
+      return;
+    }
+
+    if (routeFilter && !routeFilter(pathname, req.method)) {
+      sendStageJson(res, 404, { error: 'Not found.' });
+      return;
+    }
+
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
@@ -2104,7 +2126,7 @@ function createStageApi({
 
     await new Promise((resolve, reject) => {
       stageServer.once('error', reject);
-      stageServer.listen(getConfiguredStagePort(), '127.0.0.1', () => {
+      stageServer.listen(getConfiguredStagePort(), listenHost, () => {
         stageServer.off('error', reject);
         resolve();
       });

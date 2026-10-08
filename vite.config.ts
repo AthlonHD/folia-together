@@ -231,6 +231,13 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
     server: {
       port: 3000,
       host: '0.0.0.0',
+      // Stage 中继(Host 页 WebSocket 与遥控 HTTP)走同源代理,反代只需暴露 3000 一个端口
+      proxy: {
+        '/stage': { target: `http://127.0.0.1:${process.env.STAGE_PORT || 4100}`, ws: true },
+        // 网易云 API 经中继同源代理(中继会换成 Host 账号的 cookie),配合 VITE_NETEASE_API_BASE=/ncm
+        '/ncm': { target: `http://127.0.0.1:${process.env.STAGE_PORT || 4100}` },
+      },
+      allowedHosts: true,
       watch: {
         // Build output and model weights are not sources, and watching them breaks packaging: the
         // watcher opens a handle on every directory it finds, and electron-builder packages by

@@ -56,6 +56,10 @@ import { createQueueMutations } from './components/app/player-panel/createQueueM
 import { Album, Artist, LyricData, Theme, PlayerState, SongResult, ReplayGainMode, StatusMessage, PlaybackContext, StageLoopMode, UnifiedSong } from './types';
 import type { LocalSong } from './types';
 import { getLocalSongArrayBuffer } from './services/localMusicService';
+import { createLibraryPlaybackPort } from './library/app/createLibraryPlaybackPort';
+import { isStageHostMode } from './services/stageWebChannel';
+import { isStageRemoteMode, remoteControl } from './services/stageRemote';
+import { useStageRemoteMirror } from './hooks/useStageRemoteMirror';
 import type { MediaId, OnlineProviderId, ProviderCollection } from './types/onlineMusic';
 import { resolveSongCatalogRef } from './services/onlineMusic/catalogRefs';
 import { omni } from './services/onlineMusic/omni';
@@ -1048,6 +1052,16 @@ export default function App() {
         getDisplaySong,
         endHeldTransition,
     });
+    const stageRemoteMode = useMemo(() => isStageRemoteMode(), []);
+    // 列表"+"选择"播放队列"时,按歌曲来源分流入队(与 createLibraryPlaybackPort.enqueueTrack 一致)
+    const enqueueSongToPlayQueue = useCallback((song: SongResult) => {
+        createLibraryPlaybackPort({
+            localSongs,
+            onAddSongToQueue: addOnlineSongToQueue,
+            onAddLocalSongToQueue: handleLocalQueueAdd,
+            onAddNavidromeSongsToQueue: addNavidromeSongsToQueue,
+        } as unknown as Parameters<typeof createLibraryPlaybackPort>[0]).enqueueTrack(song);
+    }, [addNavidromeSongsToQueue, addOnlineSongToQueue, handleLocalQueueAdd, localSongs]);
     const handleSearchResultArtistOpen = useCallback(async (
         track: UnifiedSong,
         artistName: string,
@@ -1372,7 +1386,7 @@ export default function App() {
     const seekDuringTransition = useCallback((time: number) => seekDuringTransitionRef.current(time), []);
     const handlePauseDuringTransition = useCallback(() => pauseDuringTransitionRef.current(), []);
 
-    const { resumePlayback, pausePlayback } = usePlaybackTransportController({
+    const { resumePlayback: resumePlaybackLocal, pausePlayback: pausePlaybackLocal } = usePlaybackTransportController({
         stageActiveEntryKind,
         isNowPlayingStageActive,
         audioRef,
@@ -1397,6 +1411,23 @@ export default function App() {
         audioRef,
         currentSong,
         activeDeck: automix.activeDeck,
+    });
+
+    const resumePlayback = useCallback(async () => {
+        if (!stageRemoteMode) return resumePlaybackLocal();
+        await remoteControl('resume').catch(() => undefined);
+    }, [resumePlaybackLocal, stageRemoteMode]);
+    const pausePlayback = useCallback(() => {
+        if (!stageRemoteMode) return pausePlaybackLocal();
+        void remoteControl('pause').catch(() => undefined);
+    }, [pausePlaybackLocal, stageRemoteMode]);
+
+    useStageRemoteMirror({
+        enabled: stageRemoteMode,
+        userId: user?.id,
+        setLyrics: setLyricsStable,
+        setIsLyricsLoading,
+        restoreCachedThemeForSong,
     });
 
     const {
@@ -1447,7 +1478,7 @@ export default function App() {
         isElectronWindow,
         playerChromeVisibilityMode,
         onRemotePlayerChromeVisibilityModeCycle: cyclePlayerChromeVisibilityMode,
-        isStagePlayerSnapshotEnabled: stageStatus?.enabled === true,
+        isStagePlayerSnapshotEnabled: stageStatus?.enabled === true || isStageHostMode(),
         isNowPlayingControlDisabledRef,
         audioRef,
         // The deck the held picture belongs to. Its song, lyrics, cover, duration and transport are
@@ -1999,6 +2030,11 @@ export default function App() {
         return true;
     };
     const seekMainAudio = useCallback((time: number) => {
+        if (stageRemoteMode) {
+            currentTime.set(time);
+            void remoteControl('seek', time * 1000).catch(() => undefined);
+            return;
+        }
         // A seek is a statement that playback should go on, same as it is on a paused track. If a
         // pause is still fading out, take it back (the audio never stopped) so the pending pause
         // cannot land after the seek.
@@ -2017,7 +2053,7 @@ export default function App() {
             }
             void publishStagePlayerPlaybackUpdate();
         }
-    }, [publishStagePlayerPlaybackUpdate]);
+    }, [publishStagePlayerPlaybackUpdate, stageRemoteMode]);
 
     const handleMonetLyricLineSeek = useCallback((lyricTimeSec: number) => {
         if (isNowPlayingControlDisabled) {
@@ -2762,6 +2798,7 @@ export default function App() {
                 question about the current song, and a shortcut has to reach it with the panel shut. */}
             <AddToPlaylistHost
                 isDaylight={isDaylight}
+                onAddSongToPlayQueue={enqueueSongToPlayQueue}
                 localPlaylists={localPlaylists}
                 onlinePlaylists={onlinePlaylists}
                 onAddCurrentSongToLocalPlaylist={addCurrentSongToLocalPlaylist}

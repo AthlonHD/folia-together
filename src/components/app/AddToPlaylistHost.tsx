@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
-import type { LocalPlaylist } from '../../types';
+import type { LocalPlaylist, SongResult } from '../../types';
 import type { ProviderCollection } from '../../types/onlineMusic';
 import PlaylistSelectionDialog from '../shared/PlaylistSelectionDialog';
 import TextInputDialog from '../shared/TextInputDialog';
@@ -22,6 +22,8 @@ import { useAddToPlaylistStore } from '../../stores/useAddToPlaylistStore';
 
 type AddToPlaylistHostProps = {
     isDaylight: boolean;
+    /** 列表"+"选中的歌曲加入播放队列(选择框里的"播放队列"项)。 */
+    onAddSongToPlayQueue: (song: SongResult) => void;
     localPlaylists: LocalPlaylist[];
     onlinePlaylists: ProviderCollection[];
     onAddCurrentSongToLocalPlaylist: (playlistId: string) => Promise<void>;
@@ -33,8 +35,12 @@ type AddToPlaylistHostProps = {
 
 type PlaylistEntry = { id: string; name: string; description?: string };
 
+// 选择框里"播放队列"这一项的保留 id,不会与任何歌单 id 冲突
+const PLAY_QUEUE_ENTRY_ID = '__play_queue__';
+
 export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
     isDaylight,
+    onAddSongToPlayQueue,
     localPlaylists,
     onlinePlaylists,
     onAddCurrentSongToLocalPlaylist,
@@ -45,13 +51,16 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
 }) => {
     const { t } = useTranslation();
     // The song as the listener sees it, so a blend shows the track that is on screen.
-    const currentSong = usePlaybackStore(selectDisplaySong);
-    const { isOpen, close, setAvailability } = useAddToPlaylistStore(useShallow(state => ({
+    const displaySong = usePlaybackStore(selectDisplaySong);
+    const { isOpen, close, setAvailability, targetSong } = useAddToPlaylistStore(useShallow(state => ({
         isOpen: state.isOpen,
         close: state.close,
         setAvailability: state.setAvailability,
+        targetSong: state.targetSong,
     })));
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    // 列表里的"+"会指定一首歌;只在对话框开着(含新建歌单提示)时生效,其余时候仍以当前歌曲为准
+    const currentSong = (isOpen || isCreateOpen) && targetSong ? targetSong : displaySong;
     const [navidromePlaylists, setNavidromePlaylists] = useState<PlaylistEntry[]>([]);
 
     const isStage = Boolean(currentSong && (currentSong as any).isStage === true);
@@ -89,6 +98,9 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
         void refreshNavidromePlaylists();
     }, [currentSong?.id, isNavidrome, refreshNavidromePlaylists]);
 
+    // 由列表"+"指定了歌曲时,选择框首位多一项"播放队列"
+    const hasQueueEntry = Boolean(targetSong);
+
     const availablePlaylists = useMemo<PlaylistEntry[]>(() => {
         if (isLocal) {
             return localPlaylists.map((playlist) => ({
@@ -113,11 +125,12 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
         return [];
     }, [isLocal, isOnline, isNavidrome, localPlaylists, navidromePlaylists, onlinePlaylists, t]);
 
-    const isApplicable = Boolean(currentSong && !isStage && (isLocal || isOnline || isNavidrome));
+    const isApplicable = Boolean(currentSong && !isStage && (isLocal || isOnline || isNavidrome)) || hasQueueEntry;
     // Local and Navidrome can make a playlist on the spot, so having none is not a refusal there.
     const canAdd = (isLocal)
         || (isOnline && canAddOnlineSong && onlinePlaylists.length > 0)
-        || (isNavidrome);
+        || (isNavidrome)
+        || hasQueueEntry;
     const disabledReason = isOnline && !canAddOnlineSong
         ? t('status.providerPlaylistMutationUnavailable', { provider: onlineProviderLabel })
         : (!canAdd ? t('localMusic.noPlaylistsFound') : undefined);
@@ -144,8 +157,16 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
                 isDaylight={isDaylight}
                 title={t('localMusic.addToPlaylist')}
                 description={t('home.playlists') || 'Playlists'}
-                playlists={availablePlaylists}
+                playlists={hasQueueEntry
+                    ? [{ id: PLAY_QUEUE_ENTRY_ID, name: t('queue.title') }, ...availablePlaylists]
+                    : availablePlaylists}
                 onSelect={async (playlistId) => {
+                    if (playlistId === PLAY_QUEUE_ENTRY_ID && targetSong) {
+                        onAddSongToPlayQueue(targetSong);
+                        close();
+                        return;
+                    }
+
                     if (isLocal) {
                         await onAddCurrentSongToLocalPlaylist(String(playlistId));
                         return;

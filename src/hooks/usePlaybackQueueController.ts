@@ -24,6 +24,9 @@ import {
     resolveNavidromePlaybackCarrier,
 } from '../utils/appPlaybackGuards';
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
+import { getStageBridge } from '../services/stageWebChannel';
+import { openAddToPlaylist } from '../stores/useAddToPlaylistStore';
+import { isStageRemoteMode, remoteAddToQueue, remoteClearQueue, remoteControl, remotePlaySongWithQueue, remoteShuffleQueue } from '../services/stageRemote';
 import { buildStagePlayerSnapshot, resolveStagePlayerQueueItemIndex } from '../utils/stagePlayerSnapshot';
 import type { LocalLibraryDisplayCatalog } from '../services/playbackAdapters';
 import type { SearchReturnView, SearchSource } from '../stores/useSearchNavigationStore';
@@ -199,6 +202,10 @@ export function usePlaybackQueueController({
     const [pendingUnavailableReplacement, setPendingUnavailableReplacement] = useState<UnavailableReplacementRequest | null>(null);
 
     const appendOnlineSongsToMainQueue = useCallback((songs: SongResult[], options?: { suppressToast?: boolean }) => {
+        if (isStageRemoteMode() && songs.length > 0) {
+            void remoteAddToQueue(songs.filter(song => !isSongUnavailable(song)), queueAddBehavior === 'next' ? 'next' : 'append');
+            return { changed: true, deduplicated: false, affectedCount: songs.length, baseQueue: [], affectedSongs: songs, addBehavior: queueAddBehavior };
+        }
         if (songs.length === 0) {
             return { changed: false, deduplicated: false, affectedCount: 0, baseQueue: [], affectedSongs: [], addBehavior: queueAddBehavior };
         }
@@ -451,6 +458,15 @@ export function usePlaybackQueueController({
         // The hook is async, so a later playSong may finish its hook first; this call then drops
         // out instead of replacing the song the user picked last.
         // An automix advance skips the hook (see `isAutomixAdvance`).
+        // 遥控模式不在本页播放,交给服务器上的 Host 页
+        if (isStageRemoteMode()) {
+            const played = await remotePlaySongWithQueue(requestedSong, queue);
+            // 与本地播放一致:点播后进入播放视图,否则页面停在原处像是没反应
+            if (played && (options.shouldNavigateToPlayer ?? true)) {
+                navigateToPlaybackView();
+            }
+            return;
+        }
         const playSongCallId = ++playSongCallIdRef.current;
         const allowedSong = !options.isAutomixAdvance && hasBeforePlayHook()
             ? await runBeforePlayHook(requestedSong)
@@ -851,20 +867,18 @@ export function usePlaybackQueueController({
     }, [buildQueueWithReplacementSong, pendingUnavailableReplacement, playSong, setStatusMsg, t]);
 
     const handleSearchResultAddToQueue = useCallback((track: UnifiedSong) => {
-        dispatchSearchTrackAction(track, {
-            localSongs,
-            onLocal: onAddLocalSongToQueue,
-            onNavidrome: navidromeSong => onAddNavidromeSongsToQueue([navidromeSong]),
-            onOnline: addOnlineSongToQueue,
-        });
-    }, [
-        addOnlineSongToQueue,
-        localSongs,
-        onAddLocalSongToQueue,
-        onAddNavidromeSongsToQueue,
-    ]);
+        // 搜索结果的"+"改为选择歌单并把这首歌加入,不再加入播放队列
+        if (isSongUnavailable(track)) {
+            return;
+        }
+        openAddToPlaylist(track);
+    }, []);
 
     const handleNextTrack = useCallback(async (options?: NextTrackOptions) => {
+        if (isStageRemoteMode()) {
+            await remoteControl('next').catch(() => undefined);
+            return;
+        }
         if (isNowPlayingStageActive) return;
 
         const stopAtQueueEnd = () => {
@@ -938,6 +952,10 @@ export function usePlaybackQueueController({
     }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState, shouldNavigateToPlayerOnTrackChange]);
 
     const handlePrevTrack = useCallback(() => {
+        if (isStageRemoteMode()) {
+            void remoteControl('prev').catch(() => undefined);
+            return;
+        }
         if (isNowPlayingStageActive) return;
         if (!currentSong || playQueue.length === 0) return;
 
@@ -1105,7 +1123,7 @@ export function usePlaybackQueueController({
             } else {
                 await playSong(song, [song], false, { shouldNavigateToPlayer: true });
             }
-            await window.electron?.completeStageExternalPlayRequest?.({
+            await getStageBridge()?.completeStageExternalPlayRequest({
                 requestId: request.requestId,
                 ok: true,
                 result: actionData,
@@ -1114,7 +1132,7 @@ export function usePlaybackQueueController({
             });
         } catch (error) {
             console.warn('[Stage] Failed to handle external play request', error);
-            await window.electron?.completeStageExternalPlayRequest?.({
+            await getStageBridge()?.completeStageExternalPlayRequest({
                 requestId: request.requestId,
                 ok: false,
                 error: error instanceof Error ? error.message : String(error),
@@ -1164,7 +1182,7 @@ export function usePlaybackQueueController({
 
     const handleStagePlayerQueueRequest = useCallback(async (request: StagePlayerQueueRequest) => {
         const complete = async (ok: boolean, error?: unknown, result?: any, snapshot?: StagePlayerSnapshot) => {
-            await window.electron?.completeStagePlayerQueueRequest?.({
+            await getStageBridge()?.completeStagePlayerQueueRequest({
                 requestId: request.requestId,
                 ok,
                 error: ok ? null : error instanceof Error ? error.message : String(error),
@@ -1271,11 +1289,12 @@ export function usePlaybackQueueController({
     }, [activePlaybackContext, buildStageQueueOperationSnapshot, currentSong, isFmMode, isNowPlayingStageActive, loadStageQueueSongs, persistLastPlaybackCache, playQueue, playSong, resolveStageQueueIndex, setPlayQueue, setStatusMsg, t]);
 
     useEffect(() => {
-        if (!window.electron?.onStagePlayerQueueRequest) {
+        const stageBridge = getStageBridge();
+        if (!stageBridge?.onStagePlayerQueueRequest) {
             return;
         }
 
-        return window.electron.onStagePlayerQueueRequest((request) => {
+        return stageBridge.onStagePlayerQueueRequest((request) => {
             void handleStagePlayerQueueRequest(request);
         });
     }, [handleStagePlayerQueueRequest]);
@@ -1283,6 +1302,10 @@ export function usePlaybackQueueController({
     const shuffleQueue = useCallback(() => {
         if (isNowPlayingStageActive) return;
         if (!playQueue || playQueue.length <= 1) return;
+        if (isStageRemoteMode()) {
+            void remoteShuffleQueue(playQueue, currentSong);
+            return;
+        }
 
         const currentSongKey = currentSong ? getPlaybackSongKey(currentSong) : null;
         let songsToShuffle: SongResult[] = [];
@@ -1311,6 +1334,10 @@ export function usePlaybackQueueController({
     }, [audioQuality, currentSong, isNowPlayingStageActive, playQueue, setPlayQueue, setStatusMsg, t, userId]);
 
     const clearQueue = useCallback(() => {
+        if (isStageRemoteMode()) {
+            void remoteClearQueue();
+            return;
+        }
         if (isNowPlayingStageActive) return;
         if (!playQueue || playQueue.length === 0) return;
 

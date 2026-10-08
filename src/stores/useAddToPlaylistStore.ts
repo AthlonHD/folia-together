@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { SongResult } from '../types';
 
 // src/stores/useAddToPlaylistStore.ts
 // The "add the current song to a playlist" dialog: whether it is up, and whether it could do
@@ -26,18 +27,21 @@ const UNAVAILABLE: AddToPlaylistAvailability = { isApplicable: false, canAdd: fa
 
 type AddToPlaylistState = {
     isOpen: boolean;
+    /** 指定要加入歌单的歌曲(列表里的"+"按钮);为空时表示当前播放的歌曲。 */
+    targetSong: SongResult | null;
     availability: AddToPlaylistAvailability;
-    open: () => void;
+    open: (song?: SongResult) => void;
     close: () => void;
     setAvailability: (availability: AddToPlaylistAvailability) => void;
 };
 
 export const useAddToPlaylistStore = create<AddToPlaylistState>((set) => ({
     isOpen: false,
+    targetSong: null,
     availability: UNAVAILABLE,
-    open: () => set({ isOpen: true }),
+    open: (song) => set({ isOpen: true, targetSong: song ?? null }),
     close: () => set({ isOpen: false }),
     setAvailability: (availability) => set({ availability }),
 }));
 
-export const openAddToPlaylist = () => useAddToPlaylistStore.getState().open();
+export const openAddToPlaylist = (song?: SongResult) => useAddToPlaylistStore.getState().open(song);

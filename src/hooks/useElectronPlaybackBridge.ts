@@ -19,6 +19,7 @@ import {
     buildTaskbarControlsFromPlaybackSyncBridge,
 } from '../utils/playbackSyncBridge';
 import { resolveStagePlayerPositionSec } from '../utils/stagePlayerSnapshot';
+import { getStageBridge } from '../services/stageWebChannel';
 import { getPlaybackSourceRef } from '../utils/appPlaybackGuards';
 import { omni } from '../services/onlineMusic/omni';
 import { subscribeToTransitionCue } from '../services/automix/transitionCue';
@@ -355,7 +356,7 @@ export const useElectronPlaybackBridge = ({
             return Promise.resolve(null);
         }
 
-        const publishStageSnapshot = window.electron?.publishStagePlayerSnapshot;
+        const publishStageSnapshot = getStageBridge()?.publishStagePlayerSnapshot;
         if (!publishStageSnapshot) {
             return Promise.resolve(null);
         }
@@ -529,12 +530,12 @@ export const useElectronPlaybackBridge = ({
     }, [cachedCoverUrl, coverUrl, currentSong, duration, isNowPlayingStageActive, playbackSyncBridgeStatus.discordPresenceEnabled, playerState]);
 
     useEffect(() => {
-        if (!isStagePlayerSnapshotEnabled || !window.electron?.publishStagePlayerSnapshot) {
+        if (!isStagePlayerSnapshotEnabled || !getStageBridge()?.publishStagePlayerSnapshot) {
             return;
         }
 
         const publish = () => {
-            void window.electron?.publishStagePlayerSnapshot(buildCurrentStagePlayerSnapshot()).catch((error) => {
+            void getStageBridge()?.publishStagePlayerSnapshot(buildCurrentStagePlayerSnapshot()).catch((error) => {
                 console.warn('[Stage] Failed to publish player snapshot', error);
             });
         };
@@ -645,19 +646,20 @@ export const useElectronPlaybackBridge = ({
     }, [activePlaybackContext, audioRef, canLikeCurrentSong, currentTime, duration, isNowPlayingControlDisabledRef, mediaSessionNextRef, mediaSessionPauseRef, mediaSessionPlayRef, mediaSessionPrevRef, onRemoteCycleLoopMode, onRemoteExportCommand, onRemotePlayerChromeVisibilityModeCycle, onRemoteTransitionSeek, setShowTransparentWindowBorder, syncStageLyricsClock, taskbarHasTrackRef, taskbarPlayerStateRef, onLike]);
 
     useEffect(() => {
-        if (!window.electron?.onStagePlayerControlRequest) {
+        const stageBridge = getStageBridge();
+        if (!stageBridge?.onStagePlayerControlRequest) {
             return;
         }
 
         const complete = (requestId: string, ok: boolean, error?: unknown) => {
-            void window.electron?.completeStagePlayerControlRequest?.({
+            void stageBridge.completeStagePlayerControlRequest({
                 requestId,
                 ok,
                 error: ok ? null : error instanceof Error ? error.message : String(error),
             });
         };
 
-        return window.electron.onStagePlayerControlRequest((request) => {
+        return stageBridge.onStagePlayerControlRequest((request) => {
             try {
                 if (isNowPlayingControlDisabledRef.current || !taskbarHasTrackRef.current) {
                     throw new Error('Player controls are disabled in the current context.');
@@ -714,11 +716,12 @@ export const useElectronPlaybackBridge = ({
     }, [activePlaybackContext, audioRef, currentTime, duration, isNowPlayingControlDisabledRef, mediaSessionNextRef, mediaSessionPauseRef, mediaSessionPlayRef, mediaSessionPrevRef, onRemoteTransitionSeek, syncStageLyricsClock, taskbarHasTrackRef, taskbarPlayerStateRef]);
 
     useEffect(() => {
-        if (!window.electron?.onStageExternalPlayRequest || !onExternalPlayRequest) {
+        const stageBridge = getStageBridge();
+        if (!stageBridge?.onStageExternalPlayRequest || !onExternalPlayRequest) {
             return;
         }
 
-        return window.electron.onStageExternalPlayRequest((request) => {
+        return stageBridge.onStageExternalPlayRequest((request) => {
             void onExternalPlayRequest(request);
         });
     }, [onExternalPlayRequest]);

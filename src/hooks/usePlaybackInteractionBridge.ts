@@ -1,3 +1,4 @@
+import { isStageRemoteMode } from '../services/stageRemote';
 import { useCallback, useEffect } from 'react';
 import type React from 'react';
 import type { MotionValue } from 'framer-motion';
@@ -135,6 +136,16 @@ export function usePlaybackInteractionBridge({
         event?.stopPropagation();
 
         if (isNowPlayingStageActive) {
+            return;
+        }
+
+        // 遥控模式本页没有音频,播放/暂停以服务器镜像回来的状态为准
+        if (isStageRemoteMode()) {
+            if (playerState === PlayerState.PLAYING) {
+                pausePlayback();
+            } else {
+                startPlaybackFromInteraction();
+            }
             return;
         }
 

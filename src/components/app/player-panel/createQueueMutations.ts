@@ -8,6 +8,7 @@ import { applyQueueBatchOperation as transformQueueBatch } from '../../../utils/
 import type { QueueBatchAction } from '../../command-palette/queueQuery';
 import { setStatusMessage as setStatusMsg } from '../../../stores/useStatusMessageStore';
 import { setPlayQueue } from '../../../stores/usePlaybackStore';
+import { isStageRemoteMode, remoteMoveQueueSong, remoteRemoveQueueSong, remoteReorderQueue } from '../../../services/stageRemote';
 
 // src/components/app/player-panel/createQueueMutations.ts
 
@@ -60,11 +61,19 @@ export const createQueueMutations = ({
     };
 
     const removeQueueSong = (index: number) => {
+        if (isStageRemoteMode()) {
+            void remoteRemoveQueueSong(index);
+            return;
+        }
         updateQueueOrder(playQueue.filter((_, songIndex) => songIndex !== index));
     };
 
     const moveQueueSongToEnd = (index: number) => {
         if (index < 0 || index >= playQueue.length - 1) return;
+        if (isStageRemoteMode()) {
+            void remoteMoveQueueSong(index, playQueue.length - 1);
+            return;
+        }
         const nextQueue = [...playQueue];
         const [song] = nextQueue.splice(index, 1);
         nextQueue.push(song);
@@ -81,6 +90,10 @@ export const createQueueMutations = ({
         const nextQueue = [...playQueue];
         const [song] = nextQueue.splice(index, 1);
         const adjustedTargetIndex = index < targetIndex ? targetIndex - 1 : targetIndex;
+        if (isStageRemoteMode()) {
+            void remoteMoveQueueSong(index, adjustedTargetIndex);
+            return;
+        }
         nextQueue.splice(adjustedTargetIndex, 0, song);
         updateQueueOrder(nextQueue);
     };
@@ -97,7 +110,19 @@ export const createQueueMutations = ({
         }
 
         if (result.changed) {
-            updateQueueOrder(result.nextQueue);
+            if (isStageRemoteMode()) {
+                if (action === 'remove') {
+                    // 从后往前删,前面的下标不会因此错位
+                    void [...new Set(targetIndices)].sort((a, b) => b - a).reduce(
+                        (chain, index) => chain.then(() => remoteRemoveQueueSong(index)),
+                        Promise.resolve<unknown>(undefined),
+                    );
+                } else {
+                    void remoteReorderQueue(playQueue, result.nextQueue);
+                }
+            } else {
+                updateQueueOrder(result.nextQueue);
+            }
         }
         const statusKey = action === 'remove'
             ? 'status.queueBatchRemoved'

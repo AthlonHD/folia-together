@@ -2,6 +2,7 @@ import React from 'react';
 import type { LibraryActionId, LibraryCollectionSurfaceProps } from '../../../core/contracts/suite';
 import { useGridMorphPlan } from '../transitions/useGridMorphPlan';
 import GridView from './GridView';
+import { openAddToPlaylist } from '../../../../stores/useAddToPlaylistStore';
 
 // src/library/suites/grid/collection/GridCollectionSurface.tsx
 // 网格的集合 surface：把宿主交给任何 suite 的同一份输入（core/contracts/suite 的 LibraryCollectionSurfaceProps）
@@ -38,7 +39,7 @@ const GridCollectionSurface: React.FC<LibraryCollectionSurfaceProps> = ({
             onBack={onBack}
             onDone={onDone}
             onSelectTrack={playback.playTrack}
-            onAddTrackToQueue={playback.enqueueTrack}
+            onAddTrackToQueue={openAddToPlaylist}
             onPlayAll={playback.playAll}
             onAddAllToQueue={playback.enqueueAll}
             onSelectAlbum={declares('open-album') ? onOpenAlbum : undefined}

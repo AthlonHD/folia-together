@@ -218,7 +218,7 @@ export const TrackListItem = React.memo<{
                             onAddToQueue();
                         }}
                         className="p-2 ml-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all shrink-0"
-                        title={t('navidrome.addToQueue')}
+                        title={t('localMusic.addToPlaylist')}
                         style={{ color: 'var(--text-secondary)' }}
                     >
                         <Plus size={16} />
