@@ -2211,6 +2211,12 @@ export default function App() {
     const playerDisplayQueue = useMemo(() => (
         playQueue.map(song => applyLocalLibraryEntityDisplay(song, localLibraryCatalog, playerDisplayCatalogIndex))
     ), [localLibraryCatalog, playQueue, playerDisplayCatalogIndex]);
+    // 搜索结果同样在展示时按当前目录重算：结果是提交那一刻的快照，导入后紧接着搜，实体目录可能还没加载完。
+    const resolveSearchResultDisplay = useCallback((track: UnifiedSong) => (
+        track.isLocal
+            ? applyLocalLibraryEntityDisplay(track, localLibraryCatalog, playerDisplayCatalogIndex)
+            : track
+    ), [localLibraryCatalog, playerDisplayCatalogIndex]);
     const onlinePlaylists = useMemo(() => {
         return playerDisplayCurrentSong ? omni.getPlaylistsForSong(playerDisplayCurrentSong) : [];
     }, [onlineProviders, playerDisplayCurrentSong]);
@@ -2287,6 +2293,7 @@ export default function App() {
         handleSearchResultAddToQueue,
         handleSearchResultArtistOpen,
         handleSearchResultAlbumOpen,
+        resolveSearchResultDisplay,
         devDebugSnapshot,
         effectiveLoopMode,
         loopDisplayMode,

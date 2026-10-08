@@ -292,6 +292,7 @@ export default {
     "transcodeFallbackReady": "Audio selesai dikonversi; melanjutkan pemutaran",
     "transcodeFallbackFailed": "Konversi audio gagal",
     "lyricsSourceSwitched": "Sumber lirik diganti",
+    "lyricFileIssueShifted": "Terjemahan di file lirik \"{{title}}\" bergeser satu baris. Lihat tab Folder di panel pemutar untuk cara memperbaikinya",
     "clearedManualLyrics": "Lirik yang dicocokkan/diunggah manual dihapus",
     "clearFailed": "Gagal menghapus",
     "stageLikeUnavailable": "Aksi ini tidak tersedia di mode Stage",
@@ -1138,6 +1139,7 @@ export default {
     "qrExpired": "Kode QR kedaluwarsa. Muat ulang untuk mencoba lagi.",
     "qrCanceledOnDevice": "Login dibatalkan di ponsel Anda. Anda dapat mengambil kode QR baru.",
     "qrCanceledOnDeviceCooldown": "Login dibatalkan di ponsel Anda. Kode QR baru dapat diambil dalam {{seconds}} detik.",
+    "qrConnectionReset": "Koneksi diputus oleh NetEase. Coba lagi; jika masih gagal, ganti jaringan atau mulai ulang Folia.",
     "qrRetryCooldown": "Terlalu banyak percobaan. Coba lagi dalam {{seconds}} detik.",
     "qrScanned": "Dipindai! Konfirmasi di ponsel Anda.",
     "loginSuccess": "Login Berhasil!",
@@ -1146,14 +1148,42 @@ export default {
     "restartBackend": "Mulai ulang backend",
     "restartingBackend": "Memulai ulang…",
     "retryQr": "Muat ulang kode QR",
-    "qrDiagnosticsPrompt": "Kesulitan masuk? Salin info diagnostik dan kirimkan kepada kami agar penyebabnya bisa ditemukan.",
-    "qrDiagnosticsPromptScanned": "Sudah dikonfirmasi di ponsel tetapi belum masuk? Salin info diagnostik dan kirimkan kepada kami agar penyebabnya bisa ditemukan.",
-    "qrDiagnosticsPrivacy": "Info diagnostik tidak berisi cookie, token, alamat IP, atau detail akun.",
+    "qrTipsTitle": "Coba dulu",
+    "qrTipRestart": "Mulai ulang Folia, lalu pindai lagi.",
+    "qrTipSwitchNetwork": "Ganti ke jaringan lain (misalnya hotspot ponsel), lalu mulai ulang Folia.",
+    "qrDiagnosticsToggle": "Masih belum berhasil? Kirimkan info diagnostik kepada kami",
+    "qrDiagnosticsPrompt": "Salin info diagnostik dan kirimkan kepada kami agar penyebabnya bisa ditemukan.",
+    "qrDiagnosticsPromptScanned": "Jika sudah mengonfirmasi di ponsel tetapi tetap belum masuk, salin info diagnostik dan kirimkan kepada kami agar penyebabnya bisa ditemukan.",
+    "qrDiagnosticsDisclosure": "Info diagnostik berisi versi aplikasi dan sistem, adaptor jaringan dan alamat IP, pengaturan proxy, catatan permintaan login beserta teks galat aslinya, dan hasil pemeriksaan jaringan. Tidak berisi kata sandi, cookie, atau token.",
     "qrDiagnosticsCopy": "Salin diagnostik",
     "qrDiagnosticsCopied": "Tersalin",
     "qrDiagnosticsCopyFailed": "Gagal menyalin",
     "qrDiagnosticsReport": "Laporkan di GitHub",
     "qrDiagnosticsPasteHint": "Tempel info diagnostik yang disalin Folia di sini, dan jelaskan singkat apa yang terjadi (jaringan, apakah proxy aktif, dll.).",
+    "qrSelfCheckTitle": "Pemeriksaan otomatis",
+    "qrSelfCheckRunning": "Memeriksa jaringan dan layanan lokal…",
+    "qrSelfCheckFailed": "Pemeriksaan otomatis tidak selesai: {{message}}",
+    "qrSelfCheckBackendDown": "Layanan lokal {{provider}} tidak berjalan dengan benar ({{detail}}). Mulai ulang Folia lalu coba lagi.",
+    "qrSelfCheckRemoteUnreachable": "Tidak dapat menghubungi server API ({{detail}}). Periksa alamat deployment dan jaringan Anda.",
+    "qrSelfCheckCredentialStore": "Keyring sistem tidak tersedia ({{detail}}), sehingga sesi QQ Music tidak dapat disimpan terenkripsi. Pasang dan buka GNOME Keyring atau KWallet, lalu mulai ulang Folia.",
+    "qrSelfCheckDnsFailed": "Nama server {{provider}} tidak dapat di-resolve ({{detail}}). Periksa jaringan atau pengaturan DNS, atau ganti jaringan lalu mulai ulang Folia.",
+    "qrSelfCheckTlsReset": "Koneksi ke server {{provider}} terputus saat jabat tangan enkripsi ({{detail}}). Biasanya disebabkan proxy, akselerator, firewall, atau jaringan itu sendiri: ganti jaringan atau matikan proxy, lalu mulai ulang Folia dan coba lagi.",
+    "qrSelfCheckUnreachable": "Tidak dapat menghubungi server {{provider}} ({{detail}}). Periksa koneksi jaringan, atau ganti jaringan lalu mulai ulang Folia.",
+    "qrSelfCheckIpv6Failed": "Koneksi ke server {{provider}} lewat IPv6 gagal, sedangkan IPv4 berfungsi ({{detail}}). Matikan IPv6 atau Teredo di pengaturan sistem lalu coba lagi.",
+    "qrSelfCheckHttpsFailed": "Server {{provider}} dapat dihubungi, tetapi permintaannya gagal ({{detail}}). Ganti jaringan, mulai ulang Folia, lalu coba lagi.",
+    "qrSelfCheckClockSkew": "Jam sistem Anda selisih sekitar {{detail}} menit dari waktu server. Perbaiki waktu sistem lalu coba lagi.",
+    "qrSelfCheckNetworkOk": "Pemeriksaan jaringan tidak menemukan masalah.",
+    "qrSelfCheckProxyFakeIp": "Proxy mode TUN (fake-ip) sedang menangani koneksi. Jika masih gagal, biarkan domain {{provider}} terhubung langsung lalu coba lagi.",
+    "qrSelfCheckProxyEnv": "Variabel lingkungan proxy terpasang, jadi permintaan login mungkin lewat proxy. Jika masih gagal, hapus proxy lalu coba lagi.",
+    "qrSelfCheckItemBackend": "Layanan lokal",
+    "qrSelfCheckItemRemote": "Server API",
+    "qrSelfCheckItemCredentialStore": "Penyimpanan kredensial",
+    "qrSelfCheckItemDns": "DNS",
+    "qrSelfCheckItemIpv4": "Koneksi IPv4",
+    "qrSelfCheckItemIpv6": "Koneksi IPv6",
+    "qrSelfCheckItemHttps": "Permintaan HTTPS",
+    "qrSelfCheckItemProxy": "Proxy",
+    "qrSelfCheckItemClock": "Jam sistem",
     "closeLogin": "Tutup login",
     "logout": "Logout",
     "backToPlayer": "Kembali ke Pemutar",
@@ -2660,6 +2690,33 @@ export default {
         "description": "Setelah masuk, playlist pribadi buatan Anda kini dapat memuat lagu dengan paging sungguhan. Backend yang di-host sendiri harus memakai qq-music-api 3.1.2 atau lebih baru; backend lama beralih otomatis, dan playlist yang tidak dapat dibaca kini menjelaskan bahwa playlist itu tidak publik, alih-alih tampil kosong tanpa keterangan."
       }
     },
+    "v0_7_15": {
+      "intro": "0.7.15 meningkatkan penanganan teks Tionghoa pada lirik lokal dan tag MP3, membuat login QR lebih stabil dengan bantuan yang lebih jelas saat gagal, mendukung pintasan dari input simulasi, serta memperbaiki riwayat kembali yang terus memanjang antara halaman artis dan album dan transkode di Apple Silicon.",
+      "localLyrics": {
+        "title": "File Lirik Lokal Lebih Kompatibel",
+        "description": "Lirik KRC kini didekripsi, encoding GBK dikenali, dan akhir baris diseragamkan, sehingga lirik dari alat lama tidak lagi terbaca kosong. Baris kosong tidak lagi mendorong lirik asli ke jalur terjemahan. Jika LRC dwibahasa menaruh terjemahan pada waktu yang salah, Folia memberi tahu saat diputar dan menjelaskan cara memperbaikinya di tab Lokal pada panel pemutaran."
+      },
+      "mp3Tags": {
+        "title": "Tag MP3 Tionghoa Tidak Lagi Rusak",
+        "description": "Judul, artis, dan album yang ditulis sebagai GBK oleh alat lama dikembalikan ke huruf Tionghoa, sementara teks Latin asli seperti Björk atau Café tetap utuh. Pustaka yang sudah diimpor membaca ulang tag pada pemindaian berikutnya."
+      },
+      "qrLogin": {
+        "title": "Login QR Lebih Stabil dan Bantuan Lebih Jelas",
+        "description": "Login QR NetEase mencoba lagi dengan identitas baru saat koneksi terputus di tengah login dan menampilkan penyebab sebenarnya saat gagal. Setelah gagal, langkah sederhana seperti memulai ulang Folia atau berganti jaringan muncul di samping kode QR, dengan diagnostik di bawahnya. Diagnostik QQ Music kembali tersedia, dan setelah Anda membatalkan di ponsel, coba lagi menunggu masa jeda backend selesai."
+      },
+      "injectedShortcuts": {
+        "title": "Pintasan Mendukung Input Simulasi",
+        "description": "Tombol yang dikirim oleh aplikasi pemetaan ulang tombol, makro, atau kendali jarak jauh kini dapat memicu kontrol pemutaran, palet perintah, dan pintasan tutorial."
+      },
+      "collectionNav": {
+        "title": "Riwayat Kembali Tidak Lagi Memanjang",
+        "description": "Saat Anda berpindah bolak-balik antara halaman artis dan album, kembali ke halaman yang baru ditinggalkan dihitung sebagai kembali, sehingga jalur kembali dan riwayat browser tidak lagi menumpuk."
+      },
+      "appleSiliconTranscode": {
+        "title": "Transkode Apple Silicon Diperbaiki",
+        "description": "Memperbaiki ffmpeg bawaan yang gagal berjalan di Mac Apple Silicon, yang menyebabkan galat pemutaran pada lagu yang perlu ditranskode, seperti ALAC."
+      }
+    },
     "v0_7_13": {
       "intro": "0.7.13 menambahkan Bodian Music di desktop, pemilih platform login, opsi agar antrean tetap terbuka setelah mengganti lagu, dan sakelar jejak Lumiere, serta meningkatkan kompatibilitas FLAC dan impor segmentasi lirik.",
       "bodian": {
@@ -2843,6 +2900,9 @@ export default {
     "statusOnline": "Online",
     "statusImported": "Diimpor",
     "statusNone": "Tidak Ada",
+    "lyricFileIssueShiftedTitle": "Terjemahan di file lirik ini bergeser satu baris",
+    "lyricFileIssueShiftedBody": "LRC ini memberi setiap terjemahan waktu mulai baris berikutnya, jadi baris saat ini menampilkan terjemahan baris sebelumnya dan teks asli pindah ke baris kedua. Susunan file liriknya sendiri yang bermasalah.",
+    "lyricFileIssueShiftedFix": "Cara memperbaiki: gunakan Cocokkan Online untuk lirik lain, atau ubah file agar setiap terjemahan memakai waktu yang sama dengan baris aslinya, lalu pindai ulang folder.",
     "importedLyricsFile": "File yang Diimpor",
     "selectTranslationLrc": "Pilih LRC Terjemahan",
     "replayGainOff": "Mati",
