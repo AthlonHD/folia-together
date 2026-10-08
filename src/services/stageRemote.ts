@@ -77,6 +77,33 @@ export const remotePlaySongWithQueue = async (song: SongResult, queue: SongResul
     }
 };
 
+// 遥控模式"立即播放":只让 Host 播这一首(Host 会把它插到当前位置之后),不动队列其余部分
+export const remotePlayNow = async (song: SongResult): Promise<boolean> => {
+    const songId = toRemoteSongId(song);
+    if (songId === null) {
+        setStatusMsg({ type: 'error', text: '遥控模式只支持网易云歌曲' });
+        return false;
+    }
+    try {
+        await remotePlaySong(songId);
+        return true;
+    } catch (error) {
+        reportRemoteError(error);
+        return false;
+    }
+};
+
+// 遥控模式在服务器队列里跳到第 index 首
+export const remoteSelectQueueSong = async (index: number): Promise<boolean> => {
+    try {
+        await remoteQueueOp({ action: 'select', index });
+        return true;
+    } catch (error) {
+        reportRemoteError(error);
+        return false;
+    }
+};
+
 // 遥控模式加入队列;behavior 为 'next' 时插到当前歌曲之后
 export const remoteAddToQueue = async (songs: SongResult[], behavior: 'append' | 'next' = 'append') => {
     const songIds = songs.map(toRemoteSongId).filter((id): id is number => id !== null);

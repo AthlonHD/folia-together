@@ -1006,6 +1006,7 @@ export default function App() {
         addOnlineSongToQueue,
         addOnlineSongsToQueue,
         playSong,
+        playSongNow,
         playOnlineQueueFromStart,
         handleQueueAddAndPlay,
         handleSearchOverlaySubmit,
@@ -2160,7 +2161,8 @@ export default function App() {
     const homeModel = useHomeModel({
         account: accountController,
         activeProvider,
-        playSong,
+        // 首页各列表点播放:插队到当前位置播放,忽略传入的列表(不替换队列)
+        playSong: (song) => playSongNow(song),
         navigateToPlayer,
         navigateToLattice,
         refreshOnlineProviderPlaylists: refreshActiveProviderPlaylists,

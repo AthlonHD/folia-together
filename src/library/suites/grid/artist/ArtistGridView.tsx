@@ -54,6 +54,7 @@ import { deriveProgressiveLoadingState } from '../shared/progressiveGrid';
 import { useProgressiveItemEntrance } from '../shared/useProgressiveItemEntrance';
 import { ArtistGridInfoCutInPanel } from './ArtistGridInfoCutInPanel';
 import { setStatusMessage } from '../../../../stores/useStatusMessageStore';
+import { openAddToPlaylist } from '../../../../stores/useAddToPlaylistStore';
 
 /*
  * ArtistGridView.tsx
@@ -1165,7 +1166,7 @@ const ArtistGridView: React.FC<ArtistGridViewProps> = ({
                         onSelectAlbum={handleSelectAlbumLink}
                         onAddQueue={() => {
                             if (isSongCard && canEnqueueSong && item.rawTrack) {
-                                artistActions.enqueueSong(item.rawTrack);
+                                openAddToPlaylist(item.rawTrack);
                             }
                         }}
                     />

@@ -26,7 +26,7 @@ import {
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { getStageBridge } from '../services/stageWebChannel';
 import { openAddToPlaylist } from '../stores/useAddToPlaylistStore';
-import { isStageRemoteMode, remoteAddToQueue, remoteClearQueue, remoteControl, remotePlaySongWithQueue, remoteShuffleQueue } from '../services/stageRemote';
+import { isStageRemoteMode, remoteAddToQueue, remoteClearQueue, remoteControl, remotePlayNow, remotePlaySongWithQueue, remoteSelectQueueSong, remoteShuffleQueue } from '../services/stageRemote';
 import { buildStagePlayerSnapshot, resolveStagePlayerQueueItemIndex } from '../utils/stagePlayerSnapshot';
 import type { LocalLibraryDisplayCatalog } from '../services/playbackAdapters';
 import type { SearchReturnView, SearchSource } from '../stores/useSearchNavigationStore';
@@ -460,7 +460,14 @@ export function usePlaybackQueueController({
         // An automix advance skips the hook (see `isAutomixAdvance`).
         // 遥控模式不在本页播放,交给服务器上的 Host 页
         if (isStageRemoteMode()) {
-            const played = await remotePlaySongWithQueue(requestedSong, queue);
+            // 传入的就是服务器当前队列时是"在队列里跳转",否则按"播放整个列表"处理
+            const isQueueJump = queue.length > 0
+                && queue.length === playQueue.length
+                && queue.every((queued, index) => String(queued.id) === String(playQueue[index].id));
+            const jumpIndex = isQueueJump ? playQueue.findIndex(queued => String(queued.id) === String(requestedSong.id)) : -1;
+            const played = jumpIndex >= 0
+                ? await remoteSelectQueueSong(jumpIndex)
+                : await remotePlaySongWithQueue(requestedSong, queue);
             // 与本地播放一致:点播后进入播放视图,否则页面停在原处像是没反应
             if (played && (options.shouldNavigateToPlayer ?? true)) {
                 navigateToPlaybackView();
@@ -779,17 +786,30 @@ export function usePlaybackQueueController({
         void playSong(firstPlayableSong, retainedSongs, false);
     }, [getPlayableOnlineQueue, isQueueSongPlayable, playSong, setStatusMsg, t]);
 
-    const handleQueueAddAndPlay = useCallback((song: SongResult) => {
-        const songKey = getPlaybackSongKey(song);
-        const existingIndex = playQueue.findIndex(candidate => getPlaybackSongKey(candidate) === songKey);
-        const nextQueue = [...playQueue];
-
-        if (existingIndex === -1) {
-            nextQueue.push(song);
+    // 从歌单/专辑/搜索结果点一首歌播放:不替换队列,把它插到当前播放位置之后并立即播放,
+    // 原来在播的歌留在它前面,后面的歌位置不变;队列里已有这首歌时先挪出再插入。
+    const playSongNow = useCallback(async (song: SongResult, options: PlaybackNavigationOptions = {}) => {
+        if (isStageRemoteMode()) {
+            const played = await remotePlayNow(song);
+            if (played && (options.shouldNavigateToPlayer ?? true)) {
+                navigateToPlaybackView();
+            }
+            return;
         }
 
-        void playSong(song, nextQueue, false);
-    }, [playQueue, playSong]);
+        const baseQueue = playQueue.length > 0 ? playQueue : (currentSong ? [currentSong] : []);
+        const { nextQueue } = applyQueueAddBehavior({
+            queue: baseQueue,
+            songs: [song],
+            currentSong,
+            behavior: 'next',
+        });
+        await playSong(song, nextQueue.length > 0 ? nextQueue : [song], false, options);
+    }, [currentSong, navigateToPlaybackView, playQueue, playSong]);
+
+    const handleQueueAddAndPlay = useCallback((song: SongResult) => {
+        void playSongNow(song);
+    }, [playSongNow]);
 
     const handleSearchOverlaySubmit = useCallback(async (requestedSource?: SearchSource) => {
         const trimmedQuery = searchQuery.trim();
@@ -1121,7 +1141,10 @@ export function usePlaybackQueueController({
                     ),
                 };
             } else {
-                await playSong(song, [song], false, { shouldNavigateToPlayer: true });
+                // 与本地点歌一致:插到当前播放位置之后并播放,不替换队列
+                const baseQueue = playQueue.length > 0 ? playQueue : (currentSong ? [currentSong] : []);
+                const { nextQueue } = applyQueueAddBehavior({ queue: baseQueue, songs: [song], currentSong, behavior: 'next' });
+                await playSong(song, nextQueue.length > 0 ? nextQueue : [song], false, { shouldNavigateToPlayer: true });
             }
             await getStageBridge()?.completeStageExternalPlayRequest({
                 requestId: request.requestId,
@@ -1356,6 +1379,7 @@ export function usePlaybackQueueController({
         addOnlineSongToQueue,
         addOnlineSongsToQueue,
         playSong,
+        playSongNow,
         playOnlineQueueFromStart,
         handleQueueAddAndPlay,
         handleSearchOverlaySubmit,
