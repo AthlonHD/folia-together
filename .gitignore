@@ -52,6 +52,9 @@ TODO.MD
 commit.md
 .codebuff-ai/reasson/conf.jsonc
 scripts/*
+# 一键启动/关闭脚本要纳入版本管理(见 scripts/start-stage.cmd)
+!scripts/start-stage.cmd
+!scripts/stop-stage.cmd
 docs/TODO.md
 design/
 plan/

@@ -12,3 +12,6 @@
 # Signed mods and fixtures: the signature covers exact bytes, so no line-ending conversion.
 mods/** -text
 test/fixtures/folium-signature/** -text
+# 批处理文件在 Windows 上必须是 CRLF(含 goto 标签的脚本在 LF 下可能找不到标签),覆盖上面的 eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
