@@ -72,7 +72,6 @@ export type LibraryActionId =
     | 'subscribe'
     | 'rename'
     | 'delete-collection'
-    | 'clear-collection'
     | 'resync-folder'
     | 'resync-all-folders'
     | 'export-playlist'

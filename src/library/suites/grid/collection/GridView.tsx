@@ -405,7 +405,6 @@ export const GridView: React.FC<GridViewProps> = ({
     const [isPlaylistPickerOpen, setIsPlaylistPickerOpen] = useState(false);
     const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
     const [isDeleteFolderOpen, setIsDeleteFolderOpen] = useState(false);
-    const [isClearPlaylistOpen, setIsClearPlaylistOpen] = useState(false);
     const [showCutInPanel, setShowCutInPanel] = useState(false);
     const [showSidePanel, setShowSidePanel] = useState(false);
     // 退场动画期间旧网格仍挂着：只有在场的那一个接键盘、筛选框和命令面板，
@@ -1298,7 +1297,6 @@ export const GridView: React.FC<GridViewProps> = ({
                     || isPlaylistPickerOpen
                     || isCreatePlaylistOpen
                     || isDeleteFolderOpen
-                    || isClearPlaylistOpen
                 ) return;
 
                 const focusedItem = gridItems[focusedIndex];
@@ -1358,7 +1356,6 @@ export const GridView: React.FC<GridViewProps> = ({
         gridItems,
         isCreatePlaylistOpen,
         isDeleteFolderOpen,
-        isClearPlaylistOpen,
         isEditMode,
         isActive,
         isPlaylistPickerOpen,
@@ -1885,16 +1882,6 @@ export const GridView: React.FC<GridViewProps> = ({
                                         })}
                                     </button>
                                 )}
-                                {mutationCapabilities.clearCollection.supported && (
-                                    <button
-                                        onClick={() => setIsClearPlaylistOpen(true)}
-                                        disabled={isSourceActionPending || displayTracks.length === 0}
-                                        className="w-full py-2.5 rounded-full text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-red-500/10 text-red-500 border border-red-500/25 hover:bg-red-500/20 disabled:opacity-40"
-                                    >
-                                        <Trash2 size={14} />
-                                        {t('localMusic.clearPlaylist')}
-                                    </button>
-                                )}
                                 {mutationCapabilities.deleteCollection.supported && (
                                     <button
                                         onClick={() => isLocalFolderCollection ? setIsDeleteFolderOpen(true) : void handleDeleteSourceCollection()}
@@ -1934,19 +1921,6 @@ export const GridView: React.FC<GridViewProps> = ({
                 onConfirm={(name) => {
                     void handleCreateNavidromePlaylist(name);
                 }}
-                isDaylight={isDaylight}
-            />
-            <ConfirmDialog
-                isOpen={isClearPlaylistOpen}
-                title={t('localMusic.clearPlaylistTitle')}
-                description={t('localMusic.clearPlaylistMessage')}
-                confirmText={t('localMusic.clearPlaylistConfirm')}
-                confirmVariant="danger"
-                onConfirm={() => {
-                    setIsClearPlaylistOpen(false);
-                    void mutations?.clearCollection();
-                }}
-                onClose={() => setIsClearPlaylistOpen(false)}
                 isDaylight={isDaylight}
             />
             <ConfirmDialog

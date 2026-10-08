@@ -162,7 +162,6 @@ const fakeController = (snapshot: CollectionMutationSnapshot) => {
         toggleSubscribe: vi.fn(ok),
         rename: vi.fn(ok),
         deleteCollection: vi.fn(ok),
-        clearCollection: vi.fn(ok),
         resyncFolder: vi.fn(ok),
         resyncAllFolders: vi.fn(ok),
         exportPlaylist: vi.fn(ok),
