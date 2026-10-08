@@ -1,4 +1,5 @@
 // src/components/app/presentation/buildPlayerViewFlags.ts
+import { isStageRemoteMode } from '../../../services/stageRemote';
 
 // Builds top-level player-view booleans used by the shell, overlays, and floating controls.
 export const buildPlayerViewFlags = ({
@@ -31,8 +32,9 @@ export const buildPlayerViewFlags = ({
         shouldHidePlayerProgressBar: isPlayerView && hidePlayerProgressBar,
         shouldHidePlayerTranslationSubtitle: isPlayerView && hidePlayerTranslationSubtitle,
         shouldHidePlayerRightPanelButton: isPlayerView && hidePlayerRightPanelButton,
-        canToggleCurrentPlayback: !isNowPlayingControlDisabled && Boolean(
-            audioSrc || (activePlaybackContext === 'stage' && stageActiveEntryKind === 'lyrics' && duration > 0),
-        ),
+        // 遥控模式本页没有音频源,播放/暂停交给服务器 Host:有曲目在播(镜像来的时长大于 0)就可以点
+        canToggleCurrentPlayback: !isNowPlayingControlDisabled && (isStageRemoteMode()
+            ? duration > 0
+            : Boolean(audioSrc || (activePlaybackContext === 'stage' && stageActiveEntryKind === 'lyrics' && duration > 0))),
     };
 };

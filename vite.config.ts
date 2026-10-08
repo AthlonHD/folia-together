@@ -1,6 +1,6 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { type ConfigEnv, type UserConfig, type ViteDevServer } from 'vite';
+import { type ConfigEnv, type PreviewServer, type UserConfig, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import { commandPinyinPlugin } from './dev/pinyin/commandPinyinPlugin.mjs';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -66,73 +66,84 @@ function readDevRequestBody(req: import('http').IncomingMessage): Promise<Uint8A
   });
 }
 
+// 歌词跨域代理。线上部署由 api/lyric-proxy 的无服务函数提供;本地的开发服务器和 `vite preview`
+// 都没有那个函数,所以两处都挂同一个中间件(预览服务器用于服务器本机部署的打包版)。
+const lyricProxyMiddleware = async (
+  req: import('http').IncomingMessage,
+  res: import('http').ServerResponse,
+  next: () => void,
+) => {
+  const requestUrl = new URL(req.url ?? '/', 'http://localhost');
+  if (requestUrl.pathname !== '/api/lyric-proxy') {
+    next();
+    return;
+  }
+
+  if (req.method === 'OPTIONS') {
+    setLyricProxyCorsHeaders(res);
+    res.statusCode = 200;
+    res.end();
+    return;
+  }
+
+  const targetUrlStr = requestUrl.searchParams.get('url');
+  if (!targetUrlStr) {
+    sendLyricProxyJson(res, 400, { error: 'Missing url parameter' });
+    return;
+  }
+
+  try {
+    const targetUrl = new URL(targetUrlStr);
+    if (!isAllowedLyricProxyHost(targetUrl.hostname)) {
+      sendLyricProxyJson(res, 403, { error: 'Forbidden: Domain not allowed' });
+      return;
+    }
+
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (!LYRIC_PROXY_IGNORED_FORWARD_HEADERS.includes(key.toLowerCase()) && value) {
+        headers.set(key, Array.isArray(value) ? value.join(', ') : value);
+      }
+    }
+
+    const hasBody = ['POST', 'PUT', 'PATCH'].includes(req.method ?? '');
+    const response = await fetch(targetUrl.toString(), {
+      method: req.method,
+      headers,
+      body: hasBody ? await readDevRequestBody(req) : undefined,
+    });
+
+    setLyricProxyCorsHeaders(res);
+    if (isAmllDbHost(targetUrl.hostname) && response.status === 404) {
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+
+    res.statusCode = response.status;
+    res.statusMessage = response.statusText;
+    const contentType = response.headers.get('content-type');
+    if (contentType) {
+      res.setHeader('Content-Type', contentType);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    res.end(buffer);
+  } catch (error) {
+    console.error('Vite lyric proxy request failed:', error);
+    sendLyricProxyJson(res, 500, { error: 'Proxy request failed', details: String(error) });
+  }
+};
+
 function devLyricProxyPlugin() {
   return {
     name: 'folia-dev-lyric-proxy',
     apply: 'serve' as const,
     configureServer(server: ViteDevServer) {
-      server.middlewares.use(async (req, res, next) => {
-        const requestUrl = new URL(req.url ?? '/', 'http://localhost');
-        if (requestUrl.pathname !== '/api/lyric-proxy') {
-          next();
-          return;
-        }
-
-        if (req.method === 'OPTIONS') {
-          setLyricProxyCorsHeaders(res);
-          res.statusCode = 200;
-          res.end();
-          return;
-        }
-
-        const targetUrlStr = requestUrl.searchParams.get('url');
-        if (!targetUrlStr) {
-          sendLyricProxyJson(res, 400, { error: 'Missing url parameter' });
-          return;
-        }
-
-        try {
-          const targetUrl = new URL(targetUrlStr);
-          if (!isAllowedLyricProxyHost(targetUrl.hostname)) {
-            sendLyricProxyJson(res, 403, { error: 'Forbidden: Domain not allowed' });
-            return;
-          }
-
-          const headers = new Headers();
-          for (const [key, value] of Object.entries(req.headers)) {
-            if (!LYRIC_PROXY_IGNORED_FORWARD_HEADERS.includes(key.toLowerCase()) && value) {
-              headers.set(key, Array.isArray(value) ? value.join(', ') : value);
-            }
-          }
-
-          const hasBody = ['POST', 'PUT', 'PATCH'].includes(req.method ?? '');
-          const response = await fetch(targetUrl.toString(), {
-            method: req.method,
-            headers,
-            body: hasBody ? await readDevRequestBody(req) : undefined,
-          });
-
-          setLyricProxyCorsHeaders(res);
-          if (isAmllDbHost(targetUrl.hostname) && response.status === 404) {
-            res.statusCode = 204;
-            res.end();
-            return;
-          }
-
-          res.statusCode = response.status;
-          res.statusMessage = response.statusText;
-          const contentType = response.headers.get('content-type');
-          if (contentType) {
-            res.setHeader('Content-Type', contentType);
-          }
-
-          const buffer = Buffer.from(await response.arrayBuffer());
-          res.end(buffer);
-        } catch (error) {
-          console.error('Vite lyric proxy request failed:', error);
-          sendLyricProxyJson(res, 500, { error: 'Proxy request failed', details: String(error) });
-        }
-      });
+      server.middlewares.use(lyricProxyMiddleware);
+    },
+    configurePreviewServer(server: PreviewServer) {
+      server.middlewares.use(lyricProxyMiddleware);
     },
   };
 }
