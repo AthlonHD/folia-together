@@ -235,6 +235,8 @@ export interface StageExternalPlayRequest {
   /** 以个性化电台(FM)的方式播放:songId 是第一首,queueSongIds 是后面的歌。 */
   fm?: boolean;
   queueSongIds?: number[];
+  /** 播放 Host 本地曲库里的这首歌(此时没有 songId)。 */
+  localSongId?: string;
 }
 
 export interface StageExternalPlayResult {
@@ -346,6 +348,8 @@ export interface StagePlayerSnapshot {
   isFmMode?: boolean;
   /** Host 的播放设置(音质、均衡器、音量等),遥控端镜像显示,见 hostSettingsSync。 */
   settings?: Record<string, unknown>;
+  /** Host 本地曲库的版本号,变了遥控端就重新读取曲库。 */
+  localLibraryRevision?: string;
 }
 
 export interface StagePlayerControlRequest {
@@ -361,6 +365,11 @@ export interface StagePlayerQueueRequest {
   action: 'append' | 'insert-next' | 'remove' | 'move' | 'select' | 'clear';
   songId?: number;
   songIds?: number[];
+  /** Host 本地曲库的歌曲 id(字符串),用于把本地歌加入 Host 队列。 */
+  localSongId?: string;
+  localSongIds?: string[];
+  /** 混合来源、保持顺序的歌曲列表(网易云 songId 或 Host 本地 localSongId)。 */
+  items?: Array<{ songId?: number; localSongId?: string }>;
   queueItemId?: string;
   fromQueueItemId?: string;
   fromIndex?: number;

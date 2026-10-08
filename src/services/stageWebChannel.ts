@@ -10,6 +10,7 @@ import type {
     StagePlayerSnapshot,
 } from '../types';
 import { readProviderSessionValue } from './onlineMusic/providerStorage';
+import { getHostRpcHandler } from './hostRpcRegistry';
 
 export interface StageBridge {
     publishStagePlayerSnapshot: (snapshot: StagePlayerSnapshot, options?: { forcePlaybackEvent?: boolean }) => Promise<unknown>;
@@ -46,6 +47,8 @@ const createStageWebChannel = (): StageBridge => {
                 const message = JSON.parse(String(event.data));
                 if (message.type === 'request') {
                     listeners[message.channel]?.forEach((listener) => listener(message.payload));
+                } else if (message.type === 'rpc') {
+                    void answerRpc(ws, message);
                 }
             } catch (error) {
                 console.warn('[Stage] Bad relay message', error);
@@ -64,6 +67,23 @@ const createStageWebChannel = (): StageBridge => {
         send({ type: 'account', cookie: readProviderSessionValue('netease', 'cookie', ['netease_cookie']) });
     };
 
+    // 中继向 Host 要数据(本地曲库、封面、歌词):按 method 找处理函数,把结果或错误回给中继
+    const answerRpc = async (ws: WebSocket, message: { id: string; method: string; params?: unknown }) => {
+        const reply = (payload: Record<string, unknown>) => {
+            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'rpc-result', id: message.id, ...payload }));
+        };
+        const handler = getHostRpcHandler(message.method);
+        if (!handler) {
+            reply({ ok: false, error: `Unknown rpc method: ${message.method}` });
+            return;
+        }
+        try {
+            reply({ ok: true, data: await handler(message.params ?? {}) });
+        } catch (error) {
+            reply({ ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+    };
+
     const send = (message: unknown) => {
         if (socket?.readyState !== WebSocket.OPEN) {
             return false;
@@ -79,6 +99,8 @@ const createStageWebChannel = (): StageBridge => {
 
     connect();
     window.setInterval(syncAccount, ACCOUNT_SYNC_INTERVAL_MS);
+    // 本地曲库的 RPC 处理依赖数据库和歌词解析等较重的模块,Host 页才需要,按需加载
+    void import('./hostLocalLibraryRpc').then(module => module.registerHostLocalLibraryRpc());
 
     return {
         publishStagePlayerSnapshot: async (snapshot, options) => send({ type: 'snapshot', snapshot, options }),

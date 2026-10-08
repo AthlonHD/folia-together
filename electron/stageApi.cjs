@@ -442,6 +442,7 @@ function createStageApi({
       queue,
       loopMode: STAGE_LOOP_MODE_VALUES.has(source.loopMode) ? source.loopMode : 'off',
       isFmMode: source.isFmMode === true,
+      localLibraryRevision: typeof source.localLibraryRevision === 'string' ? source.localLibraryRevision : '',
       // Host 的播放设置(音质、均衡器、音量等),原样透传给遥控端镜像;键由 Host 自己决定
       settings: source.settings && typeof source.settings === 'object' && !Array.isArray(source.settings) ? source.settings : {},
     };
@@ -496,6 +497,7 @@ function createStageApi({
       loopMode: snapshot.loopMode,
       isFmMode: snapshot.isFmMode,
       settings: snapshot.settings,
+      localLibraryRevision: snapshot.localLibraryRevision,
     });
   };
 
@@ -1556,6 +1558,7 @@ function createStageApi({
         songId,
         appendToQueue: options.appendToQueue === true,
         ...(options.fm === true ? { fm: true, queueSongIds: options.queueSongIds || [] } : {}),
+        ...(options.localSongId ? { localSongId: options.localSongId } : {}),
       });
     });
   };
@@ -1729,8 +1732,10 @@ function createStageApi({
     );
     const songId = Number(payload.songId);
     const appendToQueue = payload.appendToQueue === true;
-    if (!Number.isInteger(songId) || songId <= 0) {
-      throw createStageValidationError('Stage player play payload requires a positive integer songId.', 'INVALID_STAGE_PLAYER_PLAY_SONG_ID');
+    // Host 本地曲库里的歌用字符串 id 指定(localSongId),网易云的歌用数字 songId
+    const localSongId = normalizeStageText(payload.localSongId);
+    if (!localSongId && (!Number.isInteger(songId) || songId <= 0)) {
+      throw createStageValidationError('Stage player play payload requires a positive integer songId or a localSongId.', 'INVALID_STAGE_PLAYER_PLAY_SONG_ID');
     }
 
     // 个性化电台:Host 把这首歌和后面的歌作为 FM 队列播放(队列末尾继续从 FM 补歌)
@@ -1738,7 +1743,7 @@ function createStageApi({
     const queueSongIds = Array.isArray(payload.queueSongIds)
       ? payload.queueSongIds.map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 50)
       : [];
-    const result = await requestStageSongPlay(songId, { appendToQueue, fm, queueSongIds });
+    const result = await requestStageSongPlay(songId, { appendToQueue, fm, queueSongIds, ...(localSongId ? { localSongId } : {}) });
     return withStagePlayerOutsideInMetadata({
       ...(deprecated ? { deprecated: true, replacement: '/stage/player/play' } : {}),
       ok: true,
@@ -1746,7 +1751,7 @@ function createStageApi({
       ...(result?.deduplicated !== undefined ? { deduplicated: result.deduplicated } : {}),
       ...(result?.affectedCount !== undefined ? { affectedCount: result.affectedCount } : {}),
       ...(result?.diff ? { diff: result.diff } : {}),
-      songId,
+      ...(localSongId ? { localSongId } : { songId }),
       appendToQueue,
     });
   };
@@ -1882,6 +1887,20 @@ function createStageApi({
       action,
       songId: Number.isInteger(Number(payload.songId)) ? Number(payload.songId) : undefined,
       songIds: Array.isArray(payload.songIds) ? payload.songIds.map(Number).filter((songId) => Number.isInteger(songId) && songId > 0) : undefined,
+      localSongIds: Array.isArray(payload.localSongIds)
+        ? payload.localSongIds.map(normalizeStageText).filter(Boolean).slice(0, 500)
+        : undefined,
+      localSongId: normalizeStageText(payload.localSongId) || undefined,
+      // 混合来源、保持顺序的歌曲列表:{ songId } 是网易云,{ localSongId } 是 Host 本地曲库
+      items: Array.isArray(payload.items)
+        ? payload.items
+          .slice(0, 500)
+          .map((item) => ({
+            songId: Number.isInteger(Number(item?.songId)) && Number(item.songId) > 0 ? Number(item.songId) : undefined,
+            localSongId: normalizeStageText(item?.localSongId) || undefined,
+          }))
+          .filter((item) => item.songId !== undefined || item.localSongId)
+        : undefined,
       queueItemId: normalizeStageText(payload.queueItemId) || undefined,
       fromQueueItemId: normalizeStageText(payload.fromQueueItemId) || undefined,
       fromIndex: Number.isInteger(Number(payload.fromIndex)) ? Number(payload.fromIndex) : undefined,

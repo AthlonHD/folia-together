@@ -1,3 +1,5 @@
+import { isStageRemoteMode } from './stageRemote';
+import { readHostLocalLibrary } from './hostLocalLibraryClient';
 import { LocalPlaylist, LocalSong } from '../types';
 import { getFromCache, getLocalSongs, saveToCache } from './db';
 
@@ -247,6 +249,8 @@ const persistPlaylists = async (playlists: LocalPlaylist[]) => {
 };
 
 export const getLocalPlaylists = async (): Promise<LocalPlaylist[]> => {
+    // 遥控模式:歌单在服务器 Host 上,读 Host 共享出来的那份(只读)
+    if (isStageRemoteMode()) return (await readHostLocalLibrary()).playlists;
     const cached = await getFromCache<LegacyLocalPlaylist[]>(LOCAL_PLAYLISTS_CACHE_KEY);
     const cachedPlaylists = Array.isArray(cached) ? cached : [];
     const localSongs = await getLocalSongs();

@@ -23,6 +23,7 @@ import { getStageBridge } from '../services/stageWebChannel';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { getLoopDisplayMode } from '../utils/loopDisplayMode';
 import { applyHostSettingsPatch, readAllHostSettings } from '../services/hostSettingsSync';
+import { getHostLocalLibraryRevision } from '../utils/localLibraryRevision';
 import { getPlaybackSourceRef } from '../utils/appPlaybackGuards';
 import { omni } from '../services/onlineMusic/omni';
 import { subscribeToTransitionCue } from '../services/automix/transitionCue';
@@ -352,6 +353,7 @@ export const useElectronPlaybackBridge = ({
             loopMode: getLoopDisplayMode(loopMode, shuffleEnabled),
             isFmMode: usePlaybackStore.getState().isFmMode,
             settings: readAllHostSettings(),
+            localLibraryRevision: getHostLocalLibraryRevision(),
         };
     };
 

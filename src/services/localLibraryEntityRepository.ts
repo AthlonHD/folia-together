@@ -1,3 +1,5 @@
+import { isStageRemoteMode } from './stageRemote';
+import { readHostLocalLibrary } from './hostLocalLibraryClient';
 import type { LocalLibraryAssignment, LocalLibraryEntity, LocalLibraryEntityKind } from '../types/localLibrary';
 import { appDatabase } from './appDatabase';
 
@@ -5,13 +7,17 @@ import { appDatabase } from './appDatabase';
 // Exposes typed entity reads used by catalog transactions and local-library UI adapters.
 
 export const getLocalLibraryEntities = async (kind?: LocalLibraryEntityKind): Promise<LocalLibraryEntity[]> => (
-  kind
+  isStageRemoteMode()
+    ? (await readHostLocalLibrary()).entities.filter(entity => !kind || entity.kind === kind)
+    : kind
     ? await appDatabase.local_library_entities.where('kind').equals(kind).toArray()
     : await appDatabase.local_library_entities.toArray()
 );
 
 export const getLocalLibraryAssignments = async (): Promise<LocalLibraryAssignment[]> => (
-  await appDatabase.local_library_assignments.toArray()
+  isStageRemoteMode()
+    ? (await readHostLocalLibrary()).assignments
+    : await appDatabase.local_library_assignments.toArray()
 );
 
 export const getLocalLibraryAssignment = async (songId: string): Promise<LocalLibraryAssignment | undefined> => (
@@ -22,7 +28,9 @@ export const getLocalLibraryAssignment = async (songId: string): Promise<LocalLi
 export const getLocalLibraryCatalogSnapshot = async (): Promise<{
   entities: LocalLibraryEntity[];
   assignments: LocalLibraryAssignment[];
-}> => appDatabase.transaction(
+}> => isStageRemoteMode()
+  ? readHostLocalLibrary().then(library => ({ entities: library.entities, assignments: library.assignments }))
+  : appDatabase.transaction(
   'r',
   [appDatabase.local_library_entities, appDatabase.local_library_assignments],
   async () => ({

@@ -1,3 +1,5 @@
+import { isStageRemoteMode } from './stageRemote';
+import { readHostLocalLibrary } from './hostLocalLibraryClient';
 import type { LocalLibrarySnapshot, LocalLibrarySnapshotNode, LocalSong } from '../types';
 import type { LibraryDirectoryNode } from '../library/core/contracts/directory';
 import { getDirHandles, getLocalLibrarySnapshot, getLocalSongs } from './db';
@@ -51,6 +53,11 @@ export const buildLocalLibraryDirectoryTrees = (
 };
 
 export const loadLocalLibraryDirectoryTrees = async (songs?: LocalSong[]): Promise<LibraryDirectoryNode[]> => {
+    // 遥控模式:文件夹树来自 Host 共享出来的扫描快照
+    if (isStageRemoteMode()) {
+        const library = await readHostLocalLibrary();
+        return buildLocalLibraryDirectoryTrees(library.snapshots, songs ?? library.songs);
+    }
     const handles = await getDirHandles();
     const snapshots = (await Promise.all(
         Object.keys(handles).map(rootPath => getLocalLibrarySnapshot(rootPath)),

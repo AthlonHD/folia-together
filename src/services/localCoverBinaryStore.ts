@@ -108,6 +108,14 @@ export const hasLocalCoverBinary = async (assetId: string): Promise<boolean> => 
   return directory ? Boolean(await readOpfsDescriptor(directory, assetId)) : false;
 };
 
+/** 直接读出封面原图(不经过 Service Worker),Host 把封面共享给遥控端时用。 */
+export const readLocalCoverBinary = async (assetId: string): Promise<{ blob: Blob; mimeType: string } | null> => {
+  if (!isValidLocalCoverAssetId(assetId) || hasElectronBridge()) return null;
+  const directory = await getOpfsDirectory(false);
+  const entry = directory ? await readOpfsDescriptor(directory, assetId) : null;
+  return entry ? { blob: entry.file, mimeType: entry.descriptor.mimeType } : null;
+};
+
 export const writeLocalCoverBinary = async (
   assetId: string,
   value: unknown,

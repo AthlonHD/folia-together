@@ -122,7 +122,7 @@ export const getSizedCoverUrl = (url: string | null | undefined, size: number): 
 
         return trimmedUrl;
     } catch {
-        if (trimmedUrl.startsWith('/__folia_cover/')) {
+        if (trimmedUrl.startsWith('/__folia_cover/') || trimmedUrl.startsWith('/stage/local/cover/')) {
             const localUrl = new URL(trimmedUrl, 'https://folia.local');
             localUrl.searchParams.set('size', String(resolveLocalCoverThumbnailSize(normalizedSize)));
             return `${localUrl.pathname}${localUrl.search}`;
@@ -201,7 +201,7 @@ export const describeCoverUrl = (url: string | null | undefined): CoverUrlDescri
         }
         return { provider: 'other', requestedSize: null };
     } catch {
-        if (trimmedUrl.startsWith('/__folia_cover/')) {
+        if (trimmedUrl.startsWith('/__folia_cover/') || trimmedUrl.startsWith('/stage/local/cover/')) {
             const localUrl = new URL(trimmedUrl, 'https://folia.local');
             return { provider: 'local', requestedSize: parseSize(localUrl.searchParams.get('size')) };
         }

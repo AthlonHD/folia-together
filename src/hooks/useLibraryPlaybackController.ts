@@ -58,6 +58,9 @@ import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useLibraryStore } from '../stores/useLibraryStore';
 import { useAddToPlaylistStore } from '../stores/useAddToPlaylistStore';
+import { buildLocalLibraryRevision, setHostLocalLibraryRevision } from '../utils/localLibraryRevision';
+import { isStageRemoteMode } from '../services/stageRemote';
+import { HOST_LOCAL_LIBRARY_CHANGED_EVENT } from '../services/hostLocalLibraryClient';
 import { setIsPanelOpen } from '../stores/useAppViewStore';
 import { currentTime } from '../stores/motionSignals';
 import { resolveLocalSongLyrics } from '../utils/lyrics/localSongLyrics';
@@ -185,6 +188,11 @@ export function useLibraryPlaybackController({
         }
     }, [currentSong, revokeManagedCachedCoverObjectUrl]);
 
+    // Host 的本地曲库版本号放进快照,遥控页据此知道曲库变了要重新读取
+    useEffect(() => {
+        setHostLocalLibraryRevision(buildLocalLibraryRevision(localSongs, localPlaylists.length));
+    }, [localPlaylists, localSongs]);
+
     const loadLocalSongs = useCallback(async () => {
         try {
             const songs = await getLocalSongs();
@@ -202,6 +210,17 @@ export function useLibraryPlaybackController({
             console.error('Failed to load local playlists:', error);
         }
     }, []);
+
+    // 遥控模式:Host 的本地曲库变了(快照里的版本号变了),重新读取歌曲和歌单
+    useEffect(() => {
+        if (!isStageRemoteMode()) return;
+        const reload = () => {
+            void loadLocalSongs();
+            void loadLocalPlaylists();
+        };
+        window.addEventListener(HOST_LOCAL_LIBRARY_CHANGED_EVENT, reload);
+        return () => window.removeEventListener(HOST_LOCAL_LIBRARY_CHANGED_EVENT, reload);
+    }, [loadLocalPlaylists, loadLocalSongs]);
 
     const onRefreshLocalSongs = useCallback(async () => {
         const [songs, catalog] = await Promise.all([

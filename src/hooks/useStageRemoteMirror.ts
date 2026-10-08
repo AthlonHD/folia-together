@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { PlayerState, type LyricData, type SongResult } from '../types';
+import { PlayerState, type LocalSong, type LyricData, type SongResult } from '../types';
+import { buildUnifiedLocalSong, getLocalSongId } from '../services/playbackAdapters';
+import { getPreferredLocalSongCoverUrl } from '../services/localCoverAssetUrl';
+import { noteHostLocalLibraryRevision, readHostLocalLibrary, type HostLocalLibrary } from '../services/hostLocalLibraryClient';
 import { omni } from '../services/onlineMusic/omni';
 import { loadOnlineSongLyrics } from '../services/onlinePlayback';
 import {
@@ -46,9 +49,48 @@ export function useStageRemoteMirror({
         let disposed = false;
         let currentId = '';
         let queueRevision: string | undefined;
+        // Host 本地曲库里的歌:快照里的 id 是字符串 id 的哈希,按同一个算法建索引才能认回去
+        let localSongIndex: { library: HostLocalLibrary; byId: Map<string, LocalSong> } | null = null;
+        const findHostLocalSong = async (snapshotId: string): Promise<LocalSong | null> => {
+            const library = await readHostLocalLibrary();
+            if (localSongIndex?.library !== library) {
+                localSongIndex = {
+                    library,
+                    byId: new Map(library.songs.map(song => [String(getLocalSongId(song)), song])),
+                };
+            }
+            return localSongIndex.byId.get(snapshotId) ?? null;
+        };
+        const buildLocalSongForRemote = (localSong: LocalSong): SongResult => buildUnifiedLocalSong({
+            localSong,
+            matchedSong: null,
+            coverUrl: getPreferredLocalSongCoverUrl(localSong),
+            preferOnlineMetadata: false,
+        });
+
+        // Host 正在播的是它本地曲库里的歌:歌曲信息来自共享的曲库,歌词由 Host 解析后经中继取
+        const loadLocalTrack = async (key: string, snapshotId: string, fallbackCoverUrl: string | null) => {
+            const localSong = await findHostLocalSong(snapshotId);
+            if (disposed || currentId !== key || !localSong) return;
+
+            latest.current.setLyrics(null);
+            setCurrentLineIndex(-1);
+            setCurrentSong(buildLocalSongForRemote(localSong));
+            setCachedCoverUrl(getPreferredLocalSongCoverUrl(localSong) ?? fallbackCoverUrl);
+            latest.current.setIsLyricsLoading(true);
+            try {
+                const response = await fetch(`/stage/local/lyrics/${encodeURIComponent(localSong.id)}`);
+                const data = response.ok ? await response.json() : null;
+                if (!disposed && currentId === key) latest.current.setLyrics((data?.lyrics ?? null) as LyricData | null);
+            } catch (error) {
+                console.warn('[StageRemote] Local lyric fetch failed', error);
+            } finally {
+                if (!disposed && currentId === key) latest.current.setIsLyricsLoading(false);
+            }
+        };
 
         const loadTrack = async (id: string, coverUrl: string | null) => {
-            const song = await omni.getSongDetail('netease', Number(id)) as SongResult | null;
+            const song = await omni.getSongDetail('netease', Number(id.slice(id.indexOf(':') + 1))) as SongResult | null;
             if (disposed || currentId !== id || !song) return;
             const isCurrent = () => !disposed && currentId === id;
 
@@ -85,11 +127,16 @@ export function useStageRemoteMirror({
                 const status = await fetchRemoteStatus();
                 if (disposed) return;
 
-                const nextId = status.current?.id ? String(status.current.id) : '';
+                // 同一个数字 id 在网易云和本地曲库里可能撞车,用来源加 id 作为曲目的标识
+                const nextId = status.current?.id ? `${status.current.source ?? 'netease'}:${status.current.id}` : '';
                 if (nextId !== currentId) {
                     currentId = nextId;
                     if (nextId) {
-                        void loadTrack(nextId, status.current.coverUrl ?? null);
+                        if (status.current.source === 'local') {
+                            void loadLocalTrack(nextId, String(status.current.id), status.current.coverUrl ?? null);
+                        } else {
+                            void loadTrack(nextId, status.current.coverUrl ?? null);
+                        }
                     } else {
                         setCurrentSong(null);
                         latest.current.setLyrics(null);
@@ -102,6 +149,8 @@ export function useStageRemoteMirror({
                 if (status.settings) {
                     applyMirroredHostSettings(status.settings);
                 }
+                // Host 的本地曲库变了就丢掉缓存并通知界面重新读取
+                noteHostLocalLibraryRevision(status.localLibraryRevision);
                 setPlayerState(status.playerState as PlayerState);
                 setDuration((status.durationMs ?? 0) / 1000);
                 setIsFmMode(status.isFmMode === true);
@@ -116,13 +165,20 @@ export function useStageRemoteMirror({
                     const queue = await fetchRemoteQueue();
                     if (disposed) return;
                     const items: any[] = queue.queue?.items ?? [];
-                    setPlayQueue(items.map((item) => ({
-                        id: Number(item.id),
-                        name: item.title,
-                        artists: (item.artist ? String(item.artist).split(' / ') : []).map((name: string, index: number) => ({ id: index, name })),
-                        album: { id: 0, name: item.album ?? '', picUrl: item.coverUrl ?? undefined },
-                        durationMs: item.durationMs ?? 0,
-                    }) as unknown as SongResult));
+                    const queueSongs: SongResult[] = [];
+                    for (const item of items) {
+                        // 本地曲库里的歌用共享曲库里的完整信息(封面、本地引用),点队列项才能正确跳转
+                        const localSong = item.source === 'local' ? await findHostLocalSong(String(item.id)) : null;
+                        queueSongs.push(localSong ? buildLocalSongForRemote(localSong) : ({
+                            id: Number(item.id),
+                            name: item.title,
+                            artists: (item.artist ? String(item.artist).split(' / ') : []).map((name: string, index: number) => ({ id: index, name })),
+                            album: { id: 0, name: item.album ?? '', picUrl: item.coverUrl ?? undefined },
+                            durationMs: item.durationMs ?? 0,
+                        }) as unknown as SongResult);
+                    }
+                    if (disposed) return;
+                    setPlayQueue(queueSongs);
                 }
             } catch (error) {
                 console.warn('[StageRemote] Failed to poll relay', error);

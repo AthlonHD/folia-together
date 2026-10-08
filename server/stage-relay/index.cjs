@@ -3,6 +3,7 @@
 // 把原本的 Electron IPC 换成与 Host 页之间的 WebSocket。无鉴权,仅限小群内网/反代使用。
 
 const os = require('os');
+const crypto = require('crypto');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const { createStageApi } = require('../../electron/stageApi.cjs');
@@ -21,6 +22,8 @@ const FORWARDED_CHANNELS = new Set([
 ]);
 
 let hostSocket = null;
+// 中继向 Host 页发起的请求(读取 Host 的本地曲库、封面、歌词)等待结果的表
+const pendingHostRpc = new Map();
 // Host 页登录的网易云 cookie,只保存在内存里,不下发给任何浏览器
 let hostNeteaseCookie = null;
 // 登录相关接口原样透传;/logout 会让 Host 账号下线,一律拒绝
@@ -96,6 +99,113 @@ const handleNeteaseProxy = async (req, res, requestUrl) => {
   return true;
 };
 
+// 向 Host 页发一个 RPC 并等结果。Host 不在线、超时或 Host 报错都会 reject。
+const hostRpc = (method, params, timeoutMs = 30000) => new Promise((resolve, reject) => {
+  if (!hostSocket || hostSocket.readyState !== 1) {
+    reject(new Error('Host is offline'));
+    return;
+  }
+  const id = crypto.randomUUID();
+  const timer = setTimeout(() => {
+    pendingHostRpc.delete(id);
+    reject(new Error('Host RPC timed out'));
+  }, timeoutMs);
+  pendingHostRpc.set(id, { resolve, reject, timer });
+  hostSocket.send(JSON.stringify({ type: 'rpc', id, method, params }));
+});
+
+// ---- Host 本地曲库的只读共享:曲库列表、封面、歌词都由 Host 页读自己的数据库后回给遥控端 ----
+const LIBRARY_CACHE_TTL_MS = 15_000;
+const COVER_CACHE_LIMIT_BYTES = 64 * 1024 * 1024;
+const COVER_ASSET_ID = /^sha256:[0-9a-f]{64}$/;
+const LOCAL_SONG_ID = /^[\w.:-]{1,200}$/;
+let libraryCache = null;
+const coverCache = new Map();
+let coverCacheBytes = 0;
+
+const sendJson = (res, statusCode, payload) => {
+  const body = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+  res.end(body);
+};
+
+const rememberCover = (key, value) => {
+  coverCache.set(key, value);
+  coverCacheBytes += value.bytes.length;
+  while (coverCacheBytes > COVER_CACHE_LIMIT_BYTES && coverCache.size > 1) {
+    const [oldestKey, oldest] = coverCache.entries().next().value;
+    coverCache.delete(oldestKey);
+    coverCacheBytes -= oldest.bytes.length;
+  }
+};
+
+const handleHostLocalLibrary = async (req, res, requestUrl) => {
+  const { pathname } = requestUrl;
+  if (!pathname.startsWith('/stage/local/')) return false;
+  if (req.method !== 'GET') {
+    sendJson(res, 405, { error: 'Method not allowed.' });
+    return true;
+  }
+
+  try {
+    if (pathname === '/stage/local/library') {
+      if (!libraryCache || Date.now() - libraryCache.at > LIBRARY_CACHE_TTL_MS) {
+        libraryCache = { at: Date.now(), body: JSON.stringify(await hostRpc('local-library', {}, 60000)) };
+      }
+      sendJson(res, 200, libraryCache.body);
+      return true;
+    }
+
+    const coverMatch = /^\/stage\/local\/cover\/(.+)$/.exec(pathname);
+    if (coverMatch) {
+      const assetId = decodeURIComponent(coverMatch[1]);
+      const sizeParam = Number(requestUrl.searchParams.get('size'));
+      const size = sizeParam === 512 || sizeParam === 1024 ? sizeParam : 0;
+      if (!COVER_ASSET_ID.test(assetId)) {
+        sendJson(res, 400, { error: 'Invalid cover id.' });
+        return true;
+      }
+      const key = `${assetId}@${size}`;
+      let cover = coverCache.get(key);
+      if (!cover) {
+        const data = await hostRpc('local-cover', { assetId, size });
+        // 只接受图片:Host 那边出了岔子时不能把别的内容缓存成"永不过期的封面"
+        if (!data || !data.base64 || !String(data.mime || '').startsWith('image/')) {
+          sendJson(res, 404, { error: 'Cover not found.' });
+          return true;
+        }
+        cover = { mime: data.mime, bytes: Buffer.from(data.base64, 'base64') };
+        rememberCover(key, cover);
+      }
+      // 封面按内容哈希寻址,内容不会变,可以放心长期缓存
+      res.writeHead(200, {
+        'Content-Type': cover.mime,
+        'Content-Length': cover.bytes.length,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end(cover.bytes);
+      return true;
+    }
+
+    const lyricsMatch = /^\/stage\/local\/lyrics\/(.+)$/.exec(pathname);
+    if (lyricsMatch) {
+      const songId = decodeURIComponent(lyricsMatch[1]);
+      if (!LOCAL_SONG_ID.test(songId)) {
+        sendJson(res, 400, { error: 'Invalid song id.' });
+        return true;
+      }
+      sendJson(res, 200, await hostRpc('local-lyrics', { songId }));
+      return true;
+    }
+
+    sendJson(res, 404, { error: 'Not found.' });
+  } catch (error) {
+    sendJson(res, 503, { error: String(error?.message || error) });
+  }
+  return true;
+};
+
 // Host 页升级到 /stage/host/ws 时接管;同时只保留一个 Host,新连接顶掉旧连接
 const handleHostUpgrade = (req, socket, head) => {
   const pathname = new URL(req.url || '/', 'http://localhost').pathname;
@@ -111,7 +221,15 @@ const handleHostUpgrade = (req, socket, head) => {
     ws.on('message', (raw) => {
       let message;
       try { message = JSON.parse(raw.toString()); } catch { return; }
-      if (message.type === 'account') {
+      if (message.type === 'rpc-result') {
+        const pending = pendingHostRpc.get(message.id);
+        if (pending) {
+          clearTimeout(pending.timer);
+          pendingHostRpc.delete(message.id);
+          if (message.ok) pending.resolve(message.data);
+          else pending.reject(new Error(String(message.error || 'Host RPC failed')));
+        }
+      } else if (message.type === 'account') {
         hostNeteaseCookie = typeof message.cookie === 'string' && message.cookie ? message.cookie : null;
       } else if (message.type === 'snapshot') {
         stageApi.publishStagePlayerSnapshot(message.snapshot, message.options || {});
@@ -128,6 +246,11 @@ const handleHostUpgrade = (req, socket, head) => {
       if (hostSocket === ws) {
         hostSocket = null;
         console.log('[Relay] Host disconnected.');
+        for (const [id, pending] of pendingHostRpc) {
+          clearTimeout(pending.timer);
+          pending.reject(new Error('Host disconnected'));
+          pendingHostRpc.delete(id);
+        }
       }
     });
   });
@@ -148,7 +271,9 @@ stageApi = createStageApi({
   skipAuth: true,
   routeFilter: (pathname, method) => method === 'OPTIONS' || ALLOWED_ROUTES.some((re) => re.test(pathname)),
   extraUpgradeHandler: handleHostUpgrade,
-  extraHttpHandler: handleNeteaseProxy,
+  extraHttpHandler: async (req, res, requestUrl) => (
+    (await handleNeteaseProxy(req, res, requestUrl)) || (await handleHostLocalLibrary(req, res, requestUrl))
+  ),
 });
 
 stageApi.startStageServerIfNeeded().then(() => {

@@ -1,3 +1,5 @@
+import { isStageRemoteMode } from './stageRemote';
+import { readHostLocalLibrary } from './hostLocalLibraryClient';
 import type { LocalLibrarySnapshot, LocalSong } from '../types';
 import type { MigrationResult } from '../utils/lyrics/renderHints';
 import { appDatabase } from './appDatabase';
@@ -209,6 +211,8 @@ export const saveLocalSongs = async (songs: LocalSong[]): Promise<void> => {
 
 export const getLocalSongs = async (): Promise<LocalSong[]> => {
   try {
+    // 遥控模式:本地曲库在服务器 Host 上,这里读 Host 共享出来的那份(只读)
+    if (isStageRemoteMode()) return (await readHostLocalLibrary()).songs;
     await ensureLocalLibraryInitialized();
     return await readLocalSongs();
   } catch (error) {

@@ -3,6 +3,7 @@
 
 import type { SongResult, StagePlayerQueueRequest } from '../types';
 import { setStatusMessage as setStatusMsg } from '../stores/useStatusMessageStore';
+import { isLocalPlaybackSong } from '../utils/appPlaybackGuards';
 import { readProviderSessionValue, writeProviderSessionValue } from './onlineMusic/providerStorage';
 
 // ?host=1 为 Host,?local=1 强制本地播放;配置了 VITE_STAGE_RELAY=1 时其余访问默认遥控,?stageremote=1 手动开启
@@ -40,6 +41,9 @@ const request = async <T = any>(path: string, body?: unknown): Promise<T> => {
     return data as T;
 };
 
+/** 让 Host 播放的歌:网易云歌曲用数字 songId,Host 本地曲库里的歌用字符串 localSongId。 */
+export type RemoteSongRef = { songId: number; localSongId?: undefined } | { localSongId: string; songId?: undefined };
+
 export const remoteSetLoopMode = (loopMode: 'off' | 'all' | 'one' | 'shuffle') =>
     request('control', { action: 'set-loop', loopMode });
 /** 把遥控端改的播放设置(音质、音量、均衡器等)交给 Host 应用 */
@@ -47,17 +51,30 @@ export const remoteSetSettings = (settings: Record<string, unknown>) =>
     request('control', { action: 'set-settings', settings });
 export const fetchRemoteStatus = () => request('status');
 export const fetchRemoteQueue = () => request('queue?limit=500');
-export const remotePlaySong = (songId: number, appendToQueue = false, fm?: { queueSongIds: number[] }) =>
-    request('play', { songId, appendToQueue, ...(fm ? { fm: true, queueSongIds: fm.queueSongIds } : {}) });
+export const remotePlaySong = (ref: RemoteSongRef, appendToQueue = false, fm?: { queueSongIds: number[] }) =>
+    request('play', { ...ref, appendToQueue, ...(fm ? { fm: true, queueSongIds: fm.queueSongIds } : {}) });
 export const remoteControl = (action: 'next' | 'prev' | 'pause' | 'resume' | 'seek', positionMs?: number) =>
     request('control', { action, ...(positionMs !== undefined ? { positionMs: Math.floor(positionMs) } : {}) });
 export const remoteQueueOp = (payload: Omit<StagePlayerQueueRequest, 'requestId'>) => request('queue', payload);
 
-const toRemoteSongId = (song: SongResult): number | null => {
+// 先判断本地歌:本地歌在播放器里的 id 也是个数字(字符串 id 的哈希),不能当成网易云 id 发出去
+const toRemoteSongRef = (song: SongResult): RemoteSongRef | null => {
+    if (isLocalPlaybackSong(song)) return { localSongId: song.localRef.songId };
     const songId = Number(song.id);
     if (!Number.isInteger(songId) || songId <= 0 || song.sourceType === 'cloud') return null;
-    return songId;
+    return { songId };
 };
+
+const isSameRef = (a: RemoteSongRef, b: RemoteSongRef) => (
+    a.localSongId !== undefined ? a.localSongId === b.localSongId : a.songId === b.songId
+);
+
+/** 转成队列接口的 items(保持顺序,可混合网易云与本地)。 */
+const toQueueItems = (refs: RemoteSongRef[]) => refs.map(ref => (
+    ref.localSongId !== undefined ? { localSongId: ref.localSongId } : { songId: ref.songId }
+));
+
+const UNSUPPORTED_SONG_TEXT = '遥控模式只支持网易云歌曲和服务器本地曲库里的歌曲';
 
 const reportRemoteError = (error: unknown) => {
     setStatusMsg({ type: 'error', text: error instanceof Error ? error.message : String(error) });
@@ -65,21 +82,25 @@ const reportRemoteError = (error: unknown) => {
 
 // 遥控模式点歌:让 Host 播放这首歌,并把传入队列里的其余歌曲追加到 Host 队列
 export const remotePlaySongWithQueue = async (song: SongResult, queue: SongResult[] = [], isFm = false): Promise<boolean> => {
-    const songId = toRemoteSongId(song);
-    if (songId === null) {
-        setStatusMsg({ type: 'error', text: '遥控模式只支持网易云歌曲' });
+    const ref = toRemoteSongRef(song);
+    if (ref === null) {
+        setStatusMsg({ type: 'error', text: UNSUPPORTED_SONG_TEXT });
         return false;
     }
     try {
-        const rest = queue.map(toRemoteSongId).filter((id): id is number => id !== null && id !== songId);
+        const rest = queue
+            .map(toRemoteSongRef)
+            .filter((candidate): candidate is RemoteSongRef => candidate !== null && !isSameRef(candidate, ref));
         if (isFm) {
-            // 个性化电台:Host 以 FM 方式播放,队列末尾由 Host 继续补歌
-            await remotePlaySong(songId, false, { queueSongIds: rest });
+            // 个性化电台:Host 以 FM 方式播放,队列末尾由 Host 继续补歌(电台只有网易云歌曲)
+            await remotePlaySong(ref, false, {
+                queueSongIds: rest.flatMap(candidate => (candidate.songId !== undefined ? [candidate.songId] : [])),
+            });
             return true;
         }
-        await remotePlaySong(songId);
+        await remotePlaySong(ref);
         if (rest.length > 0) {
-            await remoteQueueOp({ action: 'append', songIds: rest });
+            await remoteQueueOp({ action: 'append', items: toQueueItems(rest) });
         }
         return true;
     } catch (error) {
@@ -90,13 +111,13 @@ export const remotePlaySongWithQueue = async (song: SongResult, queue: SongResul
 
 // 遥控模式"立即播放":只让 Host 播这一首(Host 会把它插到当前位置之后),不动队列其余部分
 export const remotePlayNow = async (song: SongResult): Promise<boolean> => {
-    const songId = toRemoteSongId(song);
-    if (songId === null) {
-        setStatusMsg({ type: 'error', text: '遥控模式只支持网易云歌曲' });
+    const ref = toRemoteSongRef(song);
+    if (ref === null) {
+        setStatusMsg({ type: 'error', text: UNSUPPORTED_SONG_TEXT });
         return false;
     }
     try {
-        await remotePlaySong(songId);
+        await remotePlaySong(ref);
         return true;
     } catch (error) {
         reportRemoteError(error);
@@ -117,19 +138,19 @@ export const remoteSelectQueueSong = async (index: number): Promise<boolean> => 
 
 // 遥控模式加入队列;behavior 为 'next' 时插到当前歌曲之后
 export const remoteAddToQueue = async (songs: SongResult[], behavior: 'append' | 'next' = 'append') => {
-    const songIds = songs.map(toRemoteSongId).filter((id): id is number => id !== null);
-    if (songIds.length === 0) {
-        setStatusMsg({ type: 'error', text: '遥控模式只支持网易云歌曲' });
+    const refs = songs.map(toRemoteSongRef).filter((ref): ref is RemoteSongRef => ref !== null);
+    if (refs.length === 0) {
+        setStatusMsg({ type: 'error', text: UNSUPPORTED_SONG_TEXT });
         return 0;
     }
     try {
-        await remoteQueueOp({ action: behavior === 'next' ? 'insert-next' : 'append', songIds });
+        await remoteQueueOp({ action: behavior === 'next' ? 'insert-next' : 'append', items: toQueueItems(refs) });
         setStatusMsg({ type: 'success', text: '已加入服务器播放队列', nonce: Date.now(), durationMs: 1200 });
     } catch (error) {
         reportRemoteError(error);
         return 0;
     }
-    return songIds.length;
+    return refs.length;
 };
 
 export const remoteClearQueue = () => remoteQueueOp({ action: 'clear' }).catch(reportRemoteError);
@@ -158,16 +179,18 @@ export const remoteReorderQueue = async (currentQueue: SongResult[], targetQueue
 
 // 随机播放:清空服务器队列(保留当前曲)后,按打乱后的顺序重新追加,只需两次请求
 export const remoteShuffleQueue = async (queue: SongResult[], currentSong: SongResult | null) => {
-    const currentId = currentSong ? String(currentSong.id) : null;
-    const ids = queue.map(toRemoteSongId).filter((id): id is number => id !== null && String(id) !== currentId);
-    for (let index = ids.length - 1; index > 0; index -= 1) {
+    const currentRef = currentSong ? toRemoteSongRef(currentSong) : null;
+    const refs = queue
+        .map(toRemoteSongRef)
+        .filter((ref): ref is RemoteSongRef => ref !== null && !(currentRef && isSameRef(ref, currentRef)));
+    for (let index = refs.length - 1; index > 0; index -= 1) {
         const randomIndex = Math.floor(Math.random() * (index + 1));
-        [ids[index], ids[randomIndex]] = [ids[randomIndex], ids[index]];
+        [refs[index], refs[randomIndex]] = [refs[randomIndex], refs[index]];
     }
     try {
         await remoteQueueOp({ action: 'clear' });
-        if (ids.length > 0) {
-            await remoteQueueOp({ action: 'append', songIds: ids });
+        if (refs.length > 0) {
+            await remoteQueueOp({ action: 'append', items: toQueueItems(refs) });
         }
     } catch (error) {
         reportRemoteError(error);

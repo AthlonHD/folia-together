@@ -25,6 +25,8 @@ import {
 } from '../utils/appPlaybackGuards';
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { getStageBridge } from '../services/stageWebChannel';
+import { buildUnifiedLocalSong } from '../services/playbackAdapters';
+import { getPreferredLocalSongCoverUrl } from '../services/localCoverAssetUrl';
 import { openAddToPlaylist } from '../stores/useAddToPlaylistStore';
 import { usePlayOrderStore } from '../stores/usePlayOrderStore';
 import { isStageRemoteMode, remoteAddToQueue, remoteClearQueue, remoteControl, remotePlayNow, remotePlaySongWithQueue, remoteSelectQueueSong, remoteShuffleQueue } from '../services/stageRemote';
@@ -1180,11 +1182,26 @@ export function usePlaybackQueueController({
         return matchesNextQueue ? { ops } : buildReloadQueueDiffDraft();
     }, [buildReloadQueueDiffDraft]);
 
-    const handleStageExternalPlayRequest = useCallback(async (request: { requestId: string; songId: number; appendToQueue?: boolean; fm?: boolean; queueSongIds?: number[]; }) => {
+    // Host 本地曲库里的歌 -> 播放器用的歌曲对象(与首页本地列表点播时构造的一致)
+    const buildHostLocalUnifiedSong = useCallback((localSongId: string): SongResult | null => {
+        const localSong = localSongs.find(candidate => candidate.id === localSongId);
+        if (!localSong) return null;
+        return buildUnifiedLocalSong({
+            localSong,
+            matchedSong: null,
+            coverUrl: getPreferredLocalSongCoverUrl(localSong),
+            preferOnlineMetadata: false,
+        });
+    }, [localSongs]);
+
+    const handleStageExternalPlayRequest = useCallback(async (request: { requestId: string; songId: number; appendToQueue?: boolean; fm?: boolean; queueSongIds?: number[]; localSongId?: string; }) => {
         try {
-            const song = await omni.getSongDetail('netease', request.songId);
+            // 遥控端点播 Host 本地曲库里的歌:按本地歌曲 id 找到并构造成可播放的歌曲对象
+            const song = request.localSongId
+                ? buildHostLocalUnifiedSong(request.localSongId)
+                : await omni.getSongDetail('netease', request.songId);
             if (!song) {
-                throw new Error(`Song ${request.songId} was not found.`);
+                throw new Error(`Song ${request.localSongId ?? request.songId} was not found.`);
             }
 
             let actionData: any = undefined;
@@ -1233,7 +1250,7 @@ export function usePlaybackQueueController({
                 error: error instanceof Error ? error.message : String(error),
             });
         }
-    }, [appendOnlineSongsToMainQueue, buildStageQueueAddDiffDraft, buildStageQueueOperationSnapshot, currentSong, playQueue, playSong]);
+    }, [appendOnlineSongsToMainQueue, buildHostLocalUnifiedSong, buildStageQueueAddDiffDraft, buildStageQueueOperationSnapshot, currentSong, playQueue, playSong]);
 
     const resolveStageQueueIndex = useCallback((queue: SongResult[], request: StagePlayerQueueRequest): number => {
         const requestedIndex = typeof request.index === 'number' && Number.isInteger(request.index)
@@ -1255,12 +1272,26 @@ export function usePlaybackQueueController({
             : singleSongId !== null
                 ? [singleSongId]
                 : [];
+        const localSongIds = [...(request.localSongIds ?? []), ...(request.localSongId ? [request.localSongId] : [])];
 
-        if (songIds.length === 0) {
-            throw new Error('Queue append requires songId or songIds.');
+        const orderedItems = request.items ?? [];
+
+        if (songIds.length === 0 && localSongIds.length === 0 && orderedItems.length === 0) {
+            throw new Error('Queue append requires songId, songIds, localSongIds or items.');
         }
 
         const songs: SongResult[] = [];
+        // items 保持调用方给的顺序,可以混合网易云和 Host 本地的歌
+        for (const item of orderedItems) {
+            const itemSong = item.localSongId
+                ? buildHostLocalUnifiedSong(item.localSongId)
+                : item.songId ? await omni.getSongDetail('netease', item.songId) : null;
+            if (itemSong && !isSongUnavailable(itemSong)) songs.push(itemSong);
+        }
+        for (const localSongId of localSongIds) {
+            const localSong = buildHostLocalUnifiedSong(localSongId);
+            if (localSong) songs.push(localSong);
+        }
         for (const songId of songIds) {
             const song = await omni.getSongDetail('netease', songId);
             if (song && !isSongUnavailable(song)) {
@@ -1273,7 +1304,7 @@ export function usePlaybackQueueController({
         }
 
         return songs;
-    }, []);
+    }, [buildHostLocalUnifiedSong]);
 
     const handleStagePlayerQueueRequest = useCallback(async (request: StagePlayerQueueRequest) => {
         const complete = async (ok: boolean, error?: unknown, result?: any, snapshot?: StagePlayerSnapshot) => {
