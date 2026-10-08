@@ -3214,7 +3214,10 @@ export default {
     "playNext": "Play next",
     "empty": "Queue is empty",
     "title": "Play Queue",
-    "shuffle": "Shuffle Queue"
+    "shuffle": "Shuffle Queue",
+    "clear": "Clear Queue",
+    "clearTitle": "Clear Queue?",
+    "clearMessage": "All songs will be removed from the queue. The current song keeps playing until it ends."
   },
   "theme": {
     "switchToDark": "Switch to Dark Mode",

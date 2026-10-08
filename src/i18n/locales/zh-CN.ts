@@ -3213,7 +3213,10 @@ export default {
     "playNext": "下一首播放",
     "empty": "播放列表为空",
     "title": "播放队列",
-    "shuffle": "打乱队列"
+    "shuffle": "打乱队列",
+    "clear": "清空播放队列",
+    "clearTitle": "清空播放队列？",
+    "clearMessage": "将移除队列里的所有歌曲，当前这首会继续播放到结束。"
   },
   "theme": {
     "switchToDark": "切换到深色模式",

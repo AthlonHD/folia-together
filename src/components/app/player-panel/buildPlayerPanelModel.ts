@@ -95,6 +95,7 @@ export type PlayerPanelDeps = {
     playSong: UnifiedPanelProps['queue']['onPlaySong'];
     queueScrollRef: RefObject<HTMLDivElement | null>;
     shuffleQueue: UnifiedPanelProps['queue']['onShuffle'];
+    clearQueue: UnifiedPanelProps['queue']['onClear'];
     removeQueueSong: UnifiedPanelProps['queue']['onRemoveSong'];
     moveQueueSongToEnd: UnifiedPanelProps['queue']['onMoveSongToEnd'];
     moveQueueSongToNext: UnifiedPanelProps['queue']['onMoveSongToNext'];
@@ -175,6 +176,7 @@ export const buildPlayerPanelModel = ({
     playSong,
     queueScrollRef,
     shuffleQueue,
+    clearQueue,
     removeQueueSong,
     moveQueueSongToEnd,
     moveQueueSongToNext,
@@ -269,6 +271,7 @@ export const buildPlayerPanelModel = ({
             onPlaySong: playSong,
             queueScrollRef,
             onShuffle: shuffleQueue,
+            onClear: clearQueue,
             onRemoveSong: removeQueueSong,
             onMoveSongToEnd: moveQueueSongToEnd,
             onMoveSongToNext: moveQueueSongToNext,

@@ -2265,6 +2265,7 @@ export default function App() {
         playSong,
         queueScrollRef,
         shuffleQueue,
+        clearQueue,
         removeQueueSong,
         moveQueueSongToEnd,
         moveQueueSongToNext,

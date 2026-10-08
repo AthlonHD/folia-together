@@ -3099,7 +3099,10 @@ export default {
     "playNext": "Putar berikutnya",
     "empty": "Antrean kosong",
     "title": "Antrean Putar",
-    "shuffle": "Acak Antrean"
+    "shuffle": "Acak Antrean",
+    "clear": "Kosongkan Antrean",
+    "clearTitle": "Kosongkan Antrean?",
+    "clearMessage": "Semua lagu akan dihapus dari antrean. Lagu saat ini tetap diputar hingga selesai."
   },
   "theme": {
     "switchToDark": "Beralih ke Mode Gelap",

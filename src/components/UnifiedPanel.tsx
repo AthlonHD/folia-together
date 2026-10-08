@@ -105,6 +105,7 @@ type UnifiedPanelQueueProps = {
     onPlaySong: (song: SongResult, queue: SongResult[]) => void;
     queueScrollRef: React.RefObject<HTMLDivElement | null>;
     onShuffle: () => void;
+    onClear: () => void;
     onRemoveSong: (index: number) => void;
     onMoveSongToEnd: (index: number) => void;
     onMoveSongToNext: (index: number) => void;
@@ -215,7 +216,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
         transparentPlayerBackground,
         onToggleTransparentPlayerBackground,
     } = playback;
-    const { playQueue, onPlaySong, queueScrollRef, onShuffle, onRemoveSong, onMoveSongToEnd, onMoveSongToNext } = queue;
+    const { playQueue, onPlaySong, queueScrollRef, onShuffle, onClear, onRemoveSong, onMoveSongToEnd, onMoveSongToNext } = queue;
     const {
         onSaveCurrentQueueAsPlaylist,
         onOpenCurrentLocalAlbum,
@@ -876,6 +877,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                 queueScrollRef={queueScrollRef}
                                                 shouldScrollToCurrent={isOpen && currentTab === 'queue'}
                                                 onShuffle={onShuffle}
+                                                onClear={onClear}
                                                 onRemoveSong={onRemoveSong}
                                                 onMoveSongToEnd={onMoveSongToEnd}
                                                 onMoveSongToNext={onMoveSongToNext}

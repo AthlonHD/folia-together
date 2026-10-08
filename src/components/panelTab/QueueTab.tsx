@@ -5,6 +5,7 @@ import { ListEnd, ListPlus, PanelsTopLeft, Shuffle, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next';
 import { SongResult } from '../../types';
 import TextInputDialog from '../shared/TextInputDialog';
+import ConfirmDialog from '../shared/ConfirmDialog';
 import { getSongUnavailableLabel, isSongUnavailable } from '../../services/onlineMusic/songAvailability';
 import { getSongArtistLabel } from '../../services/onlineMusic/songMetadata';
 import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
@@ -18,6 +19,7 @@ interface QueueTabProps {
     queueScrollRef: React.RefObject<HTMLDivElement | null>;
     shouldScrollToCurrent?: boolean;
     onShuffle?: () => void;
+    onClear?: () => void;
     onRemoveSong: (index: number) => void;
     onMoveSongToEnd: (index: number) => void;
     onMoveSongToNext: (index: number) => void;
@@ -122,6 +124,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
     queueScrollRef,
     shouldScrollToCurrent = false,
     onShuffle,
+    onClear,
     onRemoveSong,
     onMoveSongToEnd,
     onMoveSongToNext,
@@ -152,6 +155,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
     const lastScrolledIndexRef = React.useRef<number>(-1);
     const wasOpenRef = React.useRef(false);
     const [isSaveDialogOpen, setIsSaveDialogOpen] = React.useState(false);
+    const [isClearConfirmOpen, setIsClearConfirmOpen] = React.useState(false);
     const rowProps = React.useMemo<QueueRowProps>(() => ({
         playQueue,
         currentSongKey,
@@ -266,6 +270,17 @@ const QueueTab: React.FC<QueueTabProps> = ({
                                 <Shuffle size={14} />
                             </button>
                         )}
+                        {onClear && (
+                            <button
+                                onClick={() => setIsClearConfirmOpen(true)}
+                                disabled={playQueue.length === 0}
+                                className="p-1.5 rounded-md hover:bg-white/10 transition-colors opacity-60 hover:opacity-100 disabled:opacity-20 disabled:pointer-events-none"
+                                title={t('queue.clear')}
+                                aria-label={t('queue.clear')}
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -285,6 +300,20 @@ const QueueTab: React.FC<QueueTabProps> = ({
                     />
                 </div>
             </motion.div>
+
+            <ConfirmDialog
+                isOpen={isClearConfirmOpen}
+                title={t('queue.clearTitle')}
+                description={t('queue.clearMessage')}
+                confirmText={t('queue.clear')}
+                confirmVariant="danger"
+                onConfirm={() => {
+                    setIsClearConfirmOpen(false);
+                    onClear?.();
+                }}
+                onClose={() => setIsClearConfirmOpen(false)}
+                isDaylight={isDaylight}
+            />
 
             <TextInputDialog
                 isOpen={isSaveDialogOpen}
