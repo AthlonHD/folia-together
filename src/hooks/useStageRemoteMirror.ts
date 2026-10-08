@@ -13,7 +13,8 @@ import {
     setPlayerState,
 } from '../stores/usePlaybackStore';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
-import { fetchRemoteQueue, fetchRemoteStatus, remoteClock } from '../services/stageRemote';
+import { fetchRemoteQueue, fetchRemoteStatus, remoteClock, remoteSetSettings } from '../services/stageRemote';
+import { applyMirroredHostSettings, startHostSettingsUplink } from '../services/hostSettingsSync';
 
 // src/hooks/useStageRemoteMirror.ts
 
@@ -98,9 +99,12 @@ export function useStageRemoteMirror({
                 if (status.loopMode) {
                     useAudioSettingsStore.getState().setLoopDisplayMode(status.loopMode, { persist: false });
                 }
+                if (status.settings) {
+                    applyMirroredHostSettings(status.settings);
+                }
                 setPlayerState(status.playerState as PlayerState);
                 setDuration((status.durationMs ?? 0) / 1000);
-                setIsFmMode(false);
+                setIsFmMode(status.isFmMode === true);
                 setActivePlaybackContext('main');
                 remoteClock.positionMs = status.positionMs ?? 0;
                 remoteClock.receivedAt = Date.now();
@@ -125,11 +129,15 @@ export function useStageRemoteMirror({
             }
         };
 
+        // 用户在本页改的播放设置(音质、音量、均衡器等)转发给 Host,由 Host 应用并回报
+        const stopUplink = startHostSettingsUplink(remoteSetSettings);
+
         void poll();
         const pollId = window.setInterval(() => { if (!document.hidden) void poll(); }, POLL_INTERVAL_MS);
 
         return () => {
             disposed = true;
+            stopUplink();
             window.clearInterval(pollId);
         };
     }, [enabled]);

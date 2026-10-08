@@ -469,7 +469,7 @@ export function usePlaybackQueueController({
             const jumpIndex = isQueueJump ? playQueue.findIndex(queued => String(queued.id) === String(requestedSong.id)) : -1;
             const played = jumpIndex >= 0
                 ? await remoteSelectQueueSong(jumpIndex)
-                : await remotePlaySongWithQueue(requestedSong, queue);
+                : await remotePlaySongWithQueue(requestedSong, queue, isFmCall);
             // 与本地播放一致:点播后进入播放视图,否则页面停在原处像是没反应
             if (played && (options.shouldNavigateToPlayer ?? true)) {
                 navigateToPlaybackView();
@@ -1180,7 +1180,7 @@ export function usePlaybackQueueController({
         return matchesNextQueue ? { ops } : buildReloadQueueDiffDraft();
     }, [buildReloadQueueDiffDraft]);
 
-    const handleStageExternalPlayRequest = useCallback(async (request: { requestId: string; songId: number; appendToQueue?: boolean; }) => {
+    const handleStageExternalPlayRequest = useCallback(async (request: { requestId: string; songId: number; appendToQueue?: boolean; fm?: boolean; queueSongIds?: number[]; }) => {
         try {
             const song = await omni.getSongDetail('netease', request.songId);
             if (!song) {
@@ -1204,6 +1204,14 @@ export function usePlaybackQueueController({
                         snapshot,
                     ),
                 };
+            } else if (request.fm) {
+                // 个性化电台:这首歌和后面的歌作为 FM 队列播放,队列末尾由 handleNextTrack 继续补歌
+                const followingSongs: SongResult[] = [];
+                for (const followingId of request.queueSongIds ?? []) {
+                    const followingSong = await omni.getSongDetail('netease', followingId);
+                    if (followingSong && !isSongUnavailable(followingSong)) followingSongs.push(followingSong);
+                }
+                await playSong(song, [song, ...followingSongs], true, { shouldNavigateToPlayer: true });
             } else {
                 // 与本地点歌一致:插到当前播放位置之后并播放,不替换队列
                 const baseQueue = playQueue.length > 0 ? playQueue : (currentSong ? [currentSong] : []);

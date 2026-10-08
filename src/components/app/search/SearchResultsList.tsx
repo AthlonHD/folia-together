@@ -11,13 +11,20 @@ type SearchResultsListProps = {
     scrollTop: number;
     isDaylight: boolean;
     onScrollTopChange: (scrollTop: number) => void;
+    /** 还能自动加载下一页(有更多、没在加载、没报错)。滚动接近底部或列表不满一屏时触发 onLoadMore。 */
+    canAutoLoadMore: boolean;
+    onLoadMore: () => void;
     onPlayTrack: (track: UnifiedSong) => void;
     onAddTrackToQueue: (track: UnifiedSong) => void;
     onOpenArtist: (track: UnifiedSong, artistName: string, artistId?: MediaId, entityId?: string) => void;
     onOpenAlbum: (track: UnifiedSong, albumName: string, albumId?: MediaId, entityId?: string) => void;
 };
 
-type RowProps = Omit<SearchResultsListProps, 'scrollTop' | 'onScrollTopChange'>;
+type RowProps = Omit<SearchResultsListProps, 'scrollTop' | 'onScrollTopChange' | 'canAutoLoadMore' | 'onLoadMore'>;
+
+const ROW_HEIGHT_PX = 76;
+// 距离底部不足这么多行时提前加载下一页,滚动不会撞到底
+const LOAD_MORE_THRESHOLD_ROWS = 5;
 
 const Row = ({ index, style, tracks, ...props }: { index: number; style: React.CSSProperties } & RowProps) => (
     <SearchResultRow track={tracks[index]} style={style} {...props} />
@@ -27,6 +34,8 @@ const SearchResultsList: React.FC<SearchResultsListProps> = ({
     tracks,
     scrollTop,
     onScrollTopChange,
+    canAutoLoadMore,
+    onLoadMore,
     ...rowProps
 }) => {
     const listRef = useListRef(null);
@@ -42,6 +51,15 @@ const SearchResultsList: React.FC<SearchResultsListProps> = ({
         latestScrollTopRef.current = scrollTop;
     }, [listRef, scrollTop, tracks]);
 
+    // 一页结果装不满视口时没有滚动条可滚,这里补一次加载,否则永远到不了触发点
+    useEffect(() => {
+        const element = listRef.current?.element;
+        if (!canAutoLoadMore || !element) return;
+        if (element.scrollHeight - element.scrollTop - element.clientHeight < ROW_HEIGHT_PX * LOAD_MORE_THRESHOLD_ROWS) {
+            onLoadMore();
+        }
+    }, [canAutoLoadMore, listRef, onLoadMore, tracks.length]);
+
     useEffect(() => () => {
         if (commitTimerRef.current) {
             clearTimeout(commitTimerRef.current);
@@ -53,7 +71,7 @@ const SearchResultsList: React.FC<SearchResultsListProps> = ({
         <List
             listRef={listRef}
             rowCount={tracks.length}
-            rowHeight={76}
+            rowHeight={ROW_HEIGHT_PX}
             rowComponent={Row as any}
             rowProps={stableRowProps}
             overscanCount={6}
@@ -61,6 +79,10 @@ const SearchResultsList: React.FC<SearchResultsListProps> = ({
             style={{ height: '100%', width: '100%' }}
             onScroll={(event) => {
                 latestScrollTopRef.current = event.currentTarget.scrollTop;
+                const target = event.currentTarget;
+                if (canAutoLoadMore && target.scrollHeight - target.scrollTop - target.clientHeight < ROW_HEIGHT_PX * LOAD_MORE_THRESHOLD_ROWS) {
+                    onLoadMore();
+                }
                 if (commitTimerRef.current) {
                     clearTimeout(commitTimerRef.current);
                 }

@@ -232,6 +232,9 @@ export interface StageExternalPlayRequest {
   requestId: string;
   songId: number;
   appendToQueue?: boolean;
+  /** 以个性化电台(FM)的方式播放:songId 是第一首,queueSongIds 是后面的歌。 */
+  fm?: boolean;
+  queueSongIds?: number[];
 }
 
 export interface StageExternalPlayResult {
@@ -277,6 +280,7 @@ export interface StagePlayerControlCapabilities {
   next: boolean;
   /** 切换循环/随机模式。旧快照没有这一项,按可用处理。 */
   loop?: boolean;
+  settings?: boolean;
 }
 
 export interface StagePlayerQueueCapabilities {
@@ -338,13 +342,18 @@ export interface StagePlayerSnapshot {
   queue: StagePlayerQueueSnapshot;
   /** 循环/随机模式(含随机),供遥控端镜像显示。 */
   loopMode?: 'off' | 'all' | 'one' | 'shuffle';
+  /** Host 是否在播个性化电台,遥控端据此切换电台界面。 */
+  isFmMode?: boolean;
+  /** Host 的播放设置(音质、均衡器、音量等),遥控端镜像显示,见 hostSettingsSync。 */
+  settings?: Record<string, unknown>;
 }
 
 export interface StagePlayerControlRequest {
   requestId: string;
-  action: 'next' | 'prev' | 'pause' | 'resume' | 'seek' | 'set-loop';
+  action: 'next' | 'prev' | 'pause' | 'resume' | 'seek' | 'set-loop' | 'set-settings';
   positionMs?: number;
   loopMode?: 'off' | 'all' | 'one' | 'shuffle';
+  settings?: Record<string, unknown>;
 }
 
 export interface StagePlayerQueueRequest {

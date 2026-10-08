@@ -42,9 +42,13 @@ const request = async <T = any>(path: string, body?: unknown): Promise<T> => {
 
 export const remoteSetLoopMode = (loopMode: 'off' | 'all' | 'one' | 'shuffle') =>
     request('control', { action: 'set-loop', loopMode });
+/** 把遥控端改的播放设置(音质、音量、均衡器等)交给 Host 应用 */
+export const remoteSetSettings = (settings: Record<string, unknown>) =>
+    request('control', { action: 'set-settings', settings });
 export const fetchRemoteStatus = () => request('status');
 export const fetchRemoteQueue = () => request('queue?limit=500');
-export const remotePlaySong = (songId: number, appendToQueue = false) => request('play', { songId, appendToQueue });
+export const remotePlaySong = (songId: number, appendToQueue = false, fm?: { queueSongIds: number[] }) =>
+    request('play', { songId, appendToQueue, ...(fm ? { fm: true, queueSongIds: fm.queueSongIds } : {}) });
 export const remoteControl = (action: 'next' | 'prev' | 'pause' | 'resume' | 'seek', positionMs?: number) =>
     request('control', { action, ...(positionMs !== undefined ? { positionMs: Math.floor(positionMs) } : {}) });
 export const remoteQueueOp = (payload: Omit<StagePlayerQueueRequest, 'requestId'>) => request('queue', payload);
@@ -60,15 +64,20 @@ const reportRemoteError = (error: unknown) => {
 };
 
 // 遥控模式点歌:让 Host 播放这首歌,并把传入队列里的其余歌曲追加到 Host 队列
-export const remotePlaySongWithQueue = async (song: SongResult, queue: SongResult[] = []): Promise<boolean> => {
+export const remotePlaySongWithQueue = async (song: SongResult, queue: SongResult[] = [], isFm = false): Promise<boolean> => {
     const songId = toRemoteSongId(song);
     if (songId === null) {
         setStatusMsg({ type: 'error', text: '遥控模式只支持网易云歌曲' });
         return false;
     }
     try {
-        await remotePlaySong(songId);
         const rest = queue.map(toRemoteSongId).filter((id): id is number => id !== null && id !== songId);
+        if (isFm) {
+            // 个性化电台:Host 以 FM 方式播放,队列末尾由 Host 继续补歌
+            await remotePlaySong(songId, false, { queueSongIds: rest });
+            return true;
+        }
+        await remotePlaySong(songId);
         if (rest.length > 0) {
             await remoteQueueOp({ action: 'append', songIds: rest });
         }

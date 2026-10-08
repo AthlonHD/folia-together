@@ -1737,7 +1737,8 @@ export default function App() {
         setStatusMsg({ type: 'info', text: t('notifications.sleepTimerPlaybackPaused') });
     }, [pausePlayback, setStatusMsg, t]);
     useSleepTimer({
-        enabled: sleepTimerEnabled,
+        // 遥控页的睡眠定时由 Host 执行(经设置同步),本页不再自己倒计时
+        enabled: sleepTimerEnabled && !stageRemoteMode,
         hours: sleepTimerHours,
         minutes: sleepTimerMinutes,
         onExpireFallback: handleSleepTimerExpireFallback,

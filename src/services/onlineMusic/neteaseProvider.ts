@@ -34,6 +34,18 @@ const mapQuality = (quality: AudioQualityPreference): string => {
 };
 
 /**
+ * 取不到所选音质时依次尝试的级别,从选定的那档往下降。
+ * 网易云接口对"这首歌没有该级别"通常会自己给出可用的最高级别,这条阶梯兜的是它直接返回空地址、
+ * 或只给 30 秒试听片段的情况:此时继续往下找完整可播的,而不是停在失败或试听上。
+ */
+const QUALITY_FALLBACK_LADDER: Record<AudioQualityPreference, string[]> = {
+    hires: ['hires', 'lossless', 'exhigh', 'standard'],
+    lossless: ['lossless', 'exhigh', 'standard'],
+    high: ['exhigh', 'standard'],
+    standard: ['standard'],
+};
+
+/**
  * The `level`/`bitrate` pair the listening report carries, which is NetEase's own client vocabulary
  * and therefore stays inside this adapter. Defaults match the documented ones for `/scrobble/v1`.
  */
@@ -278,17 +290,32 @@ export const neteaseProvider: OnlineMusicProvider = {
             return raw ? normalizeNeteaseSong(raw) : null;
         },
         async getAudioSource(song, quality) {
-            const response = await neteaseApi.getSongUrl(toNeteaseId(song.id), mapQuality(quality));
-            const raw = response?.data?.[0];
-            const rawUrl = raw?.url;
-            if (!rawUrl) return null;
-            const trackGain = toFiniteNumber(raw?.gain);
-            return {
-                url: String(rawUrl).replace(/^http:/, 'https:'),
-                fetchedAt: Date.now(),
-                quality,
-                ...(trackGain === undefined ? {} : { replayGain: { trackGain } }),
+            const toSource = (raw: any) => {
+                const trackGain = toFiniteNumber(raw?.gain);
+                return {
+                    url: String(raw.url).replace(/^http:/, 'https:'),
+                    fetchedAt: Date.now(),
+                    quality,
+                    ...(trackGain === undefined ? {} : { replayGain: { trackGain } }),
+                };
             };
+
+            // 完整可播的音源优先;所有级别都只有试听片段时,退回第一个试听,总比无声强
+            let trialSource: any = null;
+            for (const level of QUALITY_FALLBACK_LADDER[quality] ?? [mapQuality(quality)]) {
+                const response = await neteaseApi.getSongUrl(toNeteaseId(song.id), level);
+                const raw = response?.data?.[0];
+                if (!raw?.url) continue;
+                if (raw.freeTrialInfo) {
+                    trialSource ??= raw;
+                    continue;
+                }
+                if (level !== mapQuality(quality)) {
+                    console.info(`[NetEase] ${song.id}: ${mapQuality(quality)} unavailable, fell back to ${raw.level ?? level}`);
+                }
+                return toSource(raw);
+            }
+            return trialSource ? toSource(trialSource) : null;
         },
         getAvailability(song): ProviderSongAvailability {
             if (!isSongMarkedUnavailable(song)) return { state: 'playable' };

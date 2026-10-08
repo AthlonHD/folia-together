@@ -189,10 +189,13 @@ const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({
                                 {t('home.noResults')}
                             </div>
                         ) : (
-                            <div className="flex h-full flex-col">
+                            // 底部留出悬浮播放条的高度,"加载更多"/重试按钮才不会被它盖住
+                            <div className="flex h-full flex-col pb-20">
                                 <div className="min-h-0 flex-1">
                                     <SearchResultsList
                                         tracks={results}
+                                        canAutoLoadMore={hasMore && !isLoadingMore && !searchError}
+                                        onLoadMore={onLoadMore}
                                         scrollTop={scrollTop}
                                         isDaylight={isDaylight}
                                         onScrollTopChange={setSearchScrollTop}

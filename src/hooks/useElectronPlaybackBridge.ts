@@ -22,6 +22,7 @@ import { resolveStagePlayerPositionSec } from '../utils/stagePlayerSnapshot';
 import { getStageBridge } from '../services/stageWebChannel';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { getLoopDisplayMode } from '../utils/loopDisplayMode';
+import { applyHostSettingsPatch, readAllHostSettings } from '../services/hostSettingsSync';
 import { getPlaybackSourceRef } from '../utils/appPlaybackGuards';
 import { omni } from '../services/onlineMusic/omni';
 import { subscribeToTransitionCue } from '../services/automix/transitionCue';
@@ -346,7 +347,12 @@ export const useElectronPlaybackBridge = ({
     // 快照带上循环/随机模式,遥控页据此镜像显示
     const buildCurrentStagePlayerSnapshot = () => {
         const { loopMode, shuffleEnabled } = useAudioSettingsStore.getState();
-        return { ...buildStagePlayerSnapshotBase(), loopMode: getLoopDisplayMode(loopMode, shuffleEnabled) };
+        return {
+            ...buildStagePlayerSnapshotBase(),
+            loopMode: getLoopDisplayMode(loopMode, shuffleEnabled),
+            isFmMode: usePlaybackStore.getState().isFmMode,
+            settings: readAllHostSettings(),
+        };
     };
 
     const publishDiscordPresenceSnapshot = () => {
@@ -670,6 +676,12 @@ export const useElectronPlaybackBridge = ({
         return stageBridge.onStagePlayerControlRequest((request) => {
             try {
                 // 切换循环/随机模式不需要当前有歌,先于"控制是否可用"的判断处理
+                if (request.action === 'set-settings' && request.settings) {
+                    applyHostSettingsPatch(request.settings);
+                    complete(request.requestId, true);
+                    return;
+                }
+
                 if (request.action === 'set-loop' && request.loopMode) {
                     useAudioSettingsStore.getState().setLoopDisplayMode(request.loopMode);
                     complete(request.requestId, true);

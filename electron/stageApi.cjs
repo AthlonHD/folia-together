@@ -44,6 +44,7 @@ const STAGE_PLAYER_CONTROL_ACTION_CAPABILITIES = {
   resume: 'resume',
   seek: 'seek',
   'set-loop': 'loop',
+  'set-settings': 'settings',
 };
 const STAGE_LOOP_MODE_VALUES = new Set(['off', 'all', 'one', 'shuffle']);
 const STAGE_PLAYER_QUEUE_ACTION_CAPABILITIES = {
@@ -332,8 +333,9 @@ function createStageApi({
       seek: Boolean(provided.seek ?? canControlTransport),
       previous: Boolean(isNormalPlayback && provided.previous),
       next: Boolean(isNormalPlayback && provided.next),
-      // 切换循环/随机模式不依赖当前有没有歌
+      // 切换循环/随机模式、同步播放设置都不依赖当前有没有歌
       loop: true,
+      settings: true,
     };
   };
 
@@ -422,6 +424,9 @@ function createStageApi({
       queueCapabilities: buildStagePlayerQueueCapabilities(playbackContext, source.queueCapabilities),
       queue,
       loopMode: STAGE_LOOP_MODE_VALUES.has(source.loopMode) ? source.loopMode : 'off',
+      isFmMode: source.isFmMode === true,
+      // Host 的播放设置(音质、均衡器、音量等),原样透传给遥控端镜像;键由 Host 自己决定
+      settings: source.settings && typeof source.settings === 'object' && !Array.isArray(source.settings) ? source.settings : {},
     };
   };
 
@@ -472,6 +477,8 @@ function createStageApi({
       queueCapabilities: snapshot.queueCapabilities,
       queue: buildStagePlayerQueueSummary(snapshot),
       loopMode: snapshot.loopMode,
+      isFmMode: snapshot.isFmMode,
+      settings: snapshot.settings,
     });
   };
 
@@ -1531,6 +1538,7 @@ function createStageApi({
         requestId,
         songId,
         appendToQueue: options.appendToQueue === true,
+        ...(options.fm === true ? { fm: true, queueSongIds: options.queueSongIds || [] } : {}),
       });
     });
   };
@@ -1708,7 +1716,12 @@ function createStageApi({
       throw createStageValidationError('Stage player play payload requires a positive integer songId.', 'INVALID_STAGE_PLAYER_PLAY_SONG_ID');
     }
 
-    const result = await requestStageSongPlay(songId, { appendToQueue });
+    // 个性化电台:Host 把这首歌和后面的歌作为 FM 队列播放(队列末尾继续从 FM 补歌)
+    const fm = payload.fm === true;
+    const queueSongIds = Array.isArray(payload.queueSongIds)
+      ? payload.queueSongIds.map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 50)
+      : [];
+    const result = await requestStageSongPlay(songId, { appendToQueue, fm, queueSongIds });
     return withStagePlayerOutsideInMetadata({
       ...(deprecated ? { deprecated: true, replacement: '/stage/player/play' } : {}),
       ok: true,
@@ -1772,10 +1785,19 @@ function createStageApi({
       }
     }
 
+    let settings;
+    if (action === 'set-settings') {
+      if (!payload.settings || typeof payload.settings !== 'object' || Array.isArray(payload.settings)) {
+        throw createStageValidationError('Stage player set-settings requires a settings object.', 'INVALID_STAGE_PLAYER_SETTINGS');
+      }
+      settings = payload.settings;
+    }
+
     await requestStagePlayerControl({
       action,
       ...(positionMs !== undefined ? { positionMs } : {}),
       ...(loopMode !== undefined ? { loopMode } : {}),
+      ...(settings !== undefined ? { settings } : {}),
     });
 
     return withStagePlayerOutsideInMetadata({
