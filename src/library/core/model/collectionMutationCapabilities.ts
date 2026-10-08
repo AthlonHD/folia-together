@@ -205,7 +205,9 @@ export const resolveCollectionMutationCapabilities = ({
             pending,
         ),
         clearCollection: gated(
-            branches.isLocalPlaylistCollection && Boolean(port.local?.removePlaylistSongs),
+            (branches.isLocalPlaylistCollection && Boolean(port.local?.removePlaylistSongs))
+                || (descriptor?.source === 'online' && descriptor.isLiked !== true
+                    && (branches.canEditOwnedPlaylist || branches.canEditProviderPlaylist)),
             pending || state.pendingRemovalCount > 0,
         ),
         resyncFolder: gated(branches.isLocalFolderCollection && Boolean(port.local?.resyncFolder), pending),

@@ -89,6 +89,9 @@ const sameCapabilities = (left: CollectionMutationCapabilities, right: Collectio
     (Object.keys(left) as Array<keyof CollectionMutationCapabilities>).every(key => sameShallow(left[key], right[key]))
 );
 
+/** 清空在线歌单时每次请求删多少首（网易云把 id 放在 URL 里，太多会超长）。 */
+const CLEAR_BATCH_SIZE = 200;
+
 export const createCollectionMutationController = (
     options: CollectionMutationControllerOptions,
 ): CollectionMutationController => {
@@ -444,19 +447,44 @@ export const createCollectionMutationController = (
 
     const clearCollection = () => {
         const { descriptor, port } = inputs;
+        const branches = resolveBranches();
         return runSourceAction('clearCollection', async () => {
-            const removeSongs = port.local?.removePlaylistSongs;
-            if (descriptor.source !== 'local' || !descriptor.playlistId || !removeSongs) return;
             const tracks = inputs.resource?.getSnapshot().tracks ?? [];
-            const songIds = [...new Set(tracks.map(localPlaylistSongIdOf))];
-            if (songIds.length === 0) return;
-            await removeSongs(descriptor.playlistId, songIds);
+            if (tracks.length === 0) return;
+            if (descriptor.source === 'local') {
+                const removeSongs = port.local?.removePlaylistSongs;
+                if (!descriptor.playlistId || !removeSongs) return;
+                await removeSongs(descriptor.playlistId, [...new Set(tracks.map(localPlaylistSongIdOf))]);
+                try {
+                    await inputs.resource?.removeTracks(() => true);
+                } catch (error) {
+                    console.warn('[LibraryUi] Failed to commit local playlist clear:', error);
+                }
+                followUp('Refreshing local library', () => inputs.port.local?.refresh?.());
+                return;
+            }
+            if (descriptor.source !== 'online' || descriptor.isLiked === true) return;
+            if (!branches.canEditOwnedPlaylist && !branches.canEditProviderPlaylist) return;
+            // 还没加载完整时清空会漏掉后面的歌：直接报失败，不做一半。
+            const snapshot = inputs.resource?.getSnapshot();
+            const total = snapshot?.detail?.trackCount;
+            if (snapshot?.sync.status !== 'none' || (typeof total === 'number' && total > tracks.length)) {
+                throw new Error('Playlist is still loading');
+            }
+            for (let index = 0; index < tracks.length; index += CLEAR_BATCH_SIZE) {
+                await omni.updateCollectionTracks(descriptor, 'del', tracks.slice(index, index + CLEAR_BATCH_SIZE));
+            }
             try {
                 await inputs.resource?.removeTracks(() => true);
             } catch (error) {
-                console.warn('[LibraryUi] Failed to commit local playlist clear:', error);
+                console.warn('[LibraryUi] Failed to invalidate collection tracks cache:', error);
             }
-            followUp('Refreshing local library', () => inputs.port.local?.refresh?.());
+            try {
+                await removeCacheEntry(getProviderCacheKey(descriptor.providerId, `playlist_detail_${descriptor.id}`));
+            } catch (error) {
+                console.warn('[LibraryUi] Failed to remove playlist detail cache:', error);
+            }
+            followUp('Refreshing collections after clear', () => inputs.port.onCollectionMutated?.());
         });
     };
 
