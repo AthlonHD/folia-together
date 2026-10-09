@@ -2802,6 +2802,25 @@ export default {
         "description": "登录后，自己创建的不公开歌单也能读取歌曲，并支持真正的分页加载。自建后端需要升级到 qq-music-api 3.1.2 或更新版本；旧后端会自动回退，读不到时会明确提示「不是公开歌单」，不再静默显示为空。"
       }
     },
+    "v0_7_16": {
+      "intro": "0.7.16 把 AMLL 歌词切到官方接口，QQ 音乐歌曲能找到的 AMLL 歌词更多，手动匹配也能直接搜 AMLL；另外新增首页用 Tab 切换页签，并修复本地搜索结果缺少专辑与歌手链接的问题。",
+      "amllSource": {
+        "title": "AMLL 歌词改用官方接口",
+        "description": "AMLL 歌词改为从 AMLL 官方接口获取。"
+      },
+      "amllSearch": {
+        "title": "手动匹配 AMLL 歌词更准",
+        "description": "歌词匹配窗口的 AMLLDB 页直接搜索 AMLL 曲库，也可以自己输入关键词；按歌名和歌手查找，短歌名不会再搜出一堆歌词里带这个字的歌。本地歌曲选用 AMLL 结果时只写入歌词，不改动歌名、歌手和封面。"
+      },
+      "gridTabKeys": {
+        "title": "首页用 Tab 切换页签",
+        "description": "在海报墙首页按 Tab / Shift + Tab，可在歌单、电台、专辑、本地、Navidrome 之间前后循环，自动跳过不可用的页签，方便键盘和遥控器操作。"
+      },
+      "searchLinks": {
+        "title": "本地搜索结果的链接不再缺失",
+        "description": "刚导入文件夹就搜索时，结果里的专辑与歌手链接会在曲库加载完后自动补上，不必重新搜索。"
+      }
+    },
     "v0_7_15": {
       "intro": "0.7.15 改善本地歌词与 MP3 标签的中文兼容、扫码登录的稳定性与失败指引、模拟输入下的快捷键，并修复歌手与专辑来回跳转时返回路径越来越长、Apple Silicon 上转码失败等问题。",
       "localLyrics": {
@@ -4232,7 +4251,7 @@ export default {
         "gridMap": "点顶部「全部」打开 GridMap 查看所有集合；{{mod}} + F 或直接输入可筛选集合。",
         "gridSearchResult": "提交右上角搜索后会打开独立搜索工作台，结果按歌曲列出，可播放、打开艺人/专辑或加入队列。",
         "gridCardKeys": "← / → 切换中央海报，Enter 打开当前集合；滚轮和水平拖动执行同样的焦点移动。",
-        "gridPageKeys": "{{mod}} + K 命令；{{mod}} + B 进 Lattice（需有队列）；Ctrl + G 本页 Ponder。",
+        "gridPageKeys": "Tab / Shift + Tab 切换页签；{{mod}} + K 命令；{{mod}} + B 进 Lattice（需有队列）；Ctrl + G 本页 Ponder。",
         "gridView": "集合网格展示刚才打开的卡片所包含的歌曲、专辑或艺人。返回时会回到上一级，并保留原来的位置。",
         "gridViewActions": "选中卡片可以播放或继续进入。页面操作区还会按集合能力提供全部播放、加入队列、编辑等动作。",
         "gridViewBack": "左上角返回按钮退出当前集合，并清理这次进入使用的导航记录。Esc 在没有更内层状态时也会返回。",

@@ -2916,8 +2916,7 @@ function setupCorsBypassHandlers() {
         hostname === 'kugou.com' ||
         hostname.endsWith('.kugou.com') ||
         // Bodian audio and cover CDNs may omit CORS headers needed by Web Audio and canvas/WebGL.
-        bodianMediaPolicy.allows(details) ||
-        hostname === 'amll-ttml-db.stevexmh.net';
+        bodianMediaPolicy.allows(details);
     } catch (error) {
       isTargetDomain = false;
     }
@@ -2967,12 +2966,15 @@ function isAllowedLyricProxyHost(hostname) {
     hostname.endsWith('.kugou.com') ||
     hostname === 'kgimg.com' ||
     hostname.endsWith('.kgimg.com') ||
-    hostname === 'amll-ttml-db.stevexmh.net'
+    hostname === 'api.amll.dev'
   );
 }
 
+// AMLL TTML DB 官方 API（#515）。UA 由渲染进程按构建信息拼好放在请求头里，这里原样转发。
+const AMLL_API_TIMEOUT_MS = 5000;
+
 function isAmllDbHost(hostname) {
-  return hostname === 'amll-ttml-db.stevexmh.net';
+  return hostname === 'api.amll.dev';
 }
 
 async function proxyLyricRequest(targetUrlStr, init = {}) {
@@ -2999,21 +3001,11 @@ async function proxyLyricRequest(targetUrlStr, init = {}) {
     method: typeof init?.method === 'string' ? init.method : 'GET',
     headers,
     body: init?.body,
+    ...(isAmllDbRequest ? { signal: AbortSignal.timeout(AMLL_API_TIMEOUT_MS) } : {}),
   });
 
   if (isAmllDbRequest) {
     console.log(`[AMLL Proxy] Response ${response.status} ${targetUrl.toString()}`);
-  }
-
-  if (isAmllDbRequest && response.status === 404) {
-    console.log(`[AMLL Proxy] Convert 404 -> 204 ${targetUrl.toString()}`);
-    return {
-      ok: true,
-      status: 204,
-      statusText: 'No Content',
-      headers: {},
-      bodyText: '',
-    };
   }
 
   const normalizedHeaders = {};
