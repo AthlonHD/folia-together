@@ -249,6 +249,8 @@ export interface OnlineSearchProvider {
 
 export interface OnlinePlaybackProvider {
     getSongDetail(id: MediaId): Promise<UnifiedSong | null>;
+    /** 批量取详情，返回的顺序与 ids 一致，取不到的跳过；没有实现时 omni 退回逐首请求。 */
+    getSongDetails?(ids: MediaId[]): Promise<UnifiedSong[]>;
     getAudioSource(song: SongResult, quality: AudioQualityPreference): Promise<ProviderAudioSource | null>;
     getAvailability?(song: SongResult): ProviderSongAvailability;
     getReplacement?(song: SongResult): Promise<ProviderSongReplacement | null>;

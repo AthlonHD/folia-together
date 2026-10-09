@@ -1224,9 +1224,11 @@ export function usePlaybackQueueController({
             } else if (request.fm) {
                 // 个性化电台:这首歌和后面的歌作为 FM 队列播放,队列末尾由 handleNextTrack 继续补歌
                 const followingSongs: SongResult[] = [];
-                for (const followingId of request.queueSongIds ?? []) {
-                    const followingSong = await omni.getSongDetail('netease', followingId);
-                    if (followingSong && !isSongUnavailable(followingSong)) followingSongs.push(followingSong);
+                const followingDetails = (request.queueSongIds?.length ?? 0) > 0
+                    ? await omni.getSongDetails('netease', request.queueSongIds ?? [])
+                    : [];
+                for (const followingSong of followingDetails) {
+                    if (!isSongUnavailable(followingSong)) followingSongs.push(followingSong);
                 }
                 await playSong(song, [song, ...followingSongs], true, { shouldNavigateToPlayer: true });
             } else {
@@ -1281,11 +1283,22 @@ export function usePlaybackQueueController({
         }
 
         const songs: SongResult[] = [];
+        // 网易云歌曲一次批量取详情:逐首请求时,大歌单会超过中继的请求超时,队列要等很久才补全
+        const neteaseDetails = new Map<string, SongResult>();
+        const neteaseIdsToLoad = [
+            ...orderedItems.flatMap(item => (!item.localSongId && item.songId ? [item.songId] : [])),
+            ...songIds,
+        ];
+        if (neteaseIdsToLoad.length > 0) {
+            for (const detail of await omni.getSongDetails('netease', [...new Set(neteaseIdsToLoad)])) {
+                neteaseDetails.set(String(detail.id), detail);
+            }
+        }
         // items 保持调用方给的顺序,可以混合网易云和 Host 本地的歌
         for (const item of orderedItems) {
             const itemSong = item.localSongId
                 ? buildHostLocalUnifiedSong(item.localSongId)
-                : item.songId ? await omni.getSongDetail('netease', item.songId) : null;
+                : item.songId ? neteaseDetails.get(String(item.songId)) ?? null : null;
             if (itemSong && !isSongUnavailable(itemSong)) songs.push(itemSong);
         }
         for (const localSongId of localSongIds) {
@@ -1293,7 +1306,7 @@ export function usePlaybackQueueController({
             if (localSong) songs.push(localSong);
         }
         for (const songId of songIds) {
-            const song = await omni.getSongDetail('netease', songId);
+            const song = neteaseDetails.get(String(songId));
             if (song && !isSongUnavailable(song)) {
                 songs.push(song);
             }

@@ -321,6 +321,22 @@ export const neteaseProvider: OnlineMusicProvider = {
             const raw = response?.songs?.[0];
             return raw ? normalizeNeteaseSong(raw) : null;
         },
+        async getSongDetails(ids) {
+            const numericIds = ids.map(toNeteaseId);
+            const byId = new Map<string, UnifiedSong>();
+            // 每批 100 首：id 放在 URL 里，太多会超长
+            for (let index = 0; index < numericIds.length; index += 100) {
+                const response = await neteaseApi.getSongDetail(numericIds.slice(index, index + 100));
+                for (const raw of response?.songs ?? []) {
+                    const song = normalizeNeteaseSong(raw);
+                    byId.set(String(song.id), song);
+                }
+            }
+            return numericIds.flatMap(id => {
+                const song = byId.get(String(id));
+                return song ? [song] : [];
+            });
+        },
         async getAudioSource(song, quality) {
             const toSource = (raw: any) => {
                 const trackGain = toFiniteNumber(raw?.gain);

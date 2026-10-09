@@ -477,6 +477,18 @@ export const omni = {
         return requireOnlineMusicProvider(providerId).playback?.getSongDetail(id) ?? null;
     },
 
+    async getSongDetails(providerId: OmniProviderId, ids: MediaId[]): Promise<UnifiedSong[]> {
+        const playback = requireOnlineMusicProvider(providerId).playback;
+        if (!playback) return [];
+        if (playback.getSongDetails) return playback.getSongDetails(ids);
+        const songs: UnifiedSong[] = [];
+        for (const id of ids) {
+            const song = await playback.getSongDetail(id);
+            if (song) songs.push(song);
+        }
+        return songs;
+    },
+
     canPlaySong(song: SongResult): boolean {
         return Boolean(getOnlineMusicProviderForSong(song)?.playback);
     },
