@@ -104,6 +104,7 @@ import { useRandomVisualizerMode } from './hooks/useRandomVisualizerMode';
 import { useObsBrowserSourcePublisher } from './hooks/useObsBrowserSourcePublisher';
 import { useLyricApiPublisher } from './hooks/useLyricApiPublisher';
 import { useSessionRestoreController } from './hooks/useSessionRestoreController';
+import { useHostRenderIdle } from './hooks/useHostRenderIdle';
 import { useStagePlaybackController } from './hooks/useStagePlaybackController';
 import { useSongThemeAutoGeneration } from './hooks/useSongThemeAutoGeneration';
 import { useThemeController } from './hooks/useThemeController';
@@ -1058,6 +1059,8 @@ export default function App() {
         endHeldTransition,
     });
     const stageRemoteMode = useMemo(() => isStageRemoteMode(), []);
+    // Host 页失焦时停止渲染画面,把 CPU 留给音频(见 useHostRenderIdle)
+    const hostRenderIdle = useHostRenderIdle();
     // 列表"+"选择"播放队列"时,按歌曲来源分流入队(与 createLibraryPlaybackPort.enqueueTrack 一致)
     const enqueueSongToPlayQueue = useCallback((song: SongResult) => {
         createLibraryPlaybackPort({
@@ -2757,7 +2760,7 @@ export default function App() {
                 onClick={handleContainerClick}
             >
                 <PlayerBottomBarLayoutContext.Provider value={currentView === 'player'}>
-                    {currentView !== 'lattice' && hasLatticeExited && <VisualizerRenderer {...visualizerRendererModel} />}
+                    {currentView !== 'lattice' && hasLatticeExited && !hostRenderIdle && <VisualizerRenderer {...visualizerRendererModel} />}
                 </PlayerBottomBarLayoutContext.Provider>
             </div>
 

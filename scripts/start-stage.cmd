@@ -45,6 +45,11 @@ for %%A in (%*) do (
     if /i "%%~A"=="--no-browser" set "NO_BROWSER=1"
 )
 
+rem Chrome flags for the host page. A window that is covered or in the background gets throttled
+rem (timers slowed, renderer priority lowered) and the music stutters for a second at a time.
+rem These flags turn that off; Chrome only reads them when it starts fresh (no chrome.exe running).
+set "CHROME_FLAGS=--autoplay-policy=no-user-gesture-required --disable-renderer-backgrounding --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion"
+
 rem Find Chrome (first hit wins); without it the default browser opens the page.
 set "CHROME="
 for %%P in ("%ProgramFiles%\Google\Chrome\Application\chrome.exe" "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" "%LocalAppData%\Google\Chrome\Application\chrome.exe") do (
@@ -59,7 +64,7 @@ if defined DRY_RUN (
     if defined NO_BROWSER (
         echo [Host ] skipped ^(--no-browser^)
     ) else if defined CHROME (
-        echo [Host ] wait for port 3000, then "%CHROME%" --autoplay-policy=no-user-gesture-required "%HOST_URL%"
+        echo [Host ] wait for port 3000, then "%CHROME%" %CHROME_FLAGS% "%HOST_URL%"
     ) else (
         echo [Host ] wait for port 3000, then open "%HOST_URL%" in the default browser
     )
@@ -84,12 +89,18 @@ if errorlevel 1 (
 
 rem The autoplay flag only takes effect when Chrome is not already running; otherwise click the page once.
 if defined CHROME (
-    start "" "%CHROME%" --autoplay-policy=no-user-gesture-required "%HOST_URL%"
+    tasklist /FI "IMAGENAME eq chrome.exe" 2>nul | find /I "chrome.exe" >nul
+    if not errorlevel 1 (
+        echo [WARN] Chrome is already running, so it ignores the anti-throttling flags. If the music stutters
+        echo        while the host window is in the background, close ALL Chrome windows and run this script again.
+    )
+    start "" "%CHROME%" %CHROME_FLAGS% "%HOST_URL%"
 ) else (
     start "" "%HOST_URL%"
 )
 echo Opened the host page: %HOST_URL%
 echo If the music does not start by itself, click the page once to allow autoplay.
+echo The host page stops drawing the visuals while its window is not focused; click the window to bring them back.
 
 :done
 endlocal
