@@ -175,7 +175,8 @@ export function useStageRemoteMirror({
                         const localSong = item.source === 'local' ? await findHostLocalSong(String(item.id)) : null;
                         const isOtherOnline = !localSong && item.mediaId && item.source && item.source !== 'netease';
                         queueSongs.push(localSong ? buildLocalSongForRemote(localSong) : ({
-                            id: Number(item.id),
+                            // 酷狗等音源的 id 可能不是数字(哈希),此时原样保留,身份以下面的来源引用为准
+                            id: Number.isFinite(Number(item.id)) ? Number(item.id) : item.id,
                             // 其他在线音源的队列项带上来源引用,队列去重、跳转才不会和网易云的 id 撞车
                             ...(isOtherOnline ? {
                                 providerId: item.source,

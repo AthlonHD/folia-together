@@ -10,6 +10,7 @@ import type {
     StagePlayerSnapshot,
 } from '../types';
 import { readProviderSessionValue } from './onlineMusic/providerStorage';
+import { getKugouWebSessionCookie } from './onlineMusic/kugouTransport';
 import { getHostRpcHandler } from './hostRpcRegistry';
 
 export interface StageBridge {
@@ -62,12 +63,14 @@ const createStageWebChannel = (): StageBridge => {
         };
     };
 
-    // 把 Host 登录的网易云 cookie 和 QQ 音乐会话交给中继,由中继在代理请求时替换给所有访问者
+    // 把 Host 登录的网易云 cookie、QQ 音乐与酷狗会话交给中继,由中继在代理请求时替换给所有访问者
     const syncAccount = () => {
         send({
             type: 'account',
             cookie: readProviderSessionValue('netease', 'cookie', ['netease_cookie']),
             qqCookie: readProviderSessionValue('qq', 'cookie'),
+            // 酷狗的登录态由 token / userid / dfid 拼成 cookie 串,与请求时带的格式一致
+            kugouCookie: getKugouWebSessionCookie(),
         });
     };
 

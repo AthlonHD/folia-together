@@ -159,6 +159,9 @@ export const toKugouProviderError = (operation: KugouOperation, error: unknown):
     );
 };
 
+/** Web 版当前的酷狗会话(cookie 串);Host 页把它交给中继,由中继代理时替换给共用账号的访问者。 */
+export const getKugouWebSessionCookie = (): string => getWebSessionCookie();
+
 const getWebSessionCookie = (): string => {
     const values = new Map<string, string>();
     const storedCookie = readProviderSessionValue('kugou', 'cookie');

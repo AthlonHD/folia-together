@@ -12,6 +12,7 @@ const PORT = Number(process.env.STAGE_PORT) || 4100;
 const LISTEN_HOST = process.env.LISTEN_HOST || '0.0.0.0';
 const NETEASE_PORT = Number(process.env.NETEASE_PORT) || 4000;
 const QQ_PORT = Number(process.env.QQ_PORT) || 4300;
+const KUGOU_PORT = Number(process.env.KUGOU_PORT) || 4400;
 const HOST_WS_PATH = '/stage/host/ws';
 // 只放行点歌/遥控所需路由,歌词注入、媒体上传、清状态等写入类路由一律 404
 const ALLOWED_ROUTES = [/^\/stage\/health$/, /^\/stage\/player\//];
@@ -29,6 +30,8 @@ const pendingHostRpc = new Map();
 let hostNeteaseCookie = null;
 // Host 页登录的 QQ 音乐会话(`qqmusic_session=<token>`),同样只放内存
 let hostQqCookie = null;
+// Host 页登录的酷狗会话(`token=..;userid=..;dfid=..`),同样只放内存
+let hostKugouCookie = null;
 // 遥控页用占位登录态表示"我用 Host 的账号";只有带这个占位的请求才换成 Host 的真实登录态。
 // 本机播放模式的访问者自己登录了账号,请求带的是自己的登录态,原样放行,不会被顶成 Host 的账号。
 const SHARED_ACCOUNT_MARKER = 'shared-with-stage-host';
@@ -155,6 +158,67 @@ const handleQqProxy = async (req, res, requestUrl) => {
         const json = JSON.parse(body.toString('utf-8'));
         if (json && typeof json === 'object' && 'cookie' in json) {
           delete json.cookie;
+          body = Buffer.from(JSON.stringify(json));
+        }
+      } catch { /* 非 JSON 原样返回 */ }
+    }
+    res.writeHead(upstream.status, { 'Content-Type': contentType, 'Access-Control-Allow-Origin': '*' });
+    res.end(body);
+  } catch (error) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ code: 502, message: String(error) }));
+  }
+  return true;
+};
+
+// /kugou/* 反向代理到本机酷狗 API:酷狗的登录态是随请求的 cookie 参数带的(token / userid / dfid),
+// 带共用占位的请求把整串 cookie 换成 Host 的,并把显式的 userid 参数也换成 Host 的账号。
+// 登录(扫码)与设备注册接口原样透传,否则 Host 自己扫码登录会被打断。
+const KUGOU_PASSTHROUGH = /^\/(login|register|captcha)(\/|$)/;
+const handleKugouProxy = async (req, res, requestUrl) => {
+  if (!requestUrl.pathname.startsWith('/kugou/')) return false;
+
+  const apiPath = requestUrl.pathname.slice('/kugou'.length);
+  const usesSharedAccount = String(requestUrl.searchParams.get('cookie') || '').includes(SHARED_ACCOUNT_MARKER);
+  if (apiPath.startsWith('/logout') && usesSharedAccount) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ code: 403, message: 'Logout is disabled on the shared account.' }));
+    return true;
+  }
+
+  const target = new URL(`http://127.0.0.1:${KUGOU_PORT}${apiPath}`);
+  requestUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
+  const injected = usesSharedAccount && Boolean(hostKugouCookie) && !KUGOU_PASSTHROUGH.test(apiPath);
+  if (injected) {
+    target.searchParams.set('cookie', hostKugouCookie);
+    const hostUserId = /(?:^|;\s*)userid=([^;]+)/.exec(hostKugouCookie)?.[1];
+    if (hostUserId && target.searchParams.has('userid')) target.searchParams.set('userid', hostUserId);
+  }
+
+  try {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const hasBody = req.method !== 'GET' && req.method !== 'HEAD' && chunks.length > 0;
+    const upstream = await fetch(target, {
+      method: req.method,
+      headers: req.headers['content-type'] ? { 'Content-Type': req.headers['content-type'] } : {},
+      body: hasBody ? Buffer.concat(chunks) : undefined,
+    });
+    const contentType = upstream.headers.get('content-type') || 'application/json';
+    let body = Buffer.from(await upstream.arrayBuffer());
+    // 响应里的 cookie / token 就是 Host 的真实凭据,不能下发给浏览器
+    if (injected && contentType.includes('json')) {
+      try {
+        const json = JSON.parse(body.toString('utf-8'));
+        if (json && typeof json === 'object') {
+          delete json.cookie;
+          for (const holder of [json.data, json.body, json.body?.data]) {
+            if (holder && typeof holder === 'object') {
+              delete holder.cookie;
+              delete holder.token;
+              delete holder.dfid;
+            }
+          }
           body = Buffer.from(JSON.stringify(json));
         }
       } catch { /* 非 JSON 原样返回 */ }
@@ -301,6 +365,7 @@ const handleHostUpgrade = (req, socket, head) => {
       } else if (message.type === 'account') {
         hostNeteaseCookie = typeof message.cookie === 'string' && message.cookie ? message.cookie : null;
         hostQqCookie = typeof message.qqCookie === 'string' && message.qqCookie ? message.qqCookie : null;
+        hostKugouCookie = typeof message.kugouCookie === 'string' && message.kugouCookie ? message.kugouCookie : null;
       } else if (message.type === 'snapshot') {
         stageApi.publishStagePlayerSnapshot(message.snapshot, message.options || {});
       } else if (message.type === 'complete') {
@@ -344,6 +409,7 @@ stageApi = createStageApi({
   extraHttpHandler: async (req, res, requestUrl) => (
     (await handleNeteaseProxy(req, res, requestUrl))
     || (await handleQqProxy(req, res, requestUrl))
+    || (await handleKugouProxy(req, res, requestUrl))
     || (await handleHostLocalLibrary(req, res, requestUrl))
   ),
 });

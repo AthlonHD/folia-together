@@ -376,6 +376,8 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
         '/ncm': { target: `http://127.0.0.1:${process.env.STAGE_PORT || 4100}` },
         // QQ 音乐 API 同样经中继代理(换成 Host 的 QQ 会话),配合 VITE_QQ_API_BASE=/qq
         '/qq': { target: `http://127.0.0.1:${process.env.STAGE_PORT || 4100}` },
+        // 酷狗音乐 API 同样经中继代理(换成 Host 的酷狗会话),配合 VITE_KUGOU_API_BASE=/kugou
+        '/kugou': { target: `http://127.0.0.1:${process.env.STAGE_PORT || 4100}` },
       },
       allowedHosts: true,
       watch: {

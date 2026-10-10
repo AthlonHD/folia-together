@@ -16,6 +16,8 @@ export { isStageRemoteMode } from './stageMode';
 if (isStageRemoteMode()) {
     writeProviderSessionValue('netease', 'cookie', `MUSIC_U=${SHARED_ACCOUNT_MARKER}`);
     writeProviderSessionValue('qq', 'cookie', `qqmusic_session=${SHARED_ACCOUNT_MARKER}`);
+    // 酷狗按 token / userid / dfid 三项判断"已登录",占位三项都写上;userid 由中继换成 Host 账号的
+    for (const key of ['token', 'userid', 'dfid']) writeProviderSessionValue('kugou', key, SHARED_ACCOUNT_MARKER);
     installRemoteStorageShield();
 }
 

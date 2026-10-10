@@ -5,7 +5,8 @@ rem Opens one window per service so each keeps its own log:
 rem   1. Netease API   (port 4000)
 rem   2. Stage relay   (port 4100)
 rem   3. QQ Music API  (port 4300)
-rem   4. Frontend      (port 3000)  - production build served by "vite preview" (default, fast for visitors)
+rem   4. KuGou API     (port 4400)
+rem   5. Frontend      (port 3000)  - production build served by "vite preview" (default, fast for visitors)
 rem                                   or "vite dev" when started with --dev (slow: thousands of module requests)
 rem Then it waits for the frontend and opens the playback host page (?host=1) in your normal Chrome.
 rem Run this from the server's console desktop (RustDesk/ToDesk), NOT over RDP, so the sound goes to the console session.
@@ -60,6 +61,7 @@ if defined DRY_RUN (
     echo [API  ] in "%API_DIR%": "%API_CMD%"
     echo [Relay] in "%REPO%": npm run stage:relay
     echo [QQ   ] in "%REPO%": npm run stage:qq
+    echo [KuGou] in "%REPO%": npm run stage:kugou
     echo [Web  ] in "%REPO%": "%WEB_CMD%"
     if defined NO_BROWSER (
         echo [Host ] skipped ^(--no-browser^)
@@ -74,9 +76,10 @@ if defined DRY_RUN (
 start "Folia - Netease API (4000)" /D "%API_DIR%" cmd /k "%API_CMD%"
 start "Folia - Stage Relay (4100)" /D "%REPO%" cmd /k "npm run stage:relay"
 start "Folia - QQ Music API (4300)" /D "%REPO%" cmd /k "npm run stage:qq"
+start "Folia - KuGou API (4400)" /D "%REPO%" cmd /k "npm run stage:kugou"
 start "%WEB_TITLE%" /D "%REPO%" cmd /k "%WEB_CMD%"
 
-echo Started 4 windows. The frontend window builds first (a few seconds) before it listens on port 3000.
+echo Started 5 windows. The frontend window builds first (a few seconds) before it listens on port 3000.
 
 if defined NO_BROWSER goto done
 
