@@ -4,6 +4,7 @@ import { loadEnv, type ConfigEnv, type PreviewServer, type UserConfig, type Vite
 import react from '@vitejs/plugin-react';
 import { commandPinyinPlugin } from './dev/pinyin/commandPinyinPlugin.mjs';
 import { normalizeBuildCommit, resolveBuildRepo } from './dev/build/buildIdentity.mjs';
+import { prepareAiRoute } from './dev/ai/aiProxyRouting.mjs';
 import { VitePWA } from 'vite-plugin-pwa';
 import { execSync } from 'child_process';
 import fs from 'fs';
@@ -201,6 +202,13 @@ const aiProxyMiddleware = async (
   aiRequestTimes.push(now);
 
   try {
+    // 境外 AI 服务的网络路径要看当下代理的状态(TUN / 系统代理 / 都没开),每次请求前探测
+    const aiRoute = await prepareAiRoute();
+    if (!aiRoute.reachable && requestUrl.pathname === '/api/generate-theme') {
+      // Gemini 在境外:直连和代理都不通时别让请求干等超时,直接说明原因
+      sendLyricProxyJson(res, 503, { error: `Cannot reach Google (Gemini): ${aiRoute.reason}. Turn on the proxy or TUN and try again.` });
+      return;
+    }
     const body = await readLimitedBody(req);
     const handlerModule = await import(pathToFileURL(path.join(__dirname, 'api', route.file)).href);
     const handler = handlerModule.default as (...args: any[]) => Promise<any>;
