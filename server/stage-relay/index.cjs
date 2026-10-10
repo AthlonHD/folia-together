@@ -29,6 +29,9 @@ const pendingHostRpc = new Map();
 let hostNeteaseCookie = null;
 // Host 页登录的 QQ 音乐会话(`qqmusic_session=<token>`),同样只放内存
 let hostQqCookie = null;
+// 遥控页用占位登录态表示"我用 Host 的账号";只有带这个占位的请求才换成 Host 的真实登录态。
+// 本机播放模式的访问者自己登录了账号,请求带的是自己的登录态,原样放行,不会被顶成 Host 的账号。
+const SHARED_ACCOUNT_MARKER = 'shared-with-stage-host';
 // 登录相关接口原样透传;/logout 会让 Host 账号下线,一律拒绝
 // /login/status 要换成 Host 的 cookie,否则遥控端判定为未登录
 const NETEASE_PASSTHROUGH = /^\/(login(?!\/status)|register|captcha)/;
@@ -59,7 +62,9 @@ const handleNeteaseProxy = async (req, res, requestUrl) => {
   if (!requestUrl.pathname.startsWith('/ncm/')) return false;
 
   const apiPath = requestUrl.pathname.slice('/ncm'.length);
-  if (apiPath.startsWith('/logout')) {
+  const usesSharedAccount = String(requestUrl.searchParams.get('cookie') || '').includes(SHARED_ACCOUNT_MARKER);
+  // 登出只拦共用账号的请求:本机模式的访问者可以退出自己的账号
+  if (apiPath.startsWith('/logout') && usesSharedAccount) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ code: 403, message: 'Logout is disabled on the shared account.' }));
     return true;
@@ -67,7 +72,7 @@ const handleNeteaseProxy = async (req, res, requestUrl) => {
 
   const target = new URL(`http://127.0.0.1:${NETEASE_PORT}${apiPath}`);
   requestUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
-  const injected = Boolean(hostNeteaseCookie) && !NETEASE_PASSTHROUGH.test(apiPath);
+  const injected = usesSharedAccount && Boolean(hostNeteaseCookie) && !NETEASE_PASSTHROUGH.test(apiPath);
   if (injected) {
     target.searchParams.set('cookie', hostNeteaseCookie);
   }
@@ -110,7 +115,10 @@ const handleQqProxy = async (req, res, requestUrl) => {
   if (!requestUrl.pathname.startsWith('/qq/')) return false;
 
   const apiPath = requestUrl.pathname.slice('/qq'.length);
-  if (apiPath.startsWith('/logout')) {
+  const sessionHeader = String(req.headers[QQ_SESSION_HEADER.toLowerCase()] || '');
+  const usesSharedAccount = sessionHeader.includes(SHARED_ACCOUNT_MARKER)
+    || String(requestUrl.searchParams.get('cookie') || '').includes(SHARED_ACCOUNT_MARKER);
+  if (apiPath.startsWith('/logout') && usesSharedAccount) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ code: 403, message: 'Logout is disabled on the shared account.' }));
     return true;
@@ -119,10 +127,10 @@ const handleQqProxy = async (req, res, requestUrl) => {
   const target = new URL(`http://127.0.0.1:${QQ_PORT}${apiPath}`);
   requestUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
   const hostToken = hostQqCookie ? /(?:^|;\s*)qqmusic_session=([^;]+)/.exec(hostQqCookie)?.[1] : null;
-  const injected = Boolean(hostToken) && !QQ_PASSTHROUGH.test(apiPath);
+  const injected = usesSharedAccount && Boolean(hostToken) && !QQ_PASSTHROUGH.test(apiPath);
   const headers = {};
-  if (req.headers[QQ_SESSION_HEADER.toLowerCase()] && !injected) {
-    headers[QQ_SESSION_HEADER] = String(req.headers[QQ_SESSION_HEADER.toLowerCase()]);
+  if (sessionHeader && !injected) {
+    headers[QQ_SESSION_HEADER] = sessionHeader;
   }
   if (injected) {
     target.searchParams.delete('cookie');

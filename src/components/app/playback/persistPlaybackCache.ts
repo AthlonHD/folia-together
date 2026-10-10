@@ -1,5 +1,6 @@
 import { saveToCache } from '../../../services/db';
 import type { SongResult, UnifiedSong } from '../../../types';
+import { isStageRemoteMode } from '../../../services/stageMode';
 import { isStagePlaybackSong, normalizePlaybackSongSource } from '../../../utils/appPlaybackGuards';
 
 // src/components/app/playback/persistPlaybackCache.ts
@@ -14,6 +15,8 @@ const sanitizePlaybackSong = (song: SongResult): SongResult => {
 
 // Persists local playback as a lightweight songId reference while excluding Stage snapshots.
 export const persistPlaybackCache = async (song: SongResult | null, queue: SongResult[]) => {
+    // 遥控模式的当前歌曲与队列是 Host 的镜像,不是本设备的会话:不能覆盖本机模式保存的上次播放
+    if (isStageRemoteMode()) return;
     if (!song || isStagePlaybackSong(song)) {
         return;
     }

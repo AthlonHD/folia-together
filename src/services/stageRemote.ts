@@ -4,23 +4,19 @@
 import type { SongResult, StagePlayerQueueRequest } from '../types';
 import { setStatusMessage as setStatusMsg } from '../stores/useStatusMessageStore';
 import { getPlaybackSongKey, getPlaybackSourceRef, isLocalPlaybackSong } from '../utils/appPlaybackGuards';
-import { readProviderSessionValue, writeProviderSessionValue } from './onlineMusic/providerStorage';
+import { writeProviderSessionValue } from './onlineMusic/providerStorage';
+import { isStageRemoteMode, SHARED_ACCOUNT_MARKER } from './stageMode';
+import { installRemoteStorageShield } from './remoteStorageShield';
 
-// ?host=1 为 Host,?local=1 强制本地播放;配置了 VITE_STAGE_RELAY=1 时其余访问默认遥控,?stageremote=1 手动开启
-export const isStageRemoteMode = (): boolean => {
-    if (typeof window === 'undefined' || !window.location) return false;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('host') === '1' || params.get('local') === '1') return false;
-    return params.get('stageremote') === '1' || import.meta.env.VITE_STAGE_RELAY === '1';
-};
+// 模式判断在 stageMode.ts(存储层也要用);这里转出,现有的 import 不用改
+export { isStageRemoteMode } from './stageMode';
 
-// 遥控端用占位 cookie 让应用按"已登录"运行,真实 cookie 由中继代理时替换为 Host 账号的
-if (isStageRemoteMode() && !readProviderSessionValue('netease', 'cookie', ['netease_cookie'])) {
-    writeProviderSessionValue('netease', 'cookie', 'MUSIC_U=shared-with-stage-host');
-}
-// QQ 音乐同理:占位会话让应用按"已登录"运行,中继转发 /qq/* 时换成 Host 的真实会话
-if (isStageRemoteMode() && !readProviderSessionValue('qq', 'cookie')) {
-    writeProviderSessionValue('qq', 'cookie', 'qqmusic_session=shared-with-stage-host');
+// 遥控端用占位 cookie 让应用按"已登录"运行,中继代理时认出占位,换成 Host 账号的真实登录态。
+// 遥控模式的账号存储与本机模式分开(见 providerStorage),所以这里每次都重写,不会碰本机自己的账号。
+if (isStageRemoteMode()) {
+    writeProviderSessionValue('netease', 'cookie', `MUSIC_U=${SHARED_ACCOUNT_MARKER}`);
+    writeProviderSessionValue('qq', 'cookie', `qqmusic_session=${SHARED_ACCOUNT_MARKER}`);
+    installRemoteStorageShield();
 }
 
 // 服务器播放进度的本地镜像,供每帧时钟循环推算当前位置

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { MediaId, OnlineProviderId, ProviderCollection, ProviderUser } from '../types/onlineMusic';
+import { isStageRemoteMode } from '../services/stageMode';
 
 // src/stores/useOnlineProviderAccountStore.ts
 
@@ -25,10 +26,12 @@ type OnlineProviderAccountStore = {
 };
 
 const ACTIVE_PROVIDER_KEY = 'active_online_provider_id';
+// 遥控模式浏览哪个平台与本机模式各记各的
+const activeProviderKey = () => (isStageRemoteMode() ? `${ACTIVE_PROVIDER_KEY}@remote` : ACTIVE_PROVIDER_KEY);
 
 const getInitialProviderId = (): OnlineProviderId => {
     if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') return 'netease';
-    return localStorage.getItem(ACTIVE_PROVIDER_KEY) || 'netease';
+    return localStorage.getItem(activeProviderKey()) || 'netease';
 };
 
 const emptyAccount = (): OnlineProviderAccountState => ({
@@ -92,7 +95,7 @@ export const useOnlineProviderAccountStore = create<OnlineProviderAccountStore>(
     activeProviderId: getInitialProviderId(),
     setActiveProviderId: providerId => {
         if (typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
-            localStorage.setItem(ACTIVE_PROVIDER_KEY, providerId);
+            localStorage.setItem(activeProviderKey(), providerId);
         }
         set({ activeProviderId: providerId });
     },

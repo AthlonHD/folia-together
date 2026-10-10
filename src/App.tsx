@@ -952,7 +952,8 @@ export default function App() {
         clearPersistedStagePlaybackCache,
         loadLocalSongs,
         loadLocalPlaylists,
-        canRestoreSession: windowPlaybackHandoffRestoreStatus === 'none',
+        // 遥控模式的播放内容来自 Host,不还原本设备上次的会话(那是本机模式的)
+        canRestoreSession: windowPlaybackHandoffRestoreStatus === 'none' && !isStageRemoteMode(),
         shouldAutoPlayRef: shouldAutoPlay,
     });
 

@@ -1,4 +1,4 @@
-import { isStageRemoteMode } from './stageRemote';
+import { isStageRemoteMode } from './stageMode';
 import { readHostLocalLibrary } from './hostLocalLibraryClient';
 import type { LocalLibrarySnapshot, LocalSong } from '../types';
 import type { MigrationResult } from '../utils/lyrics/renderHints';

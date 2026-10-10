@@ -1,4 +1,5 @@
 import { isStageRemoteMode } from '../../../services/stageRemote';
+import { isStageHostMode, isStageRelayAvailable, switchPlayTarget, type PlayTarget } from '../../../services/stageMode';
 import React, { useState } from 'react';
 import { AudioLines, ChevronRight, ListFilter, Monitor, PlayCircle, Radio, RefreshCw, Settings2, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -183,8 +184,45 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
         });
     }
 
+    // Host 页一定在本机出声,没有可选;没有中继的部署也没有"遥控"这个选项
+    const showPlayTargetSwitch = isStageRelayAvailable() && !isStageHostMode();
+
     return (
         <div className="space-y-5">
+            {showPlayTargetSwitch && (
+                <div>
+                    <SettingsSectionHeading icon={Monitor} label={t('options.playTarget')} />
+                    <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                        <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                            {t('options.playTargetDesc')}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {([
+                                { value: 'remote', label: t('options.playTargetRemote'), desc: t('options.playTargetRemoteDesc') },
+                                { value: 'local', label: t('options.playTargetLocal'), desc: t('options.playTargetLocalDesc') },
+                            ] as Array<{ value: PlayTarget; label: string; desc: string }>).map((option) => {
+                                const selected = (isStageRemoteMode() ? 'remote' : 'local') === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => { if (!selected) switchPlayTarget(option.value); }}
+                                        className="rounded-xl border px-3 py-3 text-left transition-colors"
+                                        style={getAccentOptionStyle(selected)}
+                                    >
+                                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                            {option.label}
+                                        </div>
+                                        <div className="mt-1 text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                                            {option.desc}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
             <SettingsAnchor anchorId="queueSettings" label={t('options.queueSettings')}>
                 <SettingsSectionHeading icon={PlayCircle} label={t('options.queueSettings')} />
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
