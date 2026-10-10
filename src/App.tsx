@@ -105,6 +105,7 @@ import { useObsBrowserSourcePublisher } from './hooks/useObsBrowserSourcePublish
 import { useLyricApiPublisher } from './hooks/useLyricApiPublisher';
 import { useSessionRestoreController } from './hooks/useSessionRestoreController';
 import { useHostRenderIdle } from './hooks/useHostRenderIdle';
+import { usePlayerStateReconciler } from './hooks/usePlayerStateReconciler';
 import { useStagePlaybackController } from './hooks/useStagePlaybackController';
 import { useSongThemeAutoGeneration } from './hooks/useSongThemeAutoGeneration';
 import { useThemeController } from './hooks/useThemeController';
@@ -1061,6 +1062,8 @@ export default function App() {
     const stageRemoteMode = useMemo(() => isStageRemoteMode(), []);
     // Host 页失焦时停止渲染画面,把 CPU 留给音频(见 useHostRenderIdle)
     const hostRenderIdle = useHostRenderIdle();
+    // 本机出声时,把界面的播放/暂停状态和真实的 <audio> 对齐(遥控模式没有本地音频)
+    usePlayerStateReconciler(audioRef, !stageRemoteMode);
     // 列表"+"选择"播放队列"时,按歌曲来源分流入队(与 createLibraryPlaybackPort.enqueueTrack 一致)
     const enqueueSongToPlayQueue = useCallback((song: SongResult) => {
         createLibraryPlaybackPort({
