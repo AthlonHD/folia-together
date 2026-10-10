@@ -1,6 +1,6 @@
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { type ConfigEnv, type PreviewServer, type UserConfig, type ViteDevServer } from 'vite';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { loadEnv, type ConfigEnv, type PreviewServer, type UserConfig, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import { commandPinyinPlugin } from './dev/pinyin/commandPinyinPlugin.mjs';
 import { normalizeBuildCommit, resolveBuildRepo } from './dev/build/buildIdentity.mjs';
@@ -139,6 +139,130 @@ function devLyricProxyPlugin() {
   };
 }
 
+// AI 接口(主题生成、歌词分段)。线上部署由 api/ 下的无服务函数提供,自托管的 `vite dev` / `vite preview`
+// 没有它们,这里把同一批函数挂到开发与预览服务器上。函数读的是 process.env,而 Vite 默认不会把 .env.local 里
+// 非 VITE_ 开头的变量放进去,所以在配置里补上(Key 只留在服务器进程里,不会进前端包)。
+const AI_ENV_KEYS = ['GEMINI_API_KEY', 'OPENAI_API_KEY', 'OPENAI_API_URL', 'OPENAI_API_MODEL', 'OPENAI_API_TEMPERATURE'];
+const AI_BODY_LIMIT_BYTES = 256 * 1024;
+// 站点对外开放时没有鉴权,给 AI 接口加个全局限流,免得 Key 被人刷光
+const AI_RATE_LIMIT_PER_MINUTE = 30;
+const aiRequestTimes: number[] = [];
+
+type AiRoute = { style: 'node' | 'edge'; file: string };
+const AI_ROUTES: Record<string, AiRoute> = {
+  '/api/generate-theme': { style: 'node', file: 'generate-theme.js' },
+  '/api/generate-theme_openai': { style: 'edge', file: 'generate-theme_openai.js' },
+  '/api/segment-lyrics': { style: 'edge', file: 'segment-lyrics.js' },
+};
+
+function loadAiEnv(mode: string): void {
+  const env = loadEnv(mode, __dirname, '');
+  for (const key of AI_ENV_KEYS) {
+    if (!process.env[key] && env[key]) process.env[key] = env[key];
+  }
+}
+
+function readLimitedBody(req: import('http').IncomingMessage): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > AI_BODY_LIMIT_BYTES) {
+        reject(new Error('Request body too large'));
+        req.destroy();
+        return;
+      }
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+const aiProxyMiddleware = async (
+  req: import('http').IncomingMessage,
+  res: import('http').ServerResponse,
+  next: () => void,
+) => {
+  const requestUrl = new URL(req.url ?? '/', 'http://localhost');
+  const route = AI_ROUTES[requestUrl.pathname];
+  if (!route || req.method !== 'POST') {
+    next();
+    return;
+  }
+
+  const now = Date.now();
+  while (aiRequestTimes.length > 0 && now - aiRequestTimes[0] > 60_000) aiRequestTimes.shift();
+  if (aiRequestTimes.length >= AI_RATE_LIMIT_PER_MINUTE) {
+    sendLyricProxyJson(res, 429, { error: 'Too many AI requests, try again in a minute.' });
+    return;
+  }
+  aiRequestTimes.push(now);
+
+  try {
+    const body = await readLimitedBody(req);
+    const handlerModule = await import(pathToFileURL(path.join(__dirname, 'api', route.file)).href);
+    const handler = handlerModule.default as (...args: any[]) => Promise<any>;
+
+    if (route.style === 'node') {
+      // Vercel 风格 (req, res):补上 req.body 与 res.status().json()
+      let parsed: unknown = {};
+      try {
+        parsed = body.length > 0 ? JSON.parse(body.toString('utf-8')) : {};
+      } catch {
+        sendLyricProxyJson(res, 400, { error: 'Invalid JSON body' });
+        return;
+      }
+      const shimReq = Object.assign(req, { body: parsed });
+      const shimRes = Object.assign(res, {
+        status(code: number) {
+          res.statusCode = code;
+          return shimRes;
+        },
+        json(payload: unknown) {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify(payload));
+          return shimRes;
+        },
+      });
+      await handler(shimReq, shimRes);
+      return;
+    }
+
+    // Edge 风格 (Request) => Response
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (value) headers.set(key, Array.isArray(value) ? value.join(', ') : value);
+    }
+    const response: Response = await handler(new Request(`http://localhost${requestUrl.pathname}`, {
+      method: 'POST',
+      headers,
+      body: new Uint8Array(body),
+    }));
+    res.statusCode = response.status;
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    res.end(Buffer.from(await response.arrayBuffer()));
+  } catch (error) {
+    console.error('Vite AI proxy request failed:', error instanceof Error ? error.message : error);
+    if (!res.headersSent) sendLyricProxyJson(res, 500, { error: 'AI request failed' });
+  }
+};
+
+function aiProxyPlugin(mode: string) {
+  loadAiEnv(mode);
+  return {
+    name: 'folia-ai-proxy',
+    apply: 'serve' as const,
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use(aiProxyMiddleware);
+    },
+    configurePreviewServer(server: PreviewServer) {
+      server.middlewares.use(aiProxyMiddleware);
+    },
+  };
+}
+
 export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig> {
   let commitHash = '';
   if (process.env.VERCEL_GIT_COMMIT_SHA) {
@@ -257,6 +381,7 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
     },
     plugins: [
       devLyricProxyPlugin(),
+      aiProxyPlugin(_config.mode),
       commandPinyinPlugin(),
       react(),
       VitePWA({

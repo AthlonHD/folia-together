@@ -31,14 +31,16 @@ if not exist "%API_DIR%\app.js" (
 
 rem No spaces before && - they would become part of the variable values.
 set "API_CMD=set ENABLE_GENERAL_UNBLOCK=false&& set PORT=4000&& node app.js"
-set "WEB_CMD=npm run stage:serve"
+rem NODE_USE_ENV_PROXY makes Node's fetch honour HTTP(S)_PROXY, so the AI theme endpoints (Gemini) can reach Google
+rem from machines that need a local proxy. Harmless without a proxy configured.
+set "WEB_CMD=set NODE_USE_ENV_PROXY=1&& npm run stage:serve"
 set "WEB_TITLE=Folia - Frontend build (3000)"
 set "DRY_RUN="
 set "NO_BROWSER="
 rem Flags can be combined and given in any order.
 for %%A in (%*) do (
     if /i "%%~A"=="--dev" (
-        set "WEB_CMD=npm run dev"
+        set "WEB_CMD=set NODE_USE_ENV_PROXY=1&& npm run dev"
         set "WEB_TITLE=Folia - Frontend dev (3000)"
     )
     if /i "%%~A"=="--dry-run" set "DRY_RUN=1"
@@ -60,7 +62,7 @@ if defined DRY_RUN (
     echo [API  ] in "%API_DIR%": "%API_CMD%"
     echo [Relay] in "%REPO%": npm run stage:relay
     echo [QQ   ] in "%REPO%": npm run stage:qq
-    echo [Web  ] in "%REPO%": %WEB_CMD%
+    echo [Web  ] in "%REPO%": "%WEB_CMD%"
     if defined NO_BROWSER (
         echo [Host ] skipped ^(--no-browser^)
     ) else if defined CHROME (
