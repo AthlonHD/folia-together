@@ -1135,6 +1135,7 @@ export default {
     "qqLoginMethodWechat": "WeChat scan",
     "switchOnlineProvider": "Switch online music provider",
     "confirmOnlineProviderSwitch": "Switch to {{provider}}? Current online playback and queue will be cleared.",
+    "confirmOnlineProviderSwitchRemote": "Switch to {{provider}}? This only changes the platform you browse here; what the server is playing and its queue stay as they are.",
     "onlineProvider": "Online music provider",
     "providerNotLoggedIn": "Not signed in · click to scan",
     "providerNotConfigured": "API is not configured for Web",

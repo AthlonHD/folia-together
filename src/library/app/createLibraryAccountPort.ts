@@ -5,6 +5,7 @@ import type { LibraryProviderSwitchCleanupPort } from '../core/contracts/account
 import { usePlaybackStore } from '../../stores/usePlaybackStore';
 import { useSearchNavigationStore } from '../../stores/useSearchNavigationStore';
 import { useCollectionNavigationStore } from '../../stores/useCollectionNavigationStore';
+import { isStageRemoteMode } from '../../services/stageRemote';
 import { clearPrefetchRuntime } from '../../services/prefetchService';
 import { clearTrackProfileRuntime } from '../../services/automix/profileService';
 
@@ -26,6 +27,13 @@ export const createLibraryAccountSwitchCleanupPort = (
 ): LibraryProviderSwitchCleanupPort => ({
     resetForProviderSwitch: (nextProviderId: OnlineProviderId) => {
         const { audioRef, automixRef, setLyrics } = getHost();
+        // 遥控模式本页不出声,播放与队列是服务器 Host 的镜像:只重置浏览状态。
+        // 清掉镜像的话,Host 那边没变化,轮询不会再把当前歌曲和队列补回来。
+        if (isStageRemoteMode()) {
+            useSearchNavigationStore.getState().resetRuntime(nextProviderId);
+            useCollectionNavigationStore.getState().clear();
+            return;
+        }
         const playback = usePlaybackStore.getState();
         // Stops any deck still fading out in the background: this path clears the active deck
         // only, and a tail left running would have no control pointing at it any more.

@@ -63,9 +63,16 @@ export const resolveActiveProviderSummary = (
 // ─── 切换确认 ───────────────────────────────────────────────────────────
 
 /** 切换确认框的文案（原 App.tsx 的 providerSwitchConfirmDialog）；平台名由调用方经账户端口的 getProviderLabel 取。 */
-export const resolveProviderSwitchCopy = (providerLabel: string): { title: LibraryHomeMessage; description: LibraryHomeMessage } => ({
+export const resolveProviderSwitchCopy = (
+    providerLabel: string,
+    isRemoteControl = false,
+): { title: LibraryHomeMessage; description: LibraryHomeMessage } => ({
     title: { key: 'home.switchOnlineProvider' },
-    description: { key: 'home.confirmOnlineProviderSwitch', values: { provider: providerLabel } },
+    // 遥控模式只切本页浏览的平台,不会动服务器 Host 正在播放的内容和队列
+    description: {
+        key: isRemoteControl ? 'home.confirmOnlineProviderSwitchRemote' : 'home.confirmOnlineProviderSwitch',
+        values: { provider: providerLabel },
+    },
 });
 
 // ─── 登出 ───────────────────────────────────────────────────────────────

@@ -1134,6 +1134,7 @@ export default {
     "qqLoginMethodWechat": "微信扫码",
     "switchOnlineProvider": "切换在线音乐平台",
     "confirmOnlineProviderSwitch": "切换到 {{provider}}？当前在线播放与队列将被清空。",
+    "confirmOnlineProviderSwitchRemote": "切换到 {{provider}}？只影响本页浏览的平台，服务器正在播放的歌曲和队列不会变。",
     "onlineProvider": "在线音乐平台",
     "providerNotLoggedIn": "未登录·点击扫码",
     "providerNotConfigured": "Web 端未配置 API",

@@ -212,7 +212,7 @@ export const translateProviderSwitch = (
     request: LibraryProviderSwitchRequest,
     providers: readonly ProviderAccountSummary[],
 ): LibraryProviderSwitchView => {
-    const copy = resolveProviderSwitchCopy(providerLabelOf(providers, request.to));
+    const copy = resolveProviderSwitchCopy(providerLabelOf(providers, request.to), isStageRemoteMode());
     return {
         request,
         title: translateHomeMessage(t, copy.title),

@@ -1130,6 +1130,7 @@ export default {
     "qqLoginMethodWechat": "Pindai WeChat",
     "switchOnlineProvider": "Ganti penyedia musik online",
     "confirmOnlineProviderSwitch": "Ganti ke {{provider}}? Pemutaran online dan antrean saat ini akan dihapus.",
+    "confirmOnlineProviderSwitchRemote": "Ganti ke {{provider}}? Ini hanya mengubah platform yang Anda jelajahi di sini; pemutaran dan antrean di server tidak berubah.",
     "onlineProvider": "Penyedia musik online",
     "providerNotLoggedIn": "Belum login · klik untuk pindai",
     "providerNotConfigured": "API tidak dikonfigurasi untuk Web",
