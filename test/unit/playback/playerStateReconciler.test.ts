@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createPlayerStateReconciler, type AudioSample } from '@/utils/playerStateReconciler';
+import {
+    AUTOPLAY_WATCHDOG_AFTER_MS,
+    createAutoplayWatchdog,
+    createPlayerStateReconciler,
+    type AudioSample,
+} from '@/utils/playerStateReconciler';
 import { PlayerState } from '@/types';
 
 // 界面状态和真实 <audio> 脱节时的最后一道校正。
@@ -66,5 +71,56 @@ describe('player state reconciler', () => {
             [playing(3), 'a', PlayerState.PAUSED],
         ]);
         expect(results.every(result => result === false)).toBe(true);
+    });
+});
+
+describe('autoplay watchdog', () => {
+    const readyButIdle = { paused: true, ended: false, readyState: 4, currentTime: 0, error: null };
+    const input = (now: number, overrides: Record<string, unknown> = {}) => ({
+        audio: readyButIdle,
+        srcMatches: true,
+        intentPending: true,
+        source: 'song-b',
+        now,
+        ...overrides,
+    });
+
+    it('starts playback when the autoplay intent stays unspent while the audio is ready', () => {
+        const watchdog = createAutoplayWatchdog();
+        expect(watchdog.sample(input(0))).toBe(false);
+        expect(watchdog.sample(input(AUTOPLAY_WATCHDOG_AFTER_MS - 1))).toBe(false);
+        expect(watchdog.sample(input(AUTOPLAY_WATCHDOG_AFTER_MS))).toBe(true);
+        // 触发一次后重新计时,不会每个周期都去 play()
+        expect(watchdog.sample(input(AUTOPLAY_WATCHDOG_AFTER_MS + 500))).toBe(false);
+    });
+
+    it('does nothing without a pending intent (a deliberate pause) or while held back', () => {
+        const watchdog = createAutoplayWatchdog();
+        for (const now of [0, 2000, 4000, 8000]) {
+            expect(watchdog.sample(input(now, { intentPending: false }))).toBe(false);
+        }
+    });
+
+    it('waits for the audio to be ready, error-free and on the expected source', () => {
+        const watchdog = createAutoplayWatchdog();
+        const cases = [
+            { audio: { ...readyButIdle, readyState: 1 } },
+            { audio: { ...readyButIdle, error: new Error('bad') } },
+            { audio: { ...readyButIdle, paused: false } },
+            { srcMatches: false },
+            { audio: null },
+        ];
+        for (const overrides of cases) {
+            expect(watchdog.sample(input(0, overrides))).toBe(false);
+            expect(watchdog.sample(input(AUTOPLAY_WATCHDOG_AFTER_MS * 2, overrides))).toBe(false);
+        }
+    });
+
+    it('restarts the timer when the source changes', () => {
+        const watchdog = createAutoplayWatchdog();
+        watchdog.sample(input(0, { source: 'song-a' }));
+        expect(watchdog.sample(input(AUTOPLAY_WATCHDOG_AFTER_MS - 500, { source: 'song-b' }))).toBe(false);
+        expect(watchdog.sample(input(AUTOPLAY_WATCHDOG_AFTER_MS + 100, { source: 'song-b' }))).toBe(false);
+        expect(watchdog.sample(input(AUTOPLAY_WATCHDOG_AFTER_MS * 2 - 500, { source: 'song-b' }))).toBe(true);
     });
 });

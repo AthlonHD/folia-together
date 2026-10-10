@@ -45,3 +45,51 @@ export const createPlayerStateReconciler = () => {
 
     return { sample };
 };
+
+// ── 自动播放兜底 ─────────────────────────────────────────────────────────────
+// 点"下一首"后,新歌的自动播放意图(shouldAutoPlay)要等歌词加载完、各种前置条件都满足才会兑现。
+// 歌词请求慢或卡住、某个条件的重渲染没有到来时,新歌的音频早就缓冲好了,却一直没人按下播放:
+// 进度不动,按钮停在"暂停",手动点一下才开始。
+// 这里盯住这种局面:意图一直挂着、没被谁拦着(没有暂停抑制、没有自动混音的等待),而播放元素已经能播了,
+// 持续一小会儿还没播,就主动开始播放(歌词之后到了照常对上时间)。
+
+export const AUTOPLAY_WATCHDOG_AFTER_MS = 3000;
+
+export type AutoplayWatchdogInput = {
+    audio: (AudioSample & { error: unknown }) | null;
+    /** 播放元素上的 src 就是当前要播的这个源(不是自动混音换牌过程中的另一张牌)。 */
+    srcMatches: boolean;
+    /** 播放意图还挂着,并且没有被"暂停抑制"或自动混音的等待拦着。 */
+    intentPending: boolean;
+    source: unknown;
+    now: number;
+};
+
+export const createAutoplayWatchdog = () => {
+    let since: number | null = null;
+    let lastSource: unknown = null;
+
+    /** 每个采样周期调用一次;返回 true 表示应主动 play()。 */
+    const sample = ({ audio, srcMatches, intentPending, source, now }: AutoplayWatchdogInput): boolean => {
+        const stuck = Boolean(
+            intentPending
+            && audio
+            && srcMatches
+            && !audio.error
+            && audio.paused
+            && !audio.ended
+            && audio.readyState >= 3,
+        );
+        if (!stuck || source !== lastSource) {
+            lastSource = source;
+            since = stuck ? now : null;
+            return false;
+        }
+        since ??= now;
+        if (now - since < AUTOPLAY_WATCHDOG_AFTER_MS) return false;
+        since = null;
+        return true;
+    };
+
+    return { sample };
+};

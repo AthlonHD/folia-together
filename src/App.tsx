@@ -1062,8 +1062,6 @@ export default function App() {
     const stageRemoteMode = useMemo(() => isStageRemoteMode(), []);
     // Host 页失焦时停止渲染画面,把 CPU 留给音频(见 useHostRenderIdle)
     const hostRenderIdle = useHostRenderIdle();
-    // 本机出声时,把界面的播放/暂停状态和真实的 <audio> 对齐(遥控模式没有本地音频)
-    usePlayerStateReconciler(audioRef, !stageRemoteMode);
     // 列表"+"选择"播放队列"时,按歌曲来源分流入队(与 createLibraryPlaybackPort.enqueueTrack 一致)
     const enqueueSongToPlayQueue = useCallback((song: SongResult) => {
         createLibraryPlaybackPort({
@@ -1155,6 +1153,13 @@ export default function App() {
         },
         onDeckPlayedOut: (song, src) => cachePlayedOutRef.current(song, src),
         getLocalStemBytes,
+    });
+
+    // 本机出声时,把界面的播放/暂停状态和真实的 <audio> 对齐,并兜住"该自动播放却没播"(遥控模式没有本地音频)
+    usePlayerStateReconciler(audioRef, !stageRemoteMode, {
+        shouldAutoPlayRef: shouldAutoPlay,
+        suppressAutoplayRef: automix.suppressAutoplayRef,
+        isAutoplayHeld: automix.autoplayHeld,
     });
 
     automixRef.current = automix;
