@@ -5,7 +5,8 @@ import { X, Keyboard, Loader2, Check, AlertCircle, ChevronLeft, Download, Extern
 import { useTranslation } from 'react-i18next';
 import { getCacheUsageByCategory, clearCacheByCategory, clearAllData } from '../../services/db';
 import { DualTheme, StageStatus, StageSource, Theme, ThemeMode, type CadenzaTuning, type CappellaEmojiImage, type CappellaTuning, type FumeTuning, type NowPlayingConnectionStatus, type PartitaTuning, type ReplayGainMode, type TiltTuning, type StoredCustomLyricsFont, type VisualizerMode } from '../../types';
-import { getNavidromeConfig, saveNavidromeConfig, clearNavidromeConfig, hashPassword, navidromeApi, isNavidromeEnabled, setNavidromeEnabled, getCachedNavidromeServerProfile, refreshNavidromeServerProfile } from '../../services/navidromeService';
+import { getNavidromeConfig, saveNavidromeConfig, clearNavidromeConfig, hashPassword, navidromeApi, isNavidromeEnabled, setNavidromeEnabled, getCachedNavidromeServerProfile, refreshNavidromeServerProfile, getNavidromeConfigOrigin, dismissNavidromeServerPreset } from '../../services/navidromeService';
+import { fetchNavidromeServerPreset, markNavidromeConfigAsPresetIfMatching, restoreNavidromeServerPreset } from '../../services/navidromeServerPreset';
 import { NavidromeConfig, NavidromeServerProfile } from '../../types/navidrome';
 import VisPlayground from '../visualizer/VisPlayground';
 import { VISUALIZER_REGISTRY, getVisualizerModeLabel } from '../visualizer/registry';
@@ -774,6 +775,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     const [navidromeTestStatus, setNavidromeTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
     const [navidromeConfigured, setNavidromeConfigured] = useState(false);
     const [navidromeServerProfile, setNavidromeServerProfile] = useState<NavidromeServerProfile | null>(null);
+    // Docker 部署预置了凭据时，手动配置可以随时切回预置。
+    const [navidromePresetAvailable, setNavidromePresetAvailable] = useState(false);
+    const [navidromeUsesPreset, setNavidromeUsesPreset] = useState(false);
+    const [navidromeRestoreFailed, setNavidromeRestoreFailed] = useState(false);
+    const [navidromeRestoring, setNavidromeRestoring] = useState(false);
 
     // Load Navidrome config on mount
     useEffect(() => {
@@ -783,8 +789,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             setNavidromeUsername(config.username);
             setNavidromeConfigured(true);
             setNavidromeServerProfile(getCachedNavidromeServerProfile());
+            setNavidromeUsesPreset(getNavidromeConfigOrigin() === 'server');
         }
+
+        let cancelled = false;
+        void fetchNavidromeServerPreset().then((preset) => {
+            if (!cancelled) setNavidromePresetAvailable(Boolean(preset));
+        });
+        return () => {
+            cancelled = true;
+        };
     }, []);
+
+    const refreshServerProfile = (config: NavidromeConfig) => {
+        void refreshNavidromeServerProfile(config)
+            .then(setNavidromeServerProfile)
+            .catch((error) => {
+                console.warn('[Settings] Failed to refresh Navidrome server profile:', error);
+                setNavidromeServerProfile(null);
+            });
+    };
 
     // Test Navidrome connection
     const testNavidromeConnection = async () => {
@@ -802,15 +826,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
         const success = await navidromeApi.ping(config);
         if (success) {
+            // 先按手动配置立刻存下，不让预置请求挡住保存；填的正好是预置的话，预置返回后再改标。
             saveNavidromeConfig(config);
             setNavidromeConfigured(true);
+            setNavidromeUsesPreset(false);
             setNavidromeTestStatus('success');
-            void refreshNavidromeServerProfile(config)
-                .then(setNavidromeServerProfile)
-                .catch((error) => {
-                    console.warn('[Settings] Failed to refresh Navidrome server profile:', error);
-                    setNavidromeServerProfile(null);
-                });
+            refreshServerProfile(config);
+            void markNavidromeConfigAsPresetIfMatching(config).then((marked) => {
+                if (marked) setNavidromeUsesPreset(true);
+            });
         } else {
             setNavidromeTestStatus('failed');
         }
@@ -828,12 +852,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     // Clear Navidrome config
     const handleClearNavidrome = () => {
         clearNavidromeConfig();
+        dismissNavidromeServerPreset();
         setNavidromeUrl('');
         setNavidromeUsername('');
         setNavidromePassword('');
         setNavidromeConfigured(false);
+        setNavidromeUsesPreset(false);
         setNavidromeServerProfile(null);
         setNavidromeTestStatus('idle');
+    };
+
+    // Drop the manual config and go back to the Docker preset
+    const handleRestoreNavidromePreset = async () => {
+        if (navidromeRestoring) return;
+        setNavidromeRestoreFailed(false);
+        setNavidromeRestoring(true);
+        const config = await restoreNavidromeServerPreset().finally(() => setNavidromeRestoring(false));
+        if (!config) {
+            setNavidromeRestoreFailed(true);
+            return;
+        }
+        setNavidromeUrl(config.serverUrl);
+        setNavidromeUsername(config.username);
+        setNavidromePassword('');
+        setNavidromeConfigured(true);
+        setNavidromeUsesPreset(true);
+        setNavidromeTestStatus('idle');
+        setNavidromeServerProfile(getCachedNavidromeServerProfile());
+        refreshServerProfile(config);
     };
 
     const formatBytes = (bytes: number) => {
@@ -1754,7 +1800,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                                     navidromeTestStatus,
                                                     navidromeUrl,
                                                     navidromeUsername,
+                                                    navidromeCanRestorePreset: navidromePresetAvailable && !navidromeUsesPreset,
+                                                    navidromeRestoreFailed,
+                                                    navidromeRestoring,
+                                                    navidromeUsesPreset,
                                                     onClearNavidrome: handleClearNavidrome,
+                                                    onRestoreNavidromePreset: handleRestoreNavidromePreset,
                                                     onToggleNavidrome: handleToggleNavidromeEnabled,
                                                     setNavidromePassword,
                                                     setNavidromeUrl,

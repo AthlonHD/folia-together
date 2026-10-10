@@ -17,6 +17,8 @@ declare global {
   interface Window {
     __FOLIA_RUNTIME_CONFIG__?: {
       aiProvider?: 'gemini' | 'openai';
+      /** Docker gateway 注入 'docker'；其他部署不带这个字段。 */
+      deployment?: 'docker';
     };
   }
 

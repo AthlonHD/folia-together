@@ -828,6 +828,29 @@ describe('qqProvider', () => {
         expect(requestMock.mock.calls.map(call => call[0])).toEqual(['song_list_detail']);
     });
 
+    // 3.1.4 起，后端带会话时用凭据重读匿名 CGI 回 `code: 10` 的官方算法歌单，改写成同样的 `cdlist[0]`；
+    // `/user/playlist` 的收藏条目也补上了 `bigpicUrl`（官方歌单是第一首歌的专辑图）。
+    it('reads an official algorithmic playlist through the credential-backed song_list_detail', async () => {
+        const cover = 'https://y.gtimg.cn/music/photo_new/T002R300x300M0000016l2F430zMux.jpg?max_age=2592000';
+        requestMock.mockResolvedValue({
+            response: {
+                code: 0, subcode: 0, cdnum: 1, realcdnum: 1,
+                cdlist: [{ disstid: '211111', dissname: '百万收藏', logo: cover, songnum: 50, total_song_num: 50, songlist: [SEARCH_ITEM] }],
+            },
+        });
+        const official = normalizeQqCollection({
+            tid: 211111, dirId: 0, name: '百万收藏', songnum: 50, dirShow: 1, dirType: 3, logo: '', bigpicUrl: cover, picUrl: cover,
+        });
+
+        expect(official.coverUrl).toBeTruthy();
+        expect(official.providerData).not.toHaveProperty('owned');
+        await expect(qqProvider.catalog!.getPlaylistTracks!(211111, 50, 0, official)).resolves.toMatchObject({
+            items: [expect.objectContaining({ qqMid: '003rJSwm3TechU' })],
+            total: 50,
+        });
+        expect(requestMock.mock.calls.map(call => call[0])).toEqual(['song_list_detail']);
+    });
+
     it('remembers that a playlist is owned when the cached collection is normalized again', () => {
         const owned = normalizeQqCollection({ tid: 7, dirId: 2, dirName: '新建歌单', songNum: 3 });
         expect(normalizeQqCollection(owned).providerData).toMatchObject({ tid: 7, dirId: 2, owned: true });

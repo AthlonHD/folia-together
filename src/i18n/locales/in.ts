@@ -3091,6 +3091,9 @@ export default {
     "notAvailable": "Tidak tersedia",
     "musicFolders": "Perpustakaan",
     "serverProfileUnavailable": "Server tidak dikenal",
+    "usingServerPreset": "Menggunakan akun preset server",
+    "restoreServerPreset": "Gunakan preset server",
+    "restoreServerPresetFailed": "Tidak dapat mengambil preset server. Coba lagi nanti.",
     "cloudDrive": "Cloud Drive",
     "cloudDriveDesc": "NetEase Cloud Music Drive"
   },
