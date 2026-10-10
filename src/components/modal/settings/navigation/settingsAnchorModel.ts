@@ -30,6 +30,8 @@ export const SETTINGS_ANCHOR_DEFINITIONS = {
     ponderHints: { section: 'general', labelKey: 'options.ponderHints' },
 
     // PlaybackSettingsSubview (TransitionSettingsSection renders inside it)
+    // Rendered only when a Stage relay is configured and this is not the host page (see PlaybackSettingsSubview).
+    playTarget: { section: 'playback', labelKey: 'options.playTarget', requiresStageRelay: true },
     queueSettings: { section: 'playback', labelKey: 'options.queueSettings' },
     scrobbleSettings: { section: 'playback', labelKey: 'options.scrobbleSettings' },
     transitionSettings: { section: 'playback', labelKey: 'options.transitionSettings' },
@@ -73,7 +75,7 @@ export const SETTINGS_ANCHOR_DEFINITIONS = {
     // LabSettingsModal
     labPlayerUi: { section: 'lab', labelKey: 'options.labPlayerUiSection' },
     labWindowAndTools: { section: 'lab', labelKey: 'options.labWindowAndToolsSection' },
-} as const satisfies Record<string, { section: SettingsSubviewId; labelKey: string; electronOnly?: boolean; requiresLibrarySuiteChoice?: boolean }>;
+} as const satisfies Record<string, { section: SettingsSubviewId; labelKey: string; electronOnly?: boolean; requiresLibrarySuiteChoice?: boolean; requiresStageRelay?: boolean }>;
 
 export type SettingsAnchorId = keyof typeof SETTINGS_ANCHOR_DEFINITIONS;
 

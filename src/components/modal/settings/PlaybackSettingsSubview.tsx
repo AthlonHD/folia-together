@@ -190,7 +190,7 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
     return (
         <div className="space-y-5">
             {showPlayTargetSwitch && (
-                <div>
+                <SettingsAnchor anchorId="playTarget" label={t('options.playTarget')}>
                     <SettingsSectionHeading icon={Monitor} label={t('options.playTarget')} />
                     <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
                         <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
@@ -221,7 +221,7 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                             })}
                         </div>
                     </div>
-                </div>
+                </SettingsAnchor>
             )}
             <SettingsAnchor anchorId="queueSettings" label={t('options.queueSettings')}>
                 <SettingsSectionHeading icon={PlayCircle} label={t('options.queueSettings')} />

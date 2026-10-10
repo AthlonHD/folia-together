@@ -50,7 +50,7 @@ describe('settingsNavModel', () => {
     });
 
     it('expands every declared anchor under its owning section', () => {
-        const items = flattenSettingsNavItems(buildSettingsNavGroups(echo, { isElectron: true, hasLibrarySuiteChoice: true }));
+        const items = flattenSettingsNavItems(buildSettingsNavGroups(echo, { isElectron: true, hasLibrarySuiteChoice: true, hasStageRelay: true }));
         const rendered = items.flatMap(item => item.anchors.map(anchor => [anchor.id, item.id]));
         const declared = Object.entries(SETTINGS_ANCHOR_DEFINITIONS).map(([id, definition]) => [id, definition.section]);
 
@@ -66,6 +66,17 @@ describe('settingsNavModel', () => {
         expect(anchorsOf(true)).toContain('librarySuite');
         expect(anchorsOf(false)).not.toContain('librarySuite');
         expect(anchorsOf(false)).toContain('playbackEntryView');
+    });
+
+    it('lists the play target anchor first in playback only when a stage relay is usable', () => {
+        const anchorsOf = (hasStageRelay: boolean) => findSettingsNavItem(
+            buildSettingsNavGroups(echo, { isElectron: false, hasStageRelay }),
+            'playback',
+        )?.anchors.map(anchor => anchor.id);
+
+        expect(anchorsOf(true)?.[0]).toBe('playTarget');
+        expect(anchorsOf(false)).not.toContain('playTarget');
+        expect(anchorsOf(false)).toContain('queueSettings');
     });
 
     it.each([['en', en], ['zh-CN', zhCN], ['in', id]] as const)('has every label and description key in %s', (_name, bundle) => {
