@@ -2217,10 +2217,6 @@ export default function App() {
             ? applyLocalLibraryEntityDisplay(track, localLibraryCatalog, playerDisplayCatalogIndex)
             : track
     ), [localLibraryCatalog, playerDisplayCatalogIndex]);
-    const onlinePlaylists = useMemo(() => {
-        return playerDisplayCurrentSong ? omni.getPlaylistsForSong(playerDisplayCurrentSong) : [];
-    }, [onlineProviders, playerDisplayCurrentSong]);
-
     const playerPanelModel = usePlayerPanelModel({
         navigateToHome,
         navigateToLattice,
@@ -2816,7 +2812,6 @@ export default function App() {
                 isDaylight={isDaylight}
                 onAddSongToPlayQueue={enqueueSongToPlayQueue}
                 localPlaylists={localPlaylists}
-                onlinePlaylists={onlinePlaylists}
                 onAddCurrentSongToLocalPlaylist={addCurrentSongToLocalPlaylist}
                 onCreateCurrentLocalPlaylist={createCurrentLocalPlaylist}
                 onAddCurrentSongToOnlinePlaylist={addCurrentSongToOnlinePlaylist}

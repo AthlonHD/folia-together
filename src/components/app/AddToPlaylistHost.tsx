@@ -9,6 +9,7 @@ import { getPlaybackSourceRef } from '../../utils/appPlaybackGuards';
 import { omni } from '../../services/onlineMusic/omni';
 import { selectDisplaySong, usePlaybackStore } from '../../stores/usePlaybackStore';
 import { useAddToPlaylistStore } from '../../stores/useAddToPlaylistStore';
+import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
 
 // src/components/app/AddToPlaylistHost.tsx
 // The playlist picker for the current song, and the "new playlist" prompt behind it.
@@ -25,7 +26,6 @@ type AddToPlaylistHostProps = {
     /** 列表"+"选中的歌曲加入播放队列(选择框里的"播放队列"项)。 */
     onAddSongToPlayQueue: (song: SongResult) => void;
     localPlaylists: LocalPlaylist[];
-    onlinePlaylists: ProviderCollection[];
     onAddCurrentSongToLocalPlaylist: (playlistId: string) => Promise<void>;
     onCreateCurrentLocalPlaylist: (name: string) => Promise<void>;
     onAddCurrentSongToOnlinePlaylist: (playlist: ProviderCollection) => Promise<void>;
@@ -42,7 +42,6 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
     isDaylight,
     onAddSongToPlayQueue,
     localPlaylists,
-    onlinePlaylists,
     onAddCurrentSongToLocalPlaylist,
     onCreateCurrentLocalPlaylist,
     onAddCurrentSongToOnlinePlaylist,
@@ -71,6 +70,14 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
     const onlineProviderLabel = playbackSourceRef?.kind === 'online'
         ? omni.getProviderLabel(playbackSourceRef.providerId)
         : '';
+    // 歌单要跟着"这首歌"所属的平台走(QQ 的歌列 QQ 的歌单,网易云的歌列网易云的歌单),
+    // 不是跟着当前播放的歌;账户缓存变了(登录、歌单刷新)要重算
+    const providerAccounts = useOnlineProviderAccountStore(state => state.accounts);
+    const onlinePlaylists = useMemo<ProviderCollection[]>(
+        () => (currentSong && isOnline ? omni.getPlaylistsForSong(currentSong) : []),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [currentSong, isOnline, providerAccounts],
+    );
     const canAddOnlineSong = Boolean(currentSong && isOnline && omni.canAddSongToPlaylist(currentSong));
 
     const refreshNavidromePlaylists = useCallback(async () => {
@@ -156,7 +163,9 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
                 onClose={close}
                 isDaylight={isDaylight}
                 title={t('localMusic.addToPlaylist')}
-                description={t('home.playlists') || 'Playlists'}
+                description={isOnline && !canAddOnlineSong
+                    ? t('status.providerPlaylistMutationUnavailable', { provider: onlineProviderLabel })
+                    : (isOnline && onlineProviderLabel ? `${onlineProviderLabel} · ${t('home.playlists') || 'Playlists'}` : (t('home.playlists') || 'Playlists'))}
                 playlists={hasQueueEntry
                     ? [{ id: PLAY_QUEUE_ENTRY_ID, name: t('queue.title') }, ...availablePlaylists]
                     : availablePlaylists}
