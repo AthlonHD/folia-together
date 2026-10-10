@@ -42,6 +42,7 @@
     "manual:lattice-cover-memory": "node test/manual/lattice-cover-memory.mjs",
     "stage:client": "vite --open /stage-client.html",
     "stage:relay": "node server/stage-relay/index.cjs",
+    "stage:qq": "node scripts/start-qq-api.cjs",
     "stage:serve": "vite build && vite preview --port 3000 --strictPort --host 0.0.0.0",
     "stage:start": "scripts\\start-stage.cmd",
     "stage:stop": "scripts\\stop-stage.cmd",

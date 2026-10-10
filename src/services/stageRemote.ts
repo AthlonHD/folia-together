@@ -18,6 +18,10 @@ export const isStageRemoteMode = (): boolean => {
 if (isStageRemoteMode() && !readProviderSessionValue('netease', 'cookie', ['netease_cookie'])) {
     writeProviderSessionValue('netease', 'cookie', 'MUSIC_U=shared-with-stage-host');
 }
+// QQ 音乐同理:占位会话让应用按"已登录"运行,中继转发 /qq/* 时换成 Host 的真实会话
+if (isStageRemoteMode() && !readProviderSessionValue('qq', 'cookie')) {
+    writeProviderSessionValue('qq', 'cookie', 'qqmusic_session=shared-with-stage-host');
+}
 
 // 服务器播放进度的本地镜像,供每帧时钟循环推算当前位置
 export const remoteClock = { positionMs: 0, receivedAt: 0, playing: false, durationMs: 0 };

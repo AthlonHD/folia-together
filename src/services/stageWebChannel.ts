@@ -62,9 +62,13 @@ const createStageWebChannel = (): StageBridge => {
         };
     };
 
-    // 把 Host 登录的网易云 cookie 交给中继,由中继在代理请求时替换给所有访问者
+    // 把 Host 登录的网易云 cookie 和 QQ 音乐会话交给中继,由中继在代理请求时替换给所有访问者
     const syncAccount = () => {
-        send({ type: 'account', cookie: readProviderSessionValue('netease', 'cookie', ['netease_cookie']) });
+        send({
+            type: 'account',
+            cookie: readProviderSessionValue('netease', 'cookie', ['netease_cookie']),
+            qqCookie: readProviderSessionValue('qq', 'cookie'),
+        });
     };
 
     // 中继向 Host 要数据(本地曲库、封面、歌词):按 method 找处理函数,把结果或错误回给中继

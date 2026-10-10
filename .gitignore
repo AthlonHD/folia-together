@@ -55,6 +55,7 @@ scripts/*
 # 一键启动/关闭脚本要纳入版本管理(见 scripts/start-stage.cmd)
 !scripts/start-stage.cmd
 !scripts/stop-stage.cmd
+!scripts/start-qq-api.cjs
 docs/TODO.md
 design/
 plan/

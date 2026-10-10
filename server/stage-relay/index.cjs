@@ -11,6 +11,7 @@ const { createStageApi } = require('../../electron/stageApi.cjs');
 const PORT = Number(process.env.STAGE_PORT) || 4100;
 const LISTEN_HOST = process.env.LISTEN_HOST || '0.0.0.0';
 const NETEASE_PORT = Number(process.env.NETEASE_PORT) || 4000;
+const QQ_PORT = Number(process.env.QQ_PORT) || 4300;
 const HOST_WS_PATH = '/stage/host/ws';
 // 只放行点歌/遥控所需路由,歌词注入、媒体上传、清状态等写入类路由一律 404
 const ALLOWED_ROUTES = [/^\/stage\/health$/, /^\/stage\/player\//];
@@ -26,6 +27,8 @@ let hostSocket = null;
 const pendingHostRpc = new Map();
 // Host 页登录的网易云 cookie,只保存在内存里,不下发给任何浏览器
 let hostNeteaseCookie = null;
+// Host 页登录的 QQ 音乐会话(`qqmusic_session=<token>`),同样只放内存
+let hostQqCookie = null;
 // 登录相关接口原样透传;/logout 会让 Host 账号下线,一律拒绝
 // /login/status 要换成 Host 的 cookie,否则遥控端判定为未登录
 const NETEASE_PASSTHROUGH = /^\/(login(?!\/status)|register|captcha)/;
@@ -81,6 +84,64 @@ const handleNeteaseProxy = async (req, res, requestUrl) => {
     const contentType = upstream.headers.get('content-type') || 'application/json';
     let body = Buffer.from(await upstream.arrayBuffer());
     // 响应里的 cookie 字段就是 Host 的真实 cookie,不能下发给浏览器
+    if (injected && contentType.includes('json')) {
+      try {
+        const json = JSON.parse(body.toString('utf-8'));
+        if (json && typeof json === 'object' && 'cookie' in json) {
+          delete json.cookie;
+          body = Buffer.from(JSON.stringify(json));
+        }
+      } catch { /* 非 JSON 原样返回 */ }
+    }
+    res.writeHead(upstream.status, { 'Content-Type': contentType, 'Access-Control-Allow-Origin': '*' });
+    res.end(body);
+  } catch (error) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ code: 502, message: String(error) }));
+  }
+  return true;
+};
+
+// /qq/* 反向代理到本机 QQ 音乐 API:非登录接口一律换成 Host 账号的会话,让所有访问者共用 Host 账号。
+// 登录接口(扫码)原样透传,否则 Host 自己扫码时二维码会话会被打断。
+const QQ_PASSTHROUGH = /^\/login\/(?!status)/;
+const QQ_SESSION_HEADER = 'X-QQ-Session';
+const handleQqProxy = async (req, res, requestUrl) => {
+  if (!requestUrl.pathname.startsWith('/qq/')) return false;
+
+  const apiPath = requestUrl.pathname.slice('/qq'.length);
+  if (apiPath.startsWith('/logout')) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ code: 403, message: 'Logout is disabled on the shared account.' }));
+    return true;
+  }
+
+  const target = new URL(`http://127.0.0.1:${QQ_PORT}${apiPath}`);
+  requestUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
+  const hostToken = hostQqCookie ? /(?:^|;\s*)qqmusic_session=([^;]+)/.exec(hostQqCookie)?.[1] : null;
+  const injected = Boolean(hostToken) && !QQ_PASSTHROUGH.test(apiPath);
+  const headers = {};
+  if (req.headers[QQ_SESSION_HEADER.toLowerCase()] && !injected) {
+    headers[QQ_SESSION_HEADER] = String(req.headers[QQ_SESSION_HEADER.toLowerCase()]);
+  }
+  if (injected) {
+    target.searchParams.delete('cookie');
+    headers[QQ_SESSION_HEADER] = hostToken;
+  }
+
+  try {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const hasBody = req.method !== 'GET' && req.method !== 'HEAD' && chunks.length > 0;
+    if (req.headers['content-type']) headers['Content-Type'] = req.headers['content-type'];
+    const upstream = await fetch(target, {
+      method: req.method,
+      headers,
+      body: hasBody ? Buffer.concat(chunks) : undefined,
+    });
+    const contentType = upstream.headers.get('content-type') || 'application/json';
+    let body = Buffer.from(await upstream.arrayBuffer());
+    // 响应里的 cookie 字段就是 Host 的真实会话,不能下发给浏览器
     if (injected && contentType.includes('json')) {
       try {
         const json = JSON.parse(body.toString('utf-8'));
@@ -231,6 +292,7 @@ const handleHostUpgrade = (req, socket, head) => {
         }
       } else if (message.type === 'account') {
         hostNeteaseCookie = typeof message.cookie === 'string' && message.cookie ? message.cookie : null;
+        hostQqCookie = typeof message.qqCookie === 'string' && message.qqCookie ? message.qqCookie : null;
       } else if (message.type === 'snapshot') {
         stageApi.publishStagePlayerSnapshot(message.snapshot, message.options || {});
       } else if (message.type === 'complete') {
@@ -272,7 +334,9 @@ stageApi = createStageApi({
   routeFilter: (pathname, method) => method === 'OPTIONS' || ALLOWED_ROUTES.some((re) => re.test(pathname)),
   extraUpgradeHandler: handleHostUpgrade,
   extraHttpHandler: async (req, res, requestUrl) => (
-    (await handleNeteaseProxy(req, res, requestUrl)) || (await handleHostLocalLibrary(req, res, requestUrl))
+    (await handleNeteaseProxy(req, res, requestUrl))
+    || (await handleQqProxy(req, res, requestUrl))
+    || (await handleHostLocalLibrary(req, res, requestUrl))
   ),
 });
 

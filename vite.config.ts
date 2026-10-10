@@ -242,6 +242,8 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
         '/stage': { target: `http://127.0.0.1:${process.env.STAGE_PORT || 4100}`, ws: true },
         // 网易云 API 经中继同源代理(中继会换成 Host 账号的 cookie),配合 VITE_NETEASE_API_BASE=/ncm
         '/ncm': { target: `http://127.0.0.1:${process.env.STAGE_PORT || 4100}` },
+        // QQ 音乐 API 同样经中继代理(换成 Host 的 QQ 会话),配合 VITE_QQ_API_BASE=/qq
+        '/qq': { target: `http://127.0.0.1:${process.env.STAGE_PORT || 4100}` },
       },
       allowedHosts: true,
       watch: {
