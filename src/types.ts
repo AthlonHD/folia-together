@@ -237,6 +237,8 @@ export interface StageExternalPlayRequest {
   queueSongIds?: number[];
   /** 播放 Host 本地曲库里的这首歌(此时没有 songId)。 */
   localSongId?: string;
+  /** 播放其他在线音源(QQ 音乐等)的这首歌(此时没有 songId)。 */
+  online?: { providerId: string; mediaId: string };
 }
 
 export interface StageExternalPlayResult {
@@ -271,6 +273,8 @@ export interface StagePlayerCurrent {
   album: string;
   durationMs: number;
   coverUrl: string | null;
+  /** 在线歌曲在其音源里的标识(QQ 音乐是 songmid),遥控端据此向 Host 点这首歌。 */
+  mediaId?: string;
 }
 
 export interface StagePlayerControlCapabilities {
@@ -369,7 +373,7 @@ export interface StagePlayerQueueRequest {
   localSongId?: string;
   localSongIds?: string[];
   /** 混合来源、保持顺序的歌曲列表(网易云 songId 或 Host 本地 localSongId)。 */
-  items?: Array<{ songId?: number; localSongId?: string }>;
+  items?: Array<{ songId?: number; localSongId?: string; providerId?: string; mediaId?: string }>;
   queueItemId?: string;
   fromQueueItemId?: string;
   fromIndex?: number;

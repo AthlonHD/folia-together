@@ -251,13 +251,16 @@ export const useLibraryAccountProviders = (controller: LibraryAccountController)
 } => {
     const allProviders = useLibraryAccountSelector(controller, selectProviders);
     const activeProviderId = useLibraryAccountSelector(controller, selectActiveProviderId);
-    // 遥控模式只能让服务器 Host 播网易云,其他平台的入口在遥控页上点了也播不了,不列出来
+    // 遥控模式只能让服务器 Host 播它能播的音源(网易云、QQ 音乐),其他平台的入口在遥控页上点了也播不了,不列出来
     const providers = useMemo(
-        () => (isStageRemoteMode() ? allProviders.filter(provider => provider.providerId === 'netease') : allProviders),
+        () => (isStageRemoteMode() ? allProviders.filter(provider => REMOTE_PLAYABLE_PROVIDER_IDS.has(provider.providerId)) : allProviders),
         [allProviders],
     );
     return useMemo(() => ({ providers, activeProviderId }), [activeProviderId, providers]);
 };
+
+// 与 services/stageRemote.ts 里 Host 能凭 { providerId, mediaId } 点播的音源保持一致
+const REMOTE_PLAYABLE_PROVIDER_IDS = new Set<string>(['netease', 'qq']);
 
 export type LibraryAccountView = {
     snapshot: LibraryAccountSnapshot;

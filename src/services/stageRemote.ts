@@ -3,7 +3,7 @@
 
 import type { SongResult, StagePlayerQueueRequest } from '../types';
 import { setStatusMessage as setStatusMsg } from '../stores/useStatusMessageStore';
-import { isLocalPlaybackSong } from '../utils/appPlaybackGuards';
+import { getPlaybackSongKey, getPlaybackSourceRef, isLocalPlaybackSong } from '../utils/appPlaybackGuards';
 import { readProviderSessionValue, writeProviderSessionValue } from './onlineMusic/providerStorage';
 
 // ?host=1 为 Host,?local=1 强制本地播放;配置了 VITE_STAGE_RELAY=1 时其余访问默认遥控,?stageremote=1 手动开启
@@ -45,8 +45,14 @@ const request = async <T = any>(path: string, body?: unknown): Promise<T> => {
     return data as T;
 };
 
-/** 让 Host 播放的歌:网易云歌曲用数字 songId,Host 本地曲库里的歌用字符串 localSongId。 */
-export type RemoteSongRef = { songId: number; localSongId?: undefined } | { localSongId: string; songId?: undefined };
+/**
+ * 让 Host 播放的歌:网易云歌曲用数字 songId,Host 本地曲库里的歌用字符串 localSongId,
+ * 其他在线音源(QQ 音乐等)用 online = { providerId, mediaId }。
+ */
+export type RemoteSongRef =
+    | { songId: number; localSongId?: undefined; online?: undefined }
+    | { localSongId: string; songId?: undefined; online?: undefined }
+    | { online: { providerId: string; mediaId: string }; songId?: undefined; localSongId?: undefined };
 
 export const remoteSetLoopMode = (loopMode: 'off' | 'all' | 'one' | 'shuffle') =>
     request('control', { action: 'set-loop', loopMode });
@@ -61,24 +67,40 @@ export const remoteControl = (action: 'next' | 'prev' | 'pause' | 'resume' | 'se
     request('control', { action, ...(positionMs !== undefined ? { positionMs: Math.floor(positionMs) } : {}) });
 export const remoteQueueOp = (payload: Omit<StagePlayerQueueRequest, 'requestId'>) => request('queue', payload);
 
-// 先判断本地歌:本地歌在播放器里的 id 也是个数字(字符串 id 的哈希),不能当成网易云 id 发出去
+// 先判断本地歌:本地歌在播放器里的 id 也是个数字(字符串 id 的哈希),不能当成网易云 id 发出去。
+// 网易云歌曲继续用数字 songId;QQ 音乐等其他在线音源用 { providerId, mediaId }。
 const toRemoteSongRef = (song: SongResult): RemoteSongRef | null => {
     if (isLocalPlaybackSong(song)) return { localSongId: song.localRef.songId };
-    const songId = Number(song.id);
-    if (!Number.isInteger(songId) || songId <= 0 || song.sourceType === 'cloud') return null;
-    return { songId };
+    const sourceRef = getPlaybackSourceRef(song);
+    if (sourceRef.kind !== 'online' || sourceRef.variant === 'cloud') return null;
+    if (sourceRef.providerId === 'netease') {
+        const songId = Number(sourceRef.mediaId);
+        if (!Number.isInteger(songId) || songId <= 0 || song.sourceType === 'cloud') return null;
+        return { songId };
+    }
+    if (!REMOTE_PLAYABLE_PROVIDERS.has(sourceRef.providerId) || !sourceRef.mediaId) return null;
+    return { online: { providerId: sourceRef.providerId, mediaId: sourceRef.mediaId } };
 };
 
-const isSameRef = (a: RemoteSongRef, b: RemoteSongRef) => (
-    a.localSongId !== undefined ? a.localSongId === b.localSongId : a.songId === b.songId
+// Host 能凭 { providerId, mediaId } 取详情并播放的在线音源(酷狗等需要先部署对应后端,再往这里加)
+const REMOTE_PLAYABLE_PROVIDERS = new Set(['qq']);
+
+const refKey = (ref: RemoteSongRef): string => (
+    ref.localSongId !== undefined
+        ? `local:${ref.localSongId}`
+        : ref.online ? `${ref.online.providerId}:${ref.online.mediaId}` : `netease:${ref.songId}`
 );
 
-/** 转成队列接口的 items(保持顺序,可混合网易云与本地)。 */
+const isSameRef = (a: RemoteSongRef, b: RemoteSongRef) => refKey(a) === refKey(b);
+
+/** 转成队列接口的 items(保持顺序,可混合网易云、本地与其他在线音源)。 */
 const toQueueItems = (refs: RemoteSongRef[]) => refs.map(ref => (
-    ref.localSongId !== undefined ? { localSongId: ref.localSongId } : { songId: ref.songId }
+    ref.localSongId !== undefined
+        ? { localSongId: ref.localSongId }
+        : ref.online ? { ...ref.online } : { songId: ref.songId }
 ));
 
-const UNSUPPORTED_SONG_TEXT = '遥控模式只支持网易云歌曲和服务器本地曲库里的歌曲';
+const UNSUPPORTED_SONG_TEXT = '遥控模式只支持网易云、QQ 音乐歌曲和服务器本地曲库里的歌曲';
 
 const reportRemoteError = (error: unknown) => {
     setStatusMsg({ type: 'error', text: error instanceof Error ? error.message : String(error) });
@@ -167,10 +189,10 @@ export const remoteMoveQueueSong = (fromIndex: number, toIndex: number) =>
 
 // 把服务器队列依次移动成 targetQueue 的顺序(选择排序式,逐项 move),用于批量"下一首/移到末尾"
 export const remoteReorderQueue = async (currentQueue: SongResult[], targetQueue: SongResult[]) => {
-    const working = currentQueue.map(song => String(song.id));
+    const working = currentQueue.map(song => getPlaybackSongKey(song));
     try {
         for (let toIndex = 0; toIndex < targetQueue.length; toIndex += 1) {
-            const wanted = String(targetQueue[toIndex].id);
+            const wanted = getPlaybackSongKey(targetQueue[toIndex]);
             const fromIndex = working.indexOf(wanted, toIndex);
             if (fromIndex === -1 || fromIndex === toIndex) continue;
             await remoteQueueOp({ action: 'move', fromIndex, toIndex });

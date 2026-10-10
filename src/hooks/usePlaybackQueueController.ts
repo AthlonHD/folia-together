@@ -12,7 +12,7 @@ import type { ThemeCacheSongKey } from '../services/themeCache';
 import { loadOnlineLyricsState } from '../utils/onlineLyricsState';
 import { PlayerState, type StagePlayerQueueDiffOp, type StagePlayerQueueRequest, type StagePlayerSnapshot } from '../types';
 import type { LocalSong, QueueAddBehavior, SongResult, StatusMessage, UnifiedSong } from '../types';
-import type { AudioQualityPreference, MediaId } from '../types/onlineMusic';
+import type { AudioQualityPreference, MediaId, OmniProviderId } from '../types/onlineMusic';
 import type { NextTrackOptions, PlaybackNavigationOptions, SkipPromptMessageKey, UnavailableReplacementRequest } from '../types/appPlayback';
 import type { NavidromeSong } from '../types/navidrome';
 import {
@@ -1194,14 +1194,16 @@ export function usePlaybackQueueController({
         });
     }, [localSongs]);
 
-    const handleStageExternalPlayRequest = useCallback(async (request: { requestId: string; songId: number; appendToQueue?: boolean; fm?: boolean; queueSongIds?: number[]; localSongId?: string; }) => {
+    const handleStageExternalPlayRequest = useCallback(async (request: { requestId: string; songId: number; appendToQueue?: boolean; fm?: boolean; queueSongIds?: number[]; localSongId?: string; online?: { providerId: string; mediaId: string }; }) => {
         try {
             // 遥控端点播 Host 本地曲库里的歌:按本地歌曲 id 找到并构造成可播放的歌曲对象
             const song = request.localSongId
                 ? buildHostLocalUnifiedSong(request.localSongId)
-                : await omni.getSongDetail('netease', request.songId);
+                : request.online
+                    ? await omni.getSongDetail(request.online.providerId as OmniProviderId, request.online.mediaId)
+                    : await omni.getSongDetail('netease', request.songId);
             if (!song) {
-                throw new Error(`Song ${request.localSongId ?? request.songId} was not found.`);
+                throw new Error(`Song ${request.localSongId ?? request.online?.mediaId ?? request.songId} was not found.`);
             }
 
             let actionData: any = undefined;
@@ -1286,7 +1288,7 @@ export function usePlaybackQueueController({
         // 网易云歌曲一次批量取详情:逐首请求时,大歌单会超过中继的请求超时,队列要等很久才补全
         const neteaseDetails = new Map<string, SongResult>();
         const neteaseIdsToLoad = [
-            ...orderedItems.flatMap(item => (!item.localSongId && item.songId ? [item.songId] : [])),
+            ...orderedItems.flatMap(item => (!item.localSongId && !item.providerId && item.songId ? [item.songId] : [])),
             ...songIds,
         ];
         if (neteaseIdsToLoad.length > 0) {
@@ -1294,11 +1296,26 @@ export function usePlaybackQueueController({
                 neteaseDetails.set(String(detail.id), detail);
             }
         }
+        // 其他在线音源(QQ 音乐等)按音源分组批量取,键为 `音源:mediaId`
+        const otherOnlineDetails = new Map<string, SongResult>();
+        const otherOnlineIds = new Map<string, string[]>();
+        for (const item of orderedItems) {
+            if (item.localSongId || !item.providerId || !item.mediaId) continue;
+            otherOnlineIds.set(item.providerId, [...(otherOnlineIds.get(item.providerId) ?? []), item.mediaId]);
+        }
+        for (const [providerId, mediaIds] of otherOnlineIds) {
+            const details = await omni.getSongDetails(providerId as OmniProviderId, [...new Set(mediaIds)]);
+            for (const detail of details) {
+                otherOnlineDetails.set(getPlaybackSongKey(detail), detail);
+            }
+        }
         // items 保持调用方给的顺序,可以混合网易云和 Host 本地的歌
         for (const item of orderedItems) {
             const itemSong = item.localSongId
                 ? buildHostLocalUnifiedSong(item.localSongId)
-                : item.songId ? neteaseDetails.get(String(item.songId)) ?? null : null;
+                : item.providerId && item.mediaId
+                    ? otherOnlineDetails.get(`online:${item.providerId}:${item.mediaId}`) ?? null
+                    : item.songId ? neteaseDetails.get(String(item.songId)) ?? null : null;
             if (itemSong && !isSongUnavailable(itemSong)) songs.push(itemSong);
         }
         for (const localSongId of localSongIds) {

@@ -15,6 +15,7 @@ import {
     setPlayQueue,
     setPlayerState,
 } from '../stores/usePlaybackStore';
+import type { OmniProviderId } from '../types/onlineMusic';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { fetchRemoteQueue, fetchRemoteStatus, remoteClock, remoteSetSettings } from '../services/stageRemote';
 import { applyMirroredHostSettings, startHostSettingsUplink } from '../services/hostSettingsSync';
@@ -89,8 +90,11 @@ export function useStageRemoteMirror({
             }
         };
 
-        const loadTrack = async (id: string, coverUrl: string | null) => {
-            const song = await omni.getSongDetail('netease', Number(id.slice(id.indexOf(':') + 1))) as SongResult | null;
+        // 网易云歌曲用数字 id 取详情;QQ 音乐等其他在线音源用 Host 给的 { 音源, mediaId }
+        const loadTrack = async (id: string, coverUrl: string | null, source: string, mediaId?: string) => {
+            const song = (source === 'netease' || !mediaId
+                ? await omni.getSongDetail('netease', Number(id.slice(id.indexOf(':') + 1)))
+                : await omni.getSongDetail(source as OmniProviderId, mediaId)) as SongResult | null;
             if (disposed || currentId !== id || !song) return;
             const isCurrent = () => !disposed && currentId === id;
 
@@ -135,7 +139,7 @@ export function useStageRemoteMirror({
                         if (status.current.source === 'local') {
                             void loadLocalTrack(nextId, String(status.current.id), status.current.coverUrl ?? null);
                         } else {
-                            void loadTrack(nextId, status.current.coverUrl ?? null);
+                            void loadTrack(nextId, status.current.coverUrl ?? null, status.current.source ?? 'netease', status.current.mediaId);
                         }
                     } else {
                         setCurrentSong(null);
@@ -169,8 +173,14 @@ export function useStageRemoteMirror({
                     for (const item of items) {
                         // 本地曲库里的歌用共享曲库里的完整信息(封面、本地引用),点队列项才能正确跳转
                         const localSong = item.source === 'local' ? await findHostLocalSong(String(item.id)) : null;
+                        const isOtherOnline = !localSong && item.mediaId && item.source && item.source !== 'netease';
                         queueSongs.push(localSong ? buildLocalSongForRemote(localSong) : ({
                             id: Number(item.id),
+                            // 其他在线音源的队列项带上来源引用,队列去重、跳转才不会和网易云的 id 撞车
+                            ...(isOtherOnline ? {
+                                providerId: item.source,
+                                sourceRef: { kind: 'online', providerId: item.source, mediaId: String(item.mediaId) },
+                            } : {}),
                             name: item.title,
                             artists: (item.artist ? String(item.artist).split(' / ') : []).map((name: string, index: number) => ({ id: index, name })),
                             album: { id: 0, name: item.album ?? '', picUrl: item.coverUrl ?? undefined },

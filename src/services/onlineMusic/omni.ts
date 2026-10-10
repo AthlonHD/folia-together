@@ -481,10 +481,13 @@ export const omni = {
         const playback = requireOnlineMusicProvider(providerId).playback;
         if (!playback) return [];
         if (playback.getSongDetails) return playback.getSongDetails(ids);
+        // 没有批量接口的音源:并发取(每批 8 首),保持 ids 的顺序;单首失败只跳过那一首
         const songs: UnifiedSong[] = [];
-        for (const id of ids) {
-            const song = await playback.getSongDetail(id);
-            if (song) songs.push(song);
+        for (let index = 0; index < ids.length; index += 8) {
+            const batch = await Promise.all(ids.slice(index, index + 8).map(id => (
+                playback.getSongDetail(id).catch(() => null)
+            )));
+            for (const song of batch) if (song) songs.push(song);
         }
         return songs;
     },

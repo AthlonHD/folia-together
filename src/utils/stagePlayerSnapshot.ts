@@ -1,5 +1,5 @@
 import { PlayerState, type SongResult, type StagePlayerPlaybackContext, type StagePlayerQueueItem, type StagePlayerSnapshot } from '../types';
-import { getPlaybackSongSource, isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong, resolveNavidromePlaybackCarrier } from './appPlaybackGuards';
+import { getPlaybackSongSource, getPlaybackSourceRef, isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong, resolveNavidromePlaybackCarrier } from './appPlaybackGuards';
 import { getProviderSongMetadata } from '../services/onlineMusic/songMetadata';
 
 // src/utils/stagePlayerSnapshot.ts
@@ -117,6 +117,12 @@ const getSongDurationMs = (song: SongResult | null, fallbackMs = 0): number => {
     return Math.max(0, Math.floor(getProviderSongMetadata(song).durationMs || fallbackMs || 0));
 };
 
+// 在线歌曲带上它在音源里的标识(QQ 的 songmid 等),遥控端要靠它向 Host 点歌
+const getOnlineMediaIdField = (song: SongResult): { mediaId?: string } => {
+    const sourceRef = getPlaybackSourceRef(song);
+    return sourceRef.kind === 'online' ? { mediaId: sourceRef.mediaId } : {};
+};
+
 const buildQueueItem = (song: SongResult, index: number, fallbackCoverUrl: string | null): StagePlayerQueueItem => {
     const source = getSongSource(song);
     const id = String(song.id ?? `${source}-${index}`);
@@ -131,6 +137,7 @@ const buildQueueItem = (song: SongResult, index: number, fallbackCoverUrl: strin
         album: getSongAlbum(song),
         durationMs: getSongDurationMs(song),
         coverUrl,
+        ...getOnlineMediaIdField(song),
     };
 };
 
@@ -212,6 +219,7 @@ export const buildStagePlayerSnapshot = ({
                 album: getSongAlbum(currentSong),
                 durationMs: safeDurationMs,
                 coverUrl: coverUrl || getProviderSongMetadata(currentSong).coverUrl || null,
+                ...getOnlineMediaIdField(currentSong),
             }
             : null,
         playerState,

@@ -369,6 +369,14 @@ function createStageApi({
     };
   };
 
+  // 非网易云的在线歌曲用 { providerId, mediaId } 指定(例如 QQ 音乐的 songmid)
+  const normalizeStageOnlineRef = (value) => {
+    const providerId = normalizeStageText(value?.providerId);
+    const mediaId = normalizeStageText(value?.mediaId);
+    if (!/^[a-z][a-z0-9_-]{0,31}$/.test(providerId) || !mediaId || mediaId.length > 200) return null;
+    return { providerId, mediaId };
+  };
+
   const normalizeStagePlayerCurrent = (value) => {
     if (!value || typeof value !== 'object') {
       return null;
@@ -388,6 +396,7 @@ function createStageApi({
       album: normalizeStageText(value.album) || '',
       durationMs: Math.max(0, normalizeStageInteger(value.durationMs, 0)),
       coverUrl: normalizeStageText(value.coverUrl) || null,
+      ...(normalizeStageText(value.mediaId) ? { mediaId: normalizeStageText(value.mediaId) } : {}),
     };
   };
 
@@ -1559,6 +1568,7 @@ function createStageApi({
         appendToQueue: options.appendToQueue === true,
         ...(options.fm === true ? { fm: true, queueSongIds: options.queueSongIds || [] } : {}),
         ...(options.localSongId ? { localSongId: options.localSongId } : {}),
+        ...(options.online ? { online: options.online } : {}),
       });
     });
   };
@@ -1734,8 +1744,9 @@ function createStageApi({
     const appendToQueue = payload.appendToQueue === true;
     // Host 本地曲库里的歌用字符串 id 指定(localSongId),网易云的歌用数字 songId
     const localSongId = normalizeStageText(payload.localSongId);
-    if (!localSongId && (!Number.isInteger(songId) || songId <= 0)) {
-      throw createStageValidationError('Stage player play payload requires a positive integer songId or a localSongId.', 'INVALID_STAGE_PLAYER_PLAY_SONG_ID');
+    const online = payload.online ? normalizeStageOnlineRef(payload.online) : null;
+    if (!localSongId && !online && (!Number.isInteger(songId) || songId <= 0)) {
+      throw createStageValidationError('Stage player play payload requires a positive integer songId, a localSongId or an online { providerId, mediaId }.', 'INVALID_STAGE_PLAYER_PLAY_SONG_ID');
     }
 
     // 个性化电台:Host 把这首歌和后面的歌作为 FM 队列播放(队列末尾继续从 FM 补歌)
@@ -1743,7 +1754,7 @@ function createStageApi({
     const queueSongIds = Array.isArray(payload.queueSongIds)
       ? payload.queueSongIds.map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 50)
       : [];
-    const result = await requestStageSongPlay(songId, { appendToQueue, fm, queueSongIds, ...(localSongId ? { localSongId } : {}) });
+    const result = await requestStageSongPlay(songId, { appendToQueue, fm, queueSongIds, ...(localSongId ? { localSongId } : {}), ...(online ? { online } : {}) });
     return withStagePlayerOutsideInMetadata({
       ...(deprecated ? { deprecated: true, replacement: '/stage/player/play' } : {}),
       ok: true,
@@ -1751,7 +1762,7 @@ function createStageApi({
       ...(result?.deduplicated !== undefined ? { deduplicated: result.deduplicated } : {}),
       ...(result?.affectedCount !== undefined ? { affectedCount: result.affectedCount } : {}),
       ...(result?.diff ? { diff: result.diff } : {}),
-      ...(localSongId ? { localSongId } : { songId }),
+      ...(localSongId ? { localSongId } : online ? { online } : { songId }),
       appendToQueue,
     });
   };
@@ -1891,15 +1902,19 @@ function createStageApi({
         ? payload.localSongIds.map(normalizeStageText).filter(Boolean).slice(0, 500)
         : undefined,
       localSongId: normalizeStageText(payload.localSongId) || undefined,
-      // 混合来源、保持顺序的歌曲列表:{ songId } 是网易云,{ localSongId } 是 Host 本地曲库
+      // 混合来源、保持顺序的歌曲列表:{ songId } 是网易云,{ localSongId } 是 Host 本地曲库,{ providerId, mediaId } 是其他在线音源(QQ 音乐等)
       items: Array.isArray(payload.items)
         ? payload.items
           .slice(0, 500)
-          .map((item) => ({
-            songId: Number.isInteger(Number(item?.songId)) && Number(item.songId) > 0 ? Number(item.songId) : undefined,
-            localSongId: normalizeStageText(item?.localSongId) || undefined,
-          }))
-          .filter((item) => item.songId !== undefined || item.localSongId)
+          .map((item) => {
+            const online = item?.providerId ? normalizeStageOnlineRef(item) : null;
+            return {
+              songId: Number.isInteger(Number(item?.songId)) && Number(item.songId) > 0 ? Number(item.songId) : undefined,
+              localSongId: normalizeStageText(item?.localSongId) || undefined,
+              ...(online ? online : {}),
+            };
+          })
+          .filter((item) => item.songId !== undefined || item.localSongId || item.providerId)
         : undefined,
       queueItemId: normalizeStageText(payload.queueItemId) || undefined,
       fromQueueItemId: normalizeStageText(payload.fromQueueItemId) || undefined,
