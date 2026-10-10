@@ -1,4 +1,5 @@
 import { isStageRemoteMode } from '../../../services/stageRemote';
+import { REMOTE_PLAYABLE_PROVIDER_IDS } from '../../../services/stageMode';
 import { useMemo, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -258,9 +259,6 @@ export const useLibraryAccountProviders = (controller: LibraryAccountController)
     );
     return useMemo(() => ({ providers, activeProviderId }), [activeProviderId, providers]);
 };
-
-// 与 services/stageRemote.ts 里 Host 能凭 { providerId, mediaId } 点播的音源保持一致
-const REMOTE_PLAYABLE_PROVIDER_IDS = new Set<string>(['netease', 'qq']);
 
 export type LibraryAccountView = {
     snapshot: LibraryAccountSnapshot;

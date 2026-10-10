@@ -5,7 +5,7 @@ import type { SongResult, StagePlayerQueueRequest } from '../types';
 import { setStatusMessage as setStatusMsg } from '../stores/useStatusMessageStore';
 import { getPlaybackSongKey, getPlaybackSourceRef, isLocalPlaybackSong } from '../utils/appPlaybackGuards';
 import { writeProviderSessionValue } from './onlineMusic/providerStorage';
-import { isStageRemoteMode, SHARED_ACCOUNT_MARKER } from './stageMode';
+import { isStageRemoteMode, REMOTE_PLAYABLE_PROVIDER_IDS, SHARED_ACCOUNT_MARKER } from './stageMode';
 import { installRemoteStorageShield } from './remoteStorageShield';
 
 // 模式判断在 stageMode.ts(存储层也要用);这里转出,现有的 import 不用改
@@ -74,12 +74,9 @@ const toRemoteSongRef = (song: SongResult): RemoteSongRef | null => {
         if (!Number.isInteger(songId) || songId <= 0 || song.sourceType === 'cloud') return null;
         return { songId };
     }
-    if (!REMOTE_PLAYABLE_PROVIDERS.has(sourceRef.providerId) || !sourceRef.mediaId) return null;
+    if (!REMOTE_PLAYABLE_PROVIDER_IDS.has(sourceRef.providerId) || !sourceRef.mediaId) return null;
     return { online: { providerId: sourceRef.providerId, mediaId: sourceRef.mediaId } };
 };
-
-// Host 能凭 { providerId, mediaId } 取详情并播放的在线音源(酷狗等需要先部署对应后端,再往这里加)
-const REMOTE_PLAYABLE_PROVIDERS = new Set(['qq']);
 
 const refKey = (ref: RemoteSongRef): string => (
     ref.localSongId !== undefined

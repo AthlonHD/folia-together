@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, Loader2, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import SearchResultsList from './SearchResultsList';
 import { useCollectionNavigationStore } from '../../../stores/useCollectionNavigationStore';
 import { useOnlineProviderAccountStore } from '../../../stores/useOnlineProviderAccountStore';
 import { omni } from '../../../services/onlineMusic/omni';
+import { isStageRemoteMode, REMOTE_PLAYABLE_PROVIDER_IDS } from '../../../services/stageMode';
 
 // src/components/app/search/SearchWorkspace.tsx
 
@@ -77,7 +78,20 @@ const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({
         return resolveTrackDisplay ? raw.map(resolveTrackDisplay) : raw;
     }, [resolveTrackDisplay, searchResults]);
     const activeOnlineProviderId = useOnlineProviderAccountStore(state => state.activeProviderId);
-    const sources = useMemo<SearchSource[]>(() => [activeOnlineProviderId, 'local', 'navidrome'], [activeOnlineProviderId]);
+    // 每个可用的在线平台各一个搜索标签(当前平台排第一),而不是只有当前平台:
+    // 队列可以跨平台混排,搜歌当然也要能直接在网易云、QQ 音乐之间切换,不必先去切平台。
+    const providerRegistryVersion = useSyncExternalStore(omni.subscribeProviders, omni.getProviderRegistryVersion);
+    const sources = useMemo<SearchSource[]>(() => {
+        const remote = isStageRemoteMode();
+        const available = omni.getProviderSummaries()
+            .filter(provider => provider.availability.configured !== false)
+            .map(provider => provider.providerId)
+            .filter(providerId => !remote || REMOTE_PLAYABLE_PROVIDER_IDS.has(providerId));
+        const online = [activeOnlineProviderId, ...available.filter(providerId => providerId !== activeOnlineProviderId)];
+        return [...online, 'local', 'navidrome'];
+        // providerRegistryVersion 只用来在平台列表变化(mod 源增减)时重算
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeOnlineProviderId, providerRegistryVersion]);
     const hasCollection = useCollectionNavigationStore(state => Boolean(state.snapshot?.stack.length));
     const getSourceLabel = (source: SearchSource) => {
         if (source === 'local') return t('search.sourceLocal');
