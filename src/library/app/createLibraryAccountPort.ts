@@ -1,60 +1,31 @@
 import type { RefObject } from 'react';
-import { PlayerState, type LyricData } from '../../types';
+import type { LyricData } from '../../types';
 import type { OnlineProviderId } from '../../types/onlineMusic';
 import type { LibraryProviderSwitchCleanupPort } from '../core/contracts/account';
-import { usePlaybackStore } from '../../stores/usePlaybackStore';
 import { useSearchNavigationStore } from '../../stores/useSearchNavigationStore';
 import { useCollectionNavigationStore } from '../../stores/useCollectionNavigationStore';
-import { isStageRemoteMode } from '../../services/stageRemote';
-import { clearPrefetchRuntime } from '../../services/prefetchService';
-import { clearTrackProfileRuntime } from '../../services/automix/profileService';
 
 // src/library/app/createLibraryAccountPort.ts
-// 在线账户 controller 的切换清理端口（照 createLibraryHomePort 的做法）：用户确认切换平台后、controller 写新的
-// 当前平台之前，清掉上一个平台留下的播放与浏览运行态（原 App.tsx 的 handleConfirmProviderSwitch）。
-// 播放器的 DOM 与 automix 句柄只有 App 持有，经 getHost 现读；播放状态读写都走 usePlaybackStore 的最新值。
+// 在线账户 controller 的切换清理端口(照 createLibraryHomePort 的做法)。
+//
+// 切换"当前浏览的平台"只影响搜索与集合浏览:正在播放的歌曲和播放队列不动。队列里每首歌自带来源
+// (网易云、QQ 音乐、本地……),各用各的音源播放,所以可以跨平台混排;切换平台时清空它们没有任何好处,
+// 只会让人在 QQ 音乐里找歌时丢掉网易云的队列。
+// 因此这里只重置上一个平台留下的浏览运行态,切换也不再需要确认(requiresConfirmation: false)。
 
-/** App 持有、端口按调用现读的播放器句柄。 */
+/** App 持有的播放器句柄。切换不再碰播放,保留这个类型是为了不改动调用方。 */
 export type LibraryAccountSwitchHost = {
     audioRef: RefObject<HTMLAudioElement | null>;
     automixRef: RefObject<{ abortTransition: () => void } | null>;
-    /** App 的歌词写入（带过滤设置的那一个；清空时只传 null）。 */
     setLyrics: (lyrics: LyricData | null) => void;
 };
 
 export const createLibraryAccountSwitchCleanupPort = (
-    getHost: () => LibraryAccountSwitchHost,
+    _getHost?: () => LibraryAccountSwitchHost,
 ): LibraryProviderSwitchCleanupPort => ({
+    // 切换只换浏览的平台,不会丢任何东西,没必要问用户
+    requiresConfirmation: false,
     resetForProviderSwitch: (nextProviderId: OnlineProviderId) => {
-        const { audioRef, automixRef, setLyrics } = getHost();
-        // 遥控模式本页不出声,播放与队列是服务器 Host 的镜像:只重置浏览状态。
-        // 清掉镜像的话,Host 那边没变化,轮询不会再把当前歌曲和队列补回来。
-        if (isStageRemoteMode()) {
-            useSearchNavigationStore.getState().resetRuntime(nextProviderId);
-            useCollectionNavigationStore.getState().clear();
-            return;
-        }
-        const playback = usePlaybackStore.getState();
-        // Stops any deck still fading out in the background: this path clears the active deck
-        // only, and a tail left running would have no control pointing at it any more.
-        automixRef.current?.abortTransition();
-        const audio = audioRef.current;
-        audio?.pause();
-        audio?.removeAttribute('src');
-        audio?.load();
-        if (playback.audioSrc?.startsWith('blob:')) URL.revokeObjectURL(playback.audioSrc);
-        playback.setAudioSrc(null);
-        playback.setCurrentSong(null);
-        playback.setPlayQueue([]);
-        setLyrics(null);
-        playback.setCachedCoverUrl(null);
-        playback.setIsFmMode(false);
-        playback.setPlayerState(PlayerState.IDLE);
-        clearPrefetchRuntime();
-        // The measurements are keyed by playback key, so the outgoing provider's are unreachable
-        // from here on. Dropped alongside the prefetch cache they were gathered with, rather than
-        // sitting in memory until the tab is closed.
-        clearTrackProfileRuntime();
         useSearchNavigationStore.getState().resetRuntime(nextProviderId);
         useCollectionNavigationStore.getState().clear();
     },

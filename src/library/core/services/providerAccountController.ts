@@ -285,15 +285,23 @@ export const createProviderAccountController = (deps: LibraryAccountControllerDe
             return Promise.resolve({ status: 'unavailable', providerId: to, reason: selection.reason });
         }
         return new Promise<LibrarySwitchResult>(resolve => {
+            let requestId = 0;
             batch(() => {
                 // 同一时间最多一个待确认请求：旧的按 superseded 拒绝（沿用 App 的 prev?.resolve(false)）。
                 if (pending) settlePending({ status: 'declined', providerId: pending.request.to, reason: 'superseded' });
+                requestId = ++switchSeq;
                 pending = {
-                    request: { id: ++switchSeq, from, to, reason },
+                    request: { id: requestId, from, to, reason },
                     refreshAfterCommit: reason === 'switch',
                     resolve,
                 };
             });
+            // 宿主声明切换不需要确认:不让确认框出现,直接确认这个请求(仍然是同一条确认路径,清理与刷新照常)
+            if (switchCleanup.requiresConfirmation === false) {
+                queueMicrotask(() => {
+                    if (!disposed && pending?.request.id === requestId) void confirmSwitch(requestId);
+                });
+            }
         });
     };
 
