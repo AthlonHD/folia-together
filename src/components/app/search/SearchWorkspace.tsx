@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useSyncExternalStore } from 'react';
+import React, { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, Loader2, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import SearchResultsList from './SearchResultsList';
 import { useCollectionNavigationStore } from '../../../stores/useCollectionNavigationStore';
 import { useOnlineProviderAccountStore } from '../../../stores/useOnlineProviderAccountStore';
 import { omni } from '../../../services/onlineMusic/omni';
+import { useIsBravaisLibraryActive } from '../../../library/app/bravaisLibraryActive';
 import { isStageRemoteMode, REMOTE_PLAYABLE_PROVIDER_IDS } from '../../../services/stageMode';
 
 // src/components/app/search/SearchWorkspace.tsx
@@ -93,6 +94,29 @@ const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeOnlineProviderId, providerRegistryVersion]);
     const hasCollection = useCollectionNavigationStore(state => Boolean(state.snapshot?.stack.length));
+    // Bravais 的歌手 / 专辑页是半透明的墙,搜索页留在它后面会透出来;Grid 的集合页要靠搜索页做展开动画,不动。
+    // 只是看不见、点不到,仍然挂着,所以返回时搜索词、结果和滚动位置都在。
+    const isBravais = useIsBravaisLibraryActive();
+    const hideBehindCollection = hasCollection && isBravais;
+
+    // 有搜索词却没有结果、也没在搜:补发一次搜索。
+    // Bravais 首页的搜索框提交时只是跳到搜索页,不像 Grid 首页那样先发起搜索,
+    // 搜索页拿到的就是缓存未命中的空状态——结果一直是空,要切换搜索源再切回来才会真的去搜。
+    const submitRef = useRef(onSubmitSearch);
+    submitRef.current = onSubmitSearch;
+    const autoSubmittedKeyRef = useRef('');
+    useEffect(() => {
+        if (!isSearchOpen || searchResults !== null) {
+            autoSubmittedKeyRef.current = '';
+            return;
+        }
+        const query = searchQuery.trim();
+        if (!query || isSearching || searchError) return;
+        const key = `${searchSourceTab}:${query}`;
+        if (autoSubmittedKeyRef.current === key) return;
+        autoSubmittedKeyRef.current = key;
+        submitRef.current(searchSourceTab);
+    }, [isSearchOpen, isSearching, searchError, searchQuery, searchResults, searchSourceTab]);
     const getSourceLabel = (source: SearchSource) => {
         if (source === 'local') return t('search.sourceLocal');
         if (source === 'navidrome') return t('search.sourceNavidrome');
@@ -120,7 +144,7 @@ const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({
                     exit={{ opacity: 0, y: 28 }}
                     className={`fixed inset-0 flex flex-col overflow-hidden px-3 py-4 sm:px-6 sm:py-6 ${
                         hasCollection ? 'z-[5]' : 'z-50'
-                    }`}
+                    }${hideBehindCollection ? ' invisible pointer-events-none' : ''}`}
                     style={{
                         color: theme.primaryColor,
                         backgroundColor: isDaylight ? 'rgba(250,250,250,0.96)' : 'rgba(8,8,10,0.94)',
