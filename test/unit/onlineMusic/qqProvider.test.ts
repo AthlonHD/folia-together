@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // test/unit/onlineMusic/qqProvider.test.ts
 
@@ -269,6 +269,13 @@ describe('qqProvider', () => {
         expect(normalizeQqSong(song)).toEqual(song);
     });
 
+    // 「我喜欢」= 自建目录 201：首页特殊集合靠 isLiked 认它。收藏条目也带 dirId（创建者的目录号），不算。
+    it('marks only the owned dirId 201 playlist as the liked collection', () => {
+        expect(normalizeQqCollection(PLAYLIST_ITEM).isLiked).toBe(true);
+        expect(normalizeQqCollection({ tid: 8, dirId: 202, dirName: '自建歌单', songNum: 1 }).isLiked).toBeUndefined();
+        expect(normalizeQqCollection({ dissid: 9, dirId: 201, name: '别人的我喜欢', songnum: 1 }).isLiked).toBeUndefined();
+    });
+
     it('normalizes the playlist and profile payloads, including a profile without a display name', () => {
         expect(normalizeQqCollection(PLAYLIST_ITEM)).toEqual({
             providerId: 'qq',
@@ -278,6 +285,7 @@ describe('qqProvider', () => {
             coverUrl: 'https://img.example.test/big.jpg',
             trackCount: 2,
             providerData: { tid: 7, dirId: 201, owned: true },
+            isLiked: true,
         });
         expect(normalizeQqCollection(normalizeQqCollection(PLAYLIST_ITEM))).toEqual(normalizeQqCollection(PLAYLIST_ITEM));
         expect(normalizeQqCollection({ id: 8, title: '收藏歌单', picurl: 'https://img.example.test/fav.jpg', songnum: 3 })).toEqual({
@@ -390,6 +398,70 @@ describe('qqProvider', () => {
             message: 'code 800: QR code expired (stage qr-event, reason login-rejected)',
             retryAfterMs: 30000,
             detail: { code: 800, message: 'QR code expired', failureStage: 'qr-event', failureReason: 'login-rejected', retryAfterMs: 30000 },
+        });
+    });
+
+    describe('device limit (upstream 20279)', () => {
+        const validationFailure = {
+            code: 800,
+            message: 'QR login failed',
+            failureStage: 'credential-validation',
+            failureReason: 'upstream-rejected',
+            upstreamCode: 1000,
+        };
+        const exchangeResult = (at: number, upstreamCode: number) => ({
+            at, level: 'info', event: 'qq-auth.upstream-result',
+            details: { phase: 'credential-exchange', httpStatus: 200, globalCode: 0, upstreamCode },
+        });
+        const stubDesktop = (authEvents: unknown[]) => {
+            const getLoginDiagnostics = vi.fn().mockResolvedValue({ providerId: 'qq', authEvents });
+            vi.stubGlobal('window', { electron: { getLoginDiagnostics } });
+            return getLoginDiagnostics;
+        };
+        const requestKey = async () => {
+            requestMock.mockResolvedValueOnce({ data: { unikey: 'qr-key' } });
+            await qqProvider.auth!.getQrKey!();
+        };
+
+        afterEach(() => {
+            vi.unstubAllGlobals();
+        });
+
+        // 微信通道的凭据交换没有回退：20279 直接在响应上。
+        it('reads the device limit straight off the response', async () => {
+            requestMock.mockResolvedValueOnce({ ...validationFailure, failureStage: 'credential-exchange', upstreamCode: 20279 });
+            await expect(qqProvider.auth!.checkQr!('qr-key')).resolves.toMatchObject({ state: 'error', reason: 'device-limit' });
+        });
+
+        // QQ 通道：响应里只剩验证那一步的 1000，20279 在主进程记下的本轮凭据交换里。
+        it('finds the device limit in this round\'s credential exchange on desktop', async () => {
+            await requestKey();
+            const getLoginDiagnostics = stubDesktop([exchangeResult(Date.now() + 1000, 20279)]);
+            requestMock.mockResolvedValueOnce(validationFailure);
+
+            await expect(qqProvider.auth!.checkQr!('qr-key')).resolves.toMatchObject({ state: 'error', reason: 'device-limit' });
+            expect(getLoginDiagnostics).toHaveBeenCalledWith('qq');
+        });
+
+        it('ignores an exchange from an earlier round and a different exchange code', async () => {
+            await requestKey();
+            stubDesktop([exchangeResult(1, 20279)]);
+            requestMock.mockResolvedValueOnce(validationFailure);
+            expect(await qqProvider.auth!.checkQr!('qr-key')).not.toHaveProperty('reason');
+
+            stubDesktop([exchangeResult(Date.now() + 1000, 20279), exchangeResult(Date.now() + 2000, 50006)]);
+            requestMock.mockResolvedValueOnce(validationFailure);
+            expect(await qqProvider.auth!.checkQr!('qr-key')).not.toHaveProperty('reason');
+        });
+
+        // 网页版没有主进程可问；取快照失败也只是少了这条提示。
+        it('falls back to a plain failure without a desktop snapshot', async () => {
+            requestMock.mockResolvedValueOnce(validationFailure);
+            expect(await qqProvider.auth!.checkQr!('qr-key')).not.toHaveProperty('reason');
+
+            vi.stubGlobal('window', { electron: { getLoginDiagnostics: vi.fn().mockRejectedValue(new Error('ipc closed')) } });
+            requestMock.mockResolvedValueOnce(validationFailure);
+            expect(await qqProvider.auth!.checkQr!('qr-key')).not.toHaveProperty('reason');
         });
     });
 

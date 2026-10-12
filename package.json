@@ -8,7 +8,7 @@
     "email": "chthollyphile@users.noreply.github.com"
   },
   "private": true,
-  "version": "0.7.16",
+  "version": "0.7.18",
   "license": "AGPL-3.0",
   "type": "module",
   "main": "electron/main.cjs",
@@ -40,6 +40,7 @@
     "manual:analysis-idle": "node test/manual/analysis_idle_release.mts",
     "manual:visualizer-memory": "node test/manual/visualizer-memory-probe.mjs",
     "manual:lattice-cover-memory": "node test/manual/lattice-cover-memory.mjs",
+    "manual:bravais-perf": "node test/manual/bravais-perf-probe.mjs",
     "stage:client": "vite --open /stage-client.html",
     "stage:relay": "node server/stage-relay/index.cjs",
     "stage:qq": "node scripts/start-qq-api.cjs",
