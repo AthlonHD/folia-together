@@ -29,10 +29,9 @@ const ACTIVE_PROVIDER_KEY = 'active_online_provider_id';
 // 遥控模式浏览哪个平台与本机模式各记各的
 const activeProviderKey = () => (isStageRemoteMode() ? `${ACTIVE_PROVIDER_KEY}@remote` : ACTIVE_PROVIDER_KEY);
 
-const getInitialProviderId = (): OnlineProviderId => {
-    if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') return 'netease';
-    return localStorage.getItem(activeProviderKey()) || 'netease';
-};
+// 每次启动都从网易云开始,由 useLibraryAccountController 按 网易云 > QQ 音乐 > 酷狗 的优先级选第一个有账号的平台
+// (不再沿用上次用的那个);运行中用户手动切换仍会照常保存。
+const getInitialProviderId = (): OnlineProviderId => 'netease';
 
 const emptyAccount = (): OnlineProviderAccountState => ({
     status: 'unknown',

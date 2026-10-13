@@ -9,6 +9,10 @@ import { createProviderAccountController } from '../core/services/providerAccoun
 import { createProviderAccountDeps } from '../core/services/providerAccountDeps';
 import { useLibraryAccountSelector } from '../core/bindings/useLibraryAccount';
 import { useSearchNavigationStore } from '../../stores/useSearchNavigationStore';
+import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
+import { omni } from '../../services/onlineMusic/omni';
+import { isStageRemoteMode, REMOTE_PLAYABLE_PROVIDER_IDS } from '../../services/stageMode';
+import { pickStartupProvider } from '../core/model/startupProvider';
 
 // src/library/app/useLibraryAccountController.ts
 // 应用持有的在线账户 controller（Library v2 · A4）：App 里调用一次——per-provider 的刷新器与登出只有 App 有。
@@ -70,5 +74,55 @@ export const useLibraryAccountController = (tables: LibraryAccountHostTables): L
         useSearchNavigationStore.getState().followOnlineProvider(activeProviderId);
     }, [activeProviderId]);
 
+    // 启动时默认打开哪个平台:按 网易云 > QQ 音乐 > 酷狗 的优先级取第一个有账号的(startupProvider)。
+    // 只在启动后的一小段时间里做,用户自己切过平台就让位;之后切换完全由用户决定。
+    useEffect(() => {
+        const store = useOnlineProviderAccountStore;
+        const initialProviderId = store.getState().activeProviderId;
+        const startedAt = Date.now();
+        let expectedProviderId = initialProviderId;
+        let finished = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+
+        const finish = () => {
+            finished = true;
+            unsubscribe();
+            if (timer) clearTimeout(timer);
+        };
+        const decide = () => {
+            if (finished) return;
+            const state = store.getState();
+            // 当前平台不是我们设的、也不是启动时的那个:用户已经自己切了
+            if (state.activeProviderId !== expectedProviderId) {
+                finish();
+                return;
+            }
+            const remote = isStageRemoteMode();
+            const candidates = omni.getProviderSummaries()
+                .filter(provider => provider.availability.configured !== false)
+                .map(provider => provider.providerId)
+                .filter(providerId => !remote || REMOTE_PLAYABLE_PROVIDER_IDS.has(providerId));
+            const decision = pickStartupProvider({
+                candidates,
+                accounts: state.accounts,
+                timedOut: Date.now() - startedAt >= STARTUP_PROVIDER_WAIT_MS,
+            });
+            if (decision.kind === 'wait') return;
+            if (decision.kind === 'select' && decision.providerId !== state.activeProviderId) {
+                expectedProviderId = decision.providerId;
+                state.setActiveProviderId(decision.providerId);
+            }
+            finish();
+        };
+
+        const unsubscribe = store.subscribe(decide);
+        timer = setTimeout(decide, STARTUP_PROVIDER_WAIT_MS + 50);
+        decide();
+        return finish;
+    }, []);
+
     return controller;
 };
+
+/** 启动时等各平台账户状态出来的最长时间,过了还没出来的按没有账号处理。 */
+const STARTUP_PROVIDER_WAIT_MS = 10_000;

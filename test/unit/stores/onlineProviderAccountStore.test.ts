@@ -30,9 +30,16 @@ describe('online provider account store', () => {
         expect(storage.getItem('active_online_provider_id')).toBe('kugou');
     });
 
-    it('keeps provider accounts isolated and does not switch on logout', async () => {
+    it('starts on netease every launch instead of restoring the platform used last time', async () => {
         vi.stubGlobal('localStorage', createStorage({ active_online_provider_id: 'kugou' }));
         const { useOnlineProviderAccountStore } = await import('@/stores/useOnlineProviderAccountStore');
+        expect(useOnlineProviderAccountStore.getState().activeProviderId).toBe('netease');
+    });
+
+    it('keeps provider accounts isolated and does not switch on logout', async () => {
+        vi.stubGlobal('localStorage', createStorage());
+        const { useOnlineProviderAccountStore } = await import('@/stores/useOnlineProviderAccountStore');
+        useOnlineProviderAccountStore.getState().setActiveProviderId('kugou');
         const store = useOnlineProviderAccountStore.getState();
         store.updateAccount('netease', { status: 'authenticated', user: { id: 1, nickname: 'Netease' } });
         store.updateAccount('kugou', {
