@@ -5,7 +5,14 @@ import type { SongResult, StagePlayerQueueRequest } from '../types';
 import { setStatusMessage as setStatusMsg } from '../stores/useStatusMessageStore';
 import { getPlaybackSongKey, getPlaybackSourceRef, isLocalPlaybackSong } from '../utils/appPlaybackGuards';
 import { writeProviderSessionValue } from './onlineMusic/providerStorage';
-import { isStageRemoteMode, REMOTE_PLAYABLE_PROVIDER_IDS, SHARED_ACCOUNT_MARKER } from './stageMode';
+import {
+    getStageAuthHeaders,
+    getStageToken,
+    handleStageAuthFailure,
+    isStageRemoteMode,
+    REMOTE_PLAYABLE_PROVIDER_IDS,
+    SHARED_ACCOUNT_MARKER,
+} from './stageMode';
 import { installRemoteStorageShield } from './remoteStorageShield';
 
 // 模式判断在 stageMode.ts(存储层也要用);这里转出,现有的 import 不用改
@@ -14,10 +21,12 @@ export { isStageRemoteMode } from './stageMode';
 // 遥控端用占位 cookie 让应用按"已登录"运行,中继代理时认出占位,换成 Host 账号的真实登录态。
 // 遥控模式的账号存储与本机模式分开(见 providerStorage),所以这里每次都重写,不会碰本机自己的账号。
 if (isStageRemoteMode()) {
-    writeProviderSessionValue('netease', 'cookie', `MUSIC_U=${SHARED_ACCOUNT_MARKER}`);
-    writeProviderSessionValue('qq', 'cookie', `qqmusic_session=${SHARED_ACCOUNT_MARKER}`);
+    // 占位里带着访问令牌(`标记:令牌`):中继借用 Host 账号前要验它,没有令牌的页面借不到 Host 的账号
+    const placeholder = `${SHARED_ACCOUNT_MARKER}:${getStageToken()}`;
+    writeProviderSessionValue('netease', 'cookie', `MUSIC_U=${placeholder}`);
+    writeProviderSessionValue('qq', 'cookie', `qqmusic_session=${placeholder}`);
     // 酷狗按 token / userid / dfid 三项判断"已登录",占位三项都写上;userid 由中继换成 Host 账号的
-    for (const key of ['token', 'userid', 'dfid']) writeProviderSessionValue('kugou', key, SHARED_ACCOUNT_MARKER);
+    for (const key of ['token', 'userid', 'dfid']) writeProviderSessionValue('kugou', key, placeholder);
     installRemoteStorageShield();
 }
 
@@ -31,12 +40,13 @@ export const getRemotePositionSec = (): number => {
 };
 
 const request = async <T = any>(path: string, body?: unknown): Promise<T> => {
-    const response = await fetch(`/stage/player/${path}`, body === undefined ? undefined : {
+    const response = await fetch(`/stage/player/${path}`, body === undefined ? { headers: getStageAuthHeaders() } : {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getStageAuthHeaders() },
         body: JSON.stringify(body),
     });
     const data = await response.json().catch(() => ({}));
+    if (response.status === 401) handleStageAuthFailure();
     if (!response.ok) {
         throw new Error(data?.error || `Stage relay request failed (${response.status})`);
     }

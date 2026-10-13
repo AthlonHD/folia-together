@@ -102,8 +102,7 @@ export const SETTINGS_NAV_GROUP_SPECS: GroupSpec[] = [
  * An anchor that marks itself `requiresLibrarySuiteChoice` is listed only when `hasLibrarySuiteChoice` is set,
  * because its section renders nothing while a single library suite is available. Likewise `requiresBravaisSuite`
  * is listed only while the active library suite is bravais (`isBravaisSuiteActive`).
- * An anchor that marks itself `requiresStageRelay` is listed only when `hasStageRelay` is set (a relay is configured
- * and this is not the host page), because its section renders nothing otherwise.
+ * An anchor that marks itself `requiresStageRelay` is listed only when `hasStageRelay` is set (a relay is configured), because its section renders nothing otherwise.
  */
 export const buildSettingsNavGroups = (
     t: Translate,

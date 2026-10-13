@@ -71,7 +71,7 @@ import { selectAudioSettingsSnapshot, useAudioSettingsStore } from '../../stores
 import { selectHomeLayoutSettingsSnapshot, useHomeLayoutSettingsStore } from '../../stores/useHomeLayoutSettingsStore';
 import { setNavidromeEnabledState, useLibraryStore } from '../../stores/useLibraryStore';
 import { hasLibrarySuiteChoice } from '../../library/registry';
-import { isStageHostMode, isStageRelayAvailable } from '../../services/stageMode';
+import { isStageRelayAvailable } from '../../services/stageMode';
 import { useIsBravaisLibraryActive } from '../../library/app/bravaisLibraryActive';
 
 const DEFAULT_OPENAI_TEMPERATURE = '0.7';
@@ -1317,7 +1317,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
     const isBravaisSuiteActive = useIsBravaisLibraryActive();
     const settingsNavGroups = useMemo(
-        () => buildSettingsNavGroups(t, { isElectron, hasLibrarySuiteChoice: hasLibrarySuiteChoice(), isBravaisSuiteActive, hasStageRelay: isStageRelayAvailable() && !isStageHostMode() }),
+        () => buildSettingsNavGroups(t, { isElectron, hasLibrarySuiteChoice: hasLibrarySuiteChoice(), isBravaisSuiteActive, hasStageRelay: isStageRelayAvailable() }),
         [t, isElectron, isBravaisSuiteActive],
     );
     const activeSettingsNavItem = findSettingsNavItem(settingsNavGroups, activeSettingsSection);

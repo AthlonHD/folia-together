@@ -32,7 +32,7 @@ export const SETTINGS_ANCHOR_DEFINITIONS = {
     ponderHints: { section: 'general', labelKey: 'options.ponderHints' },
 
     // PlaybackSettingsSubview (TransitionSettingsSection renders inside it)
-    // Rendered only when a Stage relay is configured and this is not the host page (see PlaybackSettingsSubview).
+    // Rendered only when a Stage relay is configured (see PlaybackSettingsSubview): the play target choice, or the access token on the host page.
     playTarget: { section: 'playback', labelKey: 'options.playTarget', requiresStageRelay: true },
     queueSettings: { section: 'playback', labelKey: 'options.queueSettings' },
     scrobbleSettings: { section: 'playback', labelKey: 'options.scrobbleSettings' },

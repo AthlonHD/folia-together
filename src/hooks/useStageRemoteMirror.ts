@@ -18,6 +18,7 @@ import {
 import type { OmniProviderId } from '../types/onlineMusic';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { fetchRemoteQueue, fetchRemoteStatus, remoteClock, remoteSetSettings } from '../services/stageRemote';
+import { getStageAuthHeaders } from '../services/stageMode';
 import { applyMirroredHostSettings, startHostSettingsUplink } from '../services/hostSettingsSync';
 
 // src/hooks/useStageRemoteMirror.ts
@@ -80,7 +81,7 @@ export function useStageRemoteMirror({
             setCachedCoverUrl(getPreferredLocalSongCoverUrl(localSong) ?? fallbackCoverUrl);
             latest.current.setIsLyricsLoading(true);
             try {
-                const response = await fetch(`/stage/local/lyrics/${encodeURIComponent(localSong.id)}`);
+                const response = await fetch(`/stage/local/lyrics/${encodeURIComponent(localSong.id)}`, { headers: getStageAuthHeaders() });
                 const data = response.ok ? await response.json() : null;
                 if (!disposed && currentId === key) latest.current.setLyrics((data?.lyrics ?? null) as LyricData | null);
             } catch (error) {

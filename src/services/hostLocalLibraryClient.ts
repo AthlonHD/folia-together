@@ -1,5 +1,6 @@
 import type { LocalLibrarySnapshot, LocalPlaylist, LocalSong } from '../types';
 import type { LocalLibraryAssignment, LocalLibraryEntity } from '../types/localLibrary';
+import { getStageAuthHeaders, handleStageAuthFailure } from './stageMode';
 
 // src/services/hostLocalLibraryClient.ts
 // 遥控页读取服务器 Host 上的本地曲库(只读)。Host 页把自己的曲库经中继共享出来(见 hostLocalLibraryRpc),
@@ -32,8 +33,9 @@ let lastFetchFailed = false;
 /** 读取 Host 的曲库;同一时刻只发一个请求,成功后缓存到曲库变化为止。Host 不在线时返回空曲库(不缓存)。 */
 export const readHostLocalLibrary = async (): Promise<HostLocalLibrary> => {
     if (cache) return cache;
-    inflight ??= fetch('/stage/local/library')
+    inflight ??= fetch('/stage/local/library', { headers: getStageAuthHeaders() })
         .then(async response => {
+            if (response.status === 401) handleStageAuthFailure();
             if (!response.ok) throw new Error(`Host local library unavailable (${response.status})`);
             const data = await response.json() as HostLocalLibrary;
             cache = { ...EMPTY_LIBRARY, ...data };

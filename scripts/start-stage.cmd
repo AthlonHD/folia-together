@@ -22,6 +22,10 @@ setlocal
 for %%I in ("%~dp0..") do set "REPO=%%~fI"
 if "%API_DIR%"=="" set "API_DIR=%USERPROFILE%\api-enhanced"
 set "HOST_URL=http://localhost:3000/?host=1"
+rem Access token: the relay reads STAGE_TOKEN, or creates and saves one in %USERPROFILE%\.folia-stage\token on first start.
+rem Everyone who wants to control this server (and the host page itself) needs it.
+set "TOKEN_FILE=%USERPROFILE%\.folia-stage\token"
+if defined STAGE_TOKEN_FILE set "TOKEN_FILE=%STAGE_TOKEN_FILE%"
 
 if not exist "%API_DIR%\app.js" (
     echo [ERROR] Netease API not found: "%API_DIR%\app.js"
@@ -90,6 +94,11 @@ if errorlevel 1 (
     goto done
 )
 
+rem Read the access token (the relay has created it by now) and put it on the host page address.
+set "TOKEN_VALUE=%STAGE_TOKEN%"
+if not defined TOKEN_VALUE if exist "%TOKEN_FILE%" set /p TOKEN_VALUE=<"%TOKEN_FILE%"
+if defined TOKEN_VALUE set "HOST_URL=%HOST_URL%&token=%TOKEN_VALUE%"
+
 rem The autoplay flag only takes effect when Chrome is not already running; otherwise click the page once.
 if defined CHROME (
     tasklist /FI "IMAGENAME eq chrome.exe" 2>nul | find /I "chrome.exe" >nul
@@ -101,7 +110,16 @@ if defined CHROME (
 ) else (
     start "" "%HOST_URL%"
 )
-echo Opened the host page: %HOST_URL%
+echo Opened the host page.
+if defined TOKEN_VALUE (
+    echo.
+    echo Access token: %TOKEN_VALUE%
+    echo Visitors who want to control this server open  YOUR-ADDRESS/?token=%TOKEN_VALUE%
+    echo or choose "Control the server" in Settings - Playback and type the token. Without it they play on their own device.
+    echo The token is also shown on the host page under Settings - Playback - Playback location.
+) else (
+    echo [WARN] No access token found yet. Check the relay window, or the file %TOKEN_FILE%.
+)
 echo If the music does not start by itself, click the page once to allow autoplay.
 echo The host page stops drawing the visuals while its window is not focused; click the window to bring them back.
 

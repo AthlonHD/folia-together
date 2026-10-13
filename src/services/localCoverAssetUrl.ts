@@ -2,6 +2,7 @@ import type { LocalSong } from '../types';
 import { isValidLocalCoverAssetId, isLocalCoverWebRuntimeSupported } from './localCoverBinaryStore';
 import { getSizedCoverUrl } from '../utils/coverUrl';
 import { isStageRemoteMode } from './stageRemote';
+import { withStageTokenQuery } from './stageMode';
 
 // src/services/localCoverAssetUrl.ts
 // Resolves content-addressed local covers to stable Electron or same-origin Web resource URLs.
@@ -19,7 +20,8 @@ export const getLocalCoverAssetUrl = (assetId: string | undefined, size?: number
   if (!isValidLocalCoverAssetId(assetId)) return null;
   let url: string;
   if (isStageRemoteMode()) {
-    url = `${HOST_COVER_PATH_PREFIX}${encodeURIComponent(assetId)}`;
+    // 图片请求带不了请求头,令牌放在查询参数里
+    url = withStageTokenQuery(`${HOST_COVER_PATH_PREFIX}${encodeURIComponent(assetId)}`);
   } else if (hasElectronCoverProtocol()) {
     url = `folia-cover://asset/${encodeURIComponent(assetId)}`;
   } else {

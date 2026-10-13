@@ -10,6 +10,7 @@ const { createStageApi } = require('../../electron/stageApi.cjs');
 
 const PORT = Number(process.env.STAGE_PORT) || 4100;
 const LISTEN_HOST = process.env.LISTEN_HOST || '0.0.0.0';
+const fs = require('fs');
 const NETEASE_PORT = Number(process.env.NETEASE_PORT) || 4000;
 const QQ_PORT = Number(process.env.QQ_PORT) || 4300;
 const KUGOU_PORT = Number(process.env.KUGOU_PORT) || 4400;
@@ -23,6 +24,48 @@ const FORWARDED_CHANNELS = new Set([
   'stage-external-play-request',
 ]);
 
+// ---- 访问令牌 ----
+// 只有持有令牌的页面才能遥控 Host、读 Host 的曲库、借用 Host 的账号;Host 页自己连中继也要带。
+// 令牌来源:环境变量 STAGE_TOKEN > 文件(默认 ~/.folia-stage/token,第一次启动随机生成并保存)。
+// 中继之前还有 Vite 反代,所有连接看起来都来自本机,所以不能按来源地址放行,一律验令牌。
+const TOKEN_FILE = process.env.STAGE_TOKEN_FILE || path.join(os.homedir(), '.folia-stage', 'token');
+const loadStageToken = () => {
+  const fromEnv = String(process.env.STAGE_TOKEN || '').trim();
+  if (fromEnv) return fromEnv;
+  try {
+    const saved = fs.readFileSync(TOKEN_FILE, 'utf-8').trim();
+    if (saved) return saved;
+  } catch { /* 还没有:下面生成 */ }
+  const generated = crypto.randomBytes(16).toString('hex');
+  fs.mkdirSync(path.dirname(TOKEN_FILE), { recursive: true });
+  fs.writeFileSync(TOKEN_FILE, generated, { mode: 0o600 });
+  return generated;
+};
+const STAGE_TOKEN = loadStageToken();
+const sameSecret = (candidate) => {
+  const a = Buffer.from(String(candidate || ''));
+  const b = Buffer.from(STAGE_TOKEN);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+// 令牌错误的请求限流(全局):防止有人在线暴力猜测
+const FAILED_AUTH_WINDOW_MS = 60_000;
+const FAILED_AUTH_LIMIT = 30;
+const failedAuthTimes = [];
+const noteFailedAuth = () => {
+  const now = Date.now();
+  while (failedAuthTimes.length > 0 && now - failedAuthTimes[0] > FAILED_AUTH_WINDOW_MS) failedAuthTimes.shift();
+  failedAuthTimes.push(now);
+};
+const isAuthRateLimited = () => {
+  const now = Date.now();
+  return failedAuthTimes.filter((time) => now - time <= FAILED_AUTH_WINDOW_MS).length >= FAILED_AUTH_LIMIT;
+};
+/** 请求头 X-Stage-Token 或查询参数 token(图片、WebSocket 带不了请求头)。 */
+const readRequestToken = (req, requestUrl) => String(req.headers['x-stage-token'] || requestUrl.searchParams.get('token') || '');
+// 账号占位登录态里带着令牌:`shared-with-stage-host:<令牌>`,代理共用账号的请求时从中取出来验
+const SHARED_TOKEN_PATTERN = new RegExp(`${'shared-with-stage-host'}:([A-Za-z0-9_-]+)`);
+const sharedAccountTokenOf = (text) => SHARED_TOKEN_PATTERN.exec(String(text || ''))?.[1] || '';
+
 let hostSocket = null;
 // 中继向 Host 页发起的请求(读取 Host 的本地曲库、封面、歌词)等待结果的表
 const pendingHostRpc = new Map();
@@ -35,6 +78,15 @@ let hostKugouCookie = null;
 // 遥控页用占位登录态表示"我用 Host 的账号";只有带这个占位的请求才换成 Host 的真实登录态。
 // 本机播放模式的访问者自己登录了账号,请求带的是自己的登录态,原样放行,不会被顶成 Host 的账号。
 const SHARED_ACCOUNT_MARKER = 'shared-with-stage-host';
+// 借用 Host 账号的请求必须带对的令牌(占位登录态里),否则拒绝。返回 true 表示已回复拒绝。
+const rejectBadSharedToken = (res, sourceText) => {
+  const limited = isAuthRateLimited();
+  if (!limited && sameSecret(sharedAccountTokenOf(sourceText))) return false;
+  if (!limited) noteFailedAuth();
+  res.writeHead(limited ? 429 : 403, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ code: limited ? 429 : 403, message: 'A valid stage token is required to use the shared account.' }));
+  return true;
+};
 // 登录相关接口原样透传;/logout 会让 Host 账号下线,一律拒绝
 // /login/status 要换成 Host 的 cookie,否则遥控端判定为未登录
 const NETEASE_PASSTHROUGH = /^\/(login(?!\/status)|register|captcha)/;
@@ -66,6 +118,7 @@ const handleNeteaseProxy = async (req, res, requestUrl) => {
 
   const apiPath = requestUrl.pathname.slice('/ncm'.length);
   const usesSharedAccount = String(requestUrl.searchParams.get('cookie') || '').includes(SHARED_ACCOUNT_MARKER);
+  if (usesSharedAccount && rejectBadSharedToken(res, requestUrl.searchParams.get('cookie'))) return true;
   // 登出只拦共用账号的请求:本机模式的访问者可以退出自己的账号
   if (apiPath.startsWith('/logout') && usesSharedAccount) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
@@ -121,6 +174,7 @@ const handleQqProxy = async (req, res, requestUrl) => {
   const sessionHeader = String(req.headers[QQ_SESSION_HEADER.toLowerCase()] || '');
   const usesSharedAccount = sessionHeader.includes(SHARED_ACCOUNT_MARKER)
     || String(requestUrl.searchParams.get('cookie') || '').includes(SHARED_ACCOUNT_MARKER);
+  if (usesSharedAccount && rejectBadSharedToken(res, `${sessionHeader} ${requestUrl.searchParams.get('cookie') || ''}`)) return true;
   if (apiPath.startsWith('/logout') && usesSharedAccount) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ code: 403, message: 'Logout is disabled on the shared account.' }));
@@ -180,6 +234,7 @@ const handleKugouProxy = async (req, res, requestUrl) => {
 
   const apiPath = requestUrl.pathname.slice('/kugou'.length);
   const usesSharedAccount = String(requestUrl.searchParams.get('cookie') || '').includes(SHARED_ACCOUNT_MARKER);
+  if (usesSharedAccount && rejectBadSharedToken(res, requestUrl.searchParams.get('cookie'))) return true;
   if (apiPath.startsWith('/logout') && usesSharedAccount) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ code: 403, message: 'Logout is disabled on the shared account.' }));
@@ -229,6 +284,28 @@ const handleKugouProxy = async (req, res, requestUrl) => {
     res.writeHead(502, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ code: 502, message: String(error) }));
   }
+  return true;
+};
+
+// /stage/player/*(遥控)与 /stage/local/*(Host 的曲库、封面、歌词)必须带令牌;/stage/auth/check 供页面验证令牌。
+// /stage/health 不涉及任何内容,保持公开。
+const handleStageAuth = async (req, res, requestUrl) => {
+  const { pathname } = requestUrl;
+  const isCheck = pathname === '/stage/auth/check';
+  if (!isCheck && !pathname.startsWith('/stage/player/') && !pathname.startsWith('/stage/local/')) return false;
+  if (req.method === 'OPTIONS') return false;
+
+  const limited = isAuthRateLimited();
+  const valid = !limited && sameSecret(readRequestToken(req, requestUrl));
+  if (valid) {
+    if (isCheck) {
+      sendJson(res, 200, { ok: true });
+      return true;
+    }
+    return false;
+  }
+  if (!limited) noteFailedAuth();
+  sendJson(res, limited ? 429 : 401, { error: limited ? 'Too many failed attempts, try again in a minute.' : 'A valid stage token is required.' });
   return true;
 };
 
@@ -341,8 +418,15 @@ const handleHostLocalLibrary = async (req, res, requestUrl) => {
 
 // Host 页升级到 /stage/host/ws 时接管;同时只保留一个 Host,新连接顶掉旧连接
 const handleHostUpgrade = (req, socket, head) => {
-  const pathname = new URL(req.url || '/', 'http://localhost').pathname;
-  if (pathname !== HOST_WS_PATH) return false;
+  const upgradeUrl = new URL(req.url || '/', 'http://localhost');
+  if (upgradeUrl.pathname !== HOST_WS_PATH) return false;
+  // Host 页连中继也要带令牌(WebSocket 带不了请求头,走查询参数)
+  if (isAuthRateLimited() || !sameSecret(upgradeUrl.searchParams.get('token'))) {
+    if (!isAuthRateLimited()) noteFailedAuth();
+    socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return true;
+  }
 
   hostWss.handleUpgrade(req, socket, head, (ws) => {
     if (hostSocket && hostSocket !== ws) {
@@ -407,7 +491,8 @@ stageApi = createStageApi({
   routeFilter: (pathname, method) => method === 'OPTIONS' || ALLOWED_ROUTES.some((re) => re.test(pathname)),
   extraUpgradeHandler: handleHostUpgrade,
   extraHttpHandler: async (req, res, requestUrl) => (
-    (await handleNeteaseProxy(req, res, requestUrl))
+    (await handleStageAuth(req, res, requestUrl))
+    || (await handleNeteaseProxy(req, res, requestUrl))
     || (await handleQqProxy(req, res, requestUrl))
     || (await handleKugouProxy(req, res, requestUrl))
     || (await handleHostLocalLibrary(req, res, requestUrl))
@@ -416,6 +501,8 @@ stageApi = createStageApi({
 
 stageApi.startStageServerIfNeeded().then(() => {
   console.log(`[Relay] Listening on ${LISTEN_HOST}:${PORT}, Netease API on 127.0.0.1:${NETEASE_PORT}`);
+  console.log(`[Relay] Access token (遥控与 Host 页都要带): ${STAGE_TOKEN}`);
+  console.log(`[Relay] Token file: ${process.env.STAGE_TOKEN ? '(from STAGE_TOKEN)' : TOKEN_FILE}`);
 }).catch((error) => {
   console.error('[Relay] Failed to start', error);
   process.exit(1);

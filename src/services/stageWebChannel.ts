@@ -12,6 +12,7 @@ import type {
 import { readProviderSessionValue } from './onlineMusic/providerStorage';
 import { getKugouWebSessionCookie } from './onlineMusic/kugouTransport';
 import { getHostRpcHandler } from './hostRpcRegistry';
+import { getStageToken } from './stageMode';
 
 export interface StageBridge {
     publishStagePlayerSnapshot: (snapshot: StagePlayerSnapshot, options?: { forcePlaybackEvent?: boolean }) => Promise<unknown>;
@@ -40,7 +41,9 @@ const createStageWebChannel = (): StageBridge => {
 
     const connect = () => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${window.location.host}${HOST_WS_PATH}`);
+        // 中继要求 Host 页连接时也带令牌(WebSocket 带不了请求头,走查询参数)
+        const token = getStageToken();
+        const ws = new WebSocket(`${protocol}//${window.location.host}${HOST_WS_PATH}${token ? `?token=${encodeURIComponent(token)}` : ''}`);
         socket = ws;
         ws.onopen = syncAccount;
         ws.onmessage = (event) => {
