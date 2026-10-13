@@ -5,7 +5,6 @@ import { getLocalLibraryCatalogSnapshot } from '../services/localLibraryEntityRe
 import { buildLocalQueue } from '../services/playbackAdapters';
 import { prefetchNearbySongs } from '../services/prefetchService';
 import type { ThemeCacheSongKey } from '../services/themeCache';
-import { useOnlineProviderAccountStore } from '../stores/useOnlineProviderAccountStore';
 import { restorePlaybackSourceForSong } from '../components/app/playback/restorePlaybackSource';
 import { getPlaybackSongKey, isStagePlaybackSong, normalizePlaybackSongSource } from '../utils/appPlaybackGuards';
 import type { LyricData, SongResult, StatusMessage } from '../types';
@@ -135,13 +134,8 @@ export function useSessionRestoreController({
                 }
 
                 console.log('[Session] Restoring last song:', lastSong.name);
-                if (lastSong.sourceRef?.kind === 'online' && lastSong.sourceRef.providerId) {
-                    const currentActiveProviderId = useOnlineProviderAccountStore.getState().activeProviderId;
-                    if (currentActiveProviderId !== lastSong.sourceRef.providerId) {
-                        console.log(`[Session] Aligning active provider to restored song provider: ${lastSong.sourceRef.providerId}`);
-                        useOnlineProviderAccountStore.getState().setActiveProviderId(lastSong.sourceRef.providerId);
-                    }
-                }
+                // 不再把"当前浏览的平台"对齐到上次那首歌所属的平台:播放与浏览已经解耦(队列里的歌自带来源、可跨平台混排),
+                // 启动时默认打开哪个平台由 startupProviderSelector 按优先级和账号决定。
                 setCurrentSong(lastSong);
                 // Left unset, every "is this still the current song" check reads the restored song
                 // as already replaced, and its source refresh or failure message is dropped as stale.
