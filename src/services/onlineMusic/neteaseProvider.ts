@@ -16,8 +16,13 @@ import { getPersonalFmRequestOptions } from '../../stores/usePersonalFmModeStore
 import { parseNeteaseChorusRanges, processNeteaseLyrics } from '../../utils/lyrics/neteaseProcessing';
 import { toFiniteNumber } from '../../utils/replayGain';
 import { createProviderSongMetadata } from '../../utils/songMetadata';
-import { getNeteaseRemoteApiBase, isSongMarkedUnavailable, neteaseApi } from '../netease';
+import { getNeteaseRemoteApiBase, neteaseApi } from '../netease';
 import { readProviderSessionValue, writeProviderSessionValue } from './providerStorage';
+import {
+    classifyNeteaseSongUrlResponse,
+    resolveNeteaseSongAvailability,
+    toNeteaseRequestError,
+} from './neteasePlaybackFailure';
 import { collectLoginBackendDiagnostics } from './loginBackendDiagnostics';
 import { canRunLoginSelfCheck, runLoginSelfCheck } from './loginSelfCheck';
 import { formatDiagnosticClock } from '../../utils/qrLoginDiagnosticReport';
@@ -39,13 +44,13 @@ const mapQuality = (quality: AudioQualityPreference): string => {
 
 /**
  * 取不到所选音质时依次尝试的级别,从选定的那档往下降。
- * 网易云接口对"这首歌没有该级别"通常会自己给出可用的最高级别,这条阶梯兜的是它直接返回空地址、
- * 或只给 30 秒试听片段的情况:此时继续往下找完整可播的,而不是停在失败或试听上。
+ * 只对高解析度 / 无损这两档降级:它们是会员档,常常整档拿不到地址,继续往下找完整可播的比直接失败更合适。
+ * "高"和"标准"只请求一次(上游的约定:不做客户端音质回退,失败按原因如实报告)。
  */
 const QUALITY_FALLBACK_LADDER: Record<AudioQualityPreference, string[]> = {
     hires: ['hires', 'lossless', 'exhigh', 'standard'],
     lossless: ['lossless', 'exhigh', 'standard'],
-    high: ['exhigh', 'standard'],
+    high: ['exhigh'],
     standard: ['standard'],
 };
 
@@ -361,34 +366,41 @@ export const neteaseProvider: OnlineMusicProvider = {
                 };
             };
 
-            // 完整可播的音源优先;所有级别都只有试听片段时,退回第一个试听,总比无声强
+            // 按音质降级顺序逐档试(hires -> lossless -> ...),拿到第一个完整可播的就用。
+            // 都拿不到时,抛出最高音质那一档的失败原因(上游按响应形态分类:需要 VIP、无版权、地区限制……),
+            // 而不是一律当成"歌曲已下架";只剩试听片段且响应没被判成失败时,才退回试听。
+            let firstFailure: Error | null = null;
             let trialSource: any = null;
             for (const level of QUALITY_FALLBACK_LADDER[quality] ?? [mapQuality(quality)]) {
-                const response = await neteaseApi.getSongUrl(toNeteaseId(song.id), level);
+                let response: any;
+                try {
+                    response = await neteaseApi.getSongUrl(toNeteaseId(song.id), level);
+                } catch (error) {
+                    throw toNeteaseRequestError(error, 'song-url');
+                }
                 const raw = response?.data?.[0];
-                if (!raw?.url) continue;
-                if (raw.freeTrialInfo) {
-                    trialSource ??= raw;
-                    continue;
+                if (raw?.url && !raw.freeTrialInfo) {
+                    if (level !== mapQuality(quality)) {
+                        console.info(`[NetEase] ${song.id}: ${mapQuality(quality)} unavailable, fell back to ${raw.level ?? level}`);
+                    }
+                    return toSource(raw);
                 }
-                if (level !== mapQuality(quality)) {
-                    console.info(`[NetEase] ${song.id}: ${mapQuality(quality)} unavailable, fell back to ${raw.level ?? level}`);
-                }
-                return toSource(raw);
+                if (raw?.url && raw.freeTrialInfo) trialSource ??= raw;
+                firstFailure ??= classifyNeteaseSongUrlResponse(response);
             }
+            if (firstFailure) throw firstFailure;
             return trialSource ? toSource(trialSource) : null;
         },
         getAvailability(song): ProviderSongAvailability {
-            if (!isSongMarkedUnavailable(song)) return { state: 'playable' };
-            return {
-                state: 'unavailable',
-                label: typeof song.noCopyrightRcmd?.typeDesc === 'string'
-                    ? song.noCopyrightRcmd.typeDesc
-                    : undefined,
-            };
+            return resolveNeteaseSongAvailability(song);
         },
         async getReplacement(song): Promise<ProviderSongReplacement | null> {
-            const replacement = await neteaseApi.getUnavailableSongReplacement(song);
+            let replacement: Awaited<ReturnType<typeof neteaseApi.getUnavailableSongReplacement>>;
+            try {
+                replacement = await neteaseApi.getUnavailableSongReplacement(song);
+            } catch (error) {
+                throw toNeteaseRequestError(error, 'replacement');
+            }
             if (!replacement?.replacementSong) return null;
             return {
                 song: normalizeNeteaseSong(replacement.replacementSong),
