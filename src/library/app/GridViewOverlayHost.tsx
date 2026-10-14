@@ -36,7 +36,7 @@ import type { HomeSurfaceProps } from '../../components/app/home/homeSurfaceType
 import { useThemeSettingsStore } from '../../stores/useThemeSettingsStore';
 import { countRender } from '../../dev/renderCount';
 import { useLibraryBackdrop } from './useLibraryBackdrop';
-import { useLibrarySuiteStore } from '../core/state/useLibrarySuiteStore';
+import { useActiveLibrarySuiteId } from './librarySuiteChoice';
 import { useLibraryBrowseSessionStore } from '../core/state/useLibraryBrowseSessionStore';
 import type { LibraryNavigationContext, LibrarySurfaceId } from '../core/contracts/suite';
 import {
@@ -185,7 +185,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({
     const isDaylight = useThemeSettingsStore(state => state.isDaylight);
     const localLibraryCatalog = surfaceProps.localLibraryCatalog;
     const selectedCollection = getActiveGridViewCollection(collectionSnapshot);
-    const suiteId = useLibrarySuiteStore(state => state.suite);
+    const suiteId = useActiveLibrarySuiteId();
     // 集合层与歌手页都由选中的 suite 渲染（它没实现那个 surface 时回退网格；P4.3 起 TUI 也实现了歌手页）。
     const collectionSurface = resolveLibrarySurface('collection', suiteId);
     const artistSurface = resolveLibrarySurface('artist', suiteId);

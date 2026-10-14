@@ -29,8 +29,11 @@ const SUITE_INDEX = buildLibrarySuiteIndex(Object.entries(suiteEntryModules).map
 
 export { DEFAULT_LIBRARY_SUITE_ID };
 
-/** 当前构建里可用的 suite（默认 suite 在最前）。DEV 浮层的按钮、探针的 suite 列表都来自这里。 */
-export const listLibrarySuites = (): readonly LibrarySuiteManifest[] => SUITE_INDEX.suites;
+/**
+ * 当前构建里用户能选的 suite（默认 suite 在最前）。DEV 浮层的按钮、探针的 suite 列表、设置与命令面板的选项都来自这里；
+ * 只给特定设备布局用的 suite（deviceOnly，手机版）不在其中，但 hasLibrarySuite / getLibrarySuite 仍认得它。
+ */
+export const listLibrarySuites = (): readonly LibrarySuiteManifest[] => SUITE_INDEX.suites.filter(suite => !suite.deviceOnly);
 
 export const hasLibrarySuite = (suiteId: string): suiteId is LibrarySuiteId => SUITE_INDEX.has(suiteId);
 
@@ -42,8 +45,13 @@ export const getLibrarySuite = (suiteId: string): LibrarySuiteManifest | undefin
  */
 export const resolveActiveLibrarySuiteId = (suiteId: string): LibrarySuiteId => SUITE_INDEX.resolveId(suiteId);
 
+/** 手机布局生效时用的 suite(没有就 null,手机照旧用用户选的那套)。 */
+export const getPhoneLibrarySuiteId = (): LibrarySuiteId | null => (
+    SUITE_INDEX.suites.find(suite => suite.deviceOnly === 'phone')?.id ?? null
+);
+
 /** 有没有得选（可用的 suite 不止一套）：设置项与命令面板共用这一个判断。 */
-export const hasLibrarySuiteChoice = (): boolean => isLibrarySuiteChoiceAvailable(SUITE_INDEX.suites);
+export const hasLibrarySuiteChoice = (): boolean => isLibrarySuiteChoiceAvailable(listLibrarySuites());
 
 export type ResolvedLibrarySurface<Surface extends LibrarySurfaceId> = {
     /** 实际渲染这个 surface 的 suite（回退时是默认 suite）。 */

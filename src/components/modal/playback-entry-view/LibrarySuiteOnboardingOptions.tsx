@@ -5,7 +5,7 @@ import { OnboardingChoiceCards, type OnboardingChoiceArt, type OnboardingChoiceC
 import {
     chooseLibrarySuite,
     listOnboardingLibrarySuiteIds,
-    useActiveLibrarySuiteId,
+    useChosenLibrarySuiteId,
 } from '../../../library/app/librarySuiteChoice';
 import type { LibrarySuiteId } from '../../../library/core/contracts/suite';
 
@@ -26,7 +26,7 @@ type LibrarySuiteOnboardingOptionsProps = {
 
 export const LibrarySuiteOnboardingOptions: React.FC<LibrarySuiteOnboardingOptionsProps> = ({ isDaylight, accentColor }) => {
     const { t } = useTranslation();
-    const activeSuiteId = useActiveLibrarySuiteId();
+    const activeSuiteId = useChosenLibrarySuiteId();
     const suiteIds = listOnboardingLibrarySuiteIds();
 
     const cards = useMemo<OnboardingChoiceCard<LibrarySuiteId>[]>(() => suiteIds.map(id => ({

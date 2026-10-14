@@ -5,7 +5,7 @@ import type { Theme } from '../../../types';
 import { SettingsAnchor } from './navigation/SettingsAnchorContext';
 import SettingsSectionHeading from './navigation/SettingsSectionHeading';
 import { hasLibrarySuiteChoice } from '../../../library/registry';
-import { chooseLibrarySuite, listLibrarySuiteOptions, useActiveLibrarySuiteId } from '../../../library/app/librarySuiteChoice';
+import { chooseLibrarySuite, listLibrarySuiteOptions, useChosenLibrarySuiteId } from '../../../library/app/librarySuiteChoice';
 
 // src/components/modal/settings/LibrarySuiteSection.tsx
 // 资料库界面（Library UI suite）的选择，挂在界面设置里「播放进入视图」的下面。选项来自 registry 里可用的 suite，
@@ -26,7 +26,7 @@ const LibrarySuiteSection: React.FC<LibrarySuiteSectionProps> = ({
     theme,
 }) => {
     const { t } = useTranslation();
-    const activeSuiteId = useActiveLibrarySuiteId();
+    const activeSuiteId = useChosenLibrarySuiteId();
 
     if (!hasLibrarySuiteChoice()) return null;
 

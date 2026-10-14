@@ -3,7 +3,7 @@ import GridViewOverlayHost from '../../library/app/GridViewOverlayHost';
 import LibraryAccountHost from '../../library/app/LibraryAccountHost';
 import { createLibraryAccountLayer } from '../../library/app/libraryAccountLayer';
 import { resolveLibrarySurface } from '../../library/registry';
-import { useLibrarySuiteStore } from '../../library/core/state/useLibrarySuiteStore';
+import { useActiveLibrarySuiteId } from '../../library/app/librarySuiteChoice';
 import { useLibraryDirectoryBatchController } from '../../library/app/useLibraryDirectoryBatchController';
 import { useLibraryHomeResources } from '../../library/app/useLibraryHomeResources';
 import type { HomeViewModel } from './home/buildHomeModel';
@@ -21,7 +21,7 @@ type AppHomeProps = {
 const Home: React.FC<AppHomeProps> = ({ model, isHomeFullyHidden, isInteractive = true }) => {
     countRender('Home');
     // 只在切换 suite 时变（开发版浮层）；同一个回退结果是同一个组件，首页不会因此重新挂载。
-    const suiteId = useLibrarySuiteStore(state => state.suite);
+    const suiteId = useActiveLibrarySuiteId();
     // 目录批量动作（本地文件夹 / 专辑 / 歌手的播放、入队、建歌单、删除、重扫）：首页一个控制器，不随渲染重建。
     const directoryActions = useLibraryDirectoryBatchController(model.surfaceProps);
     // 首页资源（在线收藏专辑、电台 feed、Navidrome 概览、文件夹树、导入与打开等首页动作）：首页一份，任何 suite 的

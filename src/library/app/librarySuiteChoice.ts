@@ -2,7 +2,9 @@ import { collectionKey } from '../core/model/collectionIdentity';
 import { useLibrarySuiteStore } from '../core/state/useLibrarySuiteStore';
 import type { LibrarySuiteId } from '../core/contracts/suite';
 import { getActiveGridViewCollection, useCollectionNavigationStore } from '../../stores/useCollectionNavigationStore';
-import { listLibrarySuites, resolveActiveLibrarySuiteId } from '../registry';
+import { getPhoneLibrarySuiteId, listLibrarySuites, resolveActiveLibrarySuiteId } from '../registry';
+import { useIsPhoneLayout } from '../../hooks/useLayoutMode';
+import { getLayoutMode } from '../../services/deviceProfile';
 import { switchLibrarySuite } from './switchLibrarySuite';
 
 // src/library/app/librarySuiteChoice.ts
@@ -70,12 +72,30 @@ export const confirmOnboardingLibrarySuite = (): void => {
  */
 export const isWallLibrarySuite = (suiteId: LibrarySuiteId): boolean => suiteId === 'bravais';
 
-/** 此刻实际生效的 suite（非响应式，命令面板用）。 */
-export const getActiveLibrarySuiteId = (): LibrarySuiteId => (
-    resolveActiveLibrarySuiteId(useLibrarySuiteStore.getState().suite)
-);
+/**
+ * 用户选的那套 suite 此刻实际生效的 id（store 的值可能不可用，那时是默认 suite）。设置项、首启引导的「当前选中」
+ * 看它——手机布局下实际渲染的是手机版 suite，但用户的选择不被改写。
+ */
+export const resolveChosenLibrarySuiteId = (stored: string, phoneLayout: boolean = false): LibrarySuiteId => {
+    const phoneSuiteId = phoneLayout ? getPhoneLibrarySuiteId() : null;
+    return phoneSuiteId ?? resolveActiveLibrarySuiteId(stored);
+};
 
-/** 实际生效的 suite（响应式，设置项与 DEV 浮层用）。 */
-export const useActiveLibrarySuiteId = (): LibrarySuiteId => (
+/** 用户选的 suite（非响应式）。 */
+export const getChosenLibrarySuiteId = (): LibrarySuiteId => resolveActiveLibrarySuiteId(useLibrarySuiteStore.getState().suite);
+
+/** 用户选的 suite（响应式，设置项与首启引导用）。 */
+export const useChosenLibrarySuiteId = (): LibrarySuiteId => (
     useLibrarySuiteStore(state => resolveActiveLibrarySuiteId(state.suite))
 );
+
+/** 此刻实际渲染的 suite（非响应式，命令面板与各处「是不是 bravais」的判断用）：手机布局下是手机版 suite。 */
+export const getActiveLibrarySuiteId = (): LibrarySuiteId => (
+    resolveChosenLibrarySuiteId(useLibrarySuiteStore.getState().suite, getLayoutMode() === 'phone')
+);
+
+/** 此刻实际渲染的 suite（响应式，宿主与 DEV 浮层用）。 */
+export const useActiveLibrarySuiteId = (): LibrarySuiteId => {
+    const phoneLayout = useIsPhoneLayout();
+    return useLibrarySuiteStore(state => resolveChosenLibrarySuiteId(state.suite, phoneLayout));
+};

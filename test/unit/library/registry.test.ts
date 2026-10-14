@@ -33,6 +33,17 @@ describe('library suite registry', () => {
         expect(getLibrarySuite('tui')?.labelKey).toBe('libraryTui.rendererTui');
     });
 
+    it('keeps the device-only phone suite out of the choosable list, but resolves it for the phone layout', () => {
+        expect(listLibrarySuites().map(suite => suite.id)).not.toContain('phone');
+        expect(hasLibrarySuite('phone')).toBe(true);
+        expect(getLibrarySuite('phone')?.deviceOnly).toBe('phone');
+        // 手机版实现集合页与歌手页;首页与账户回退网格
+        expect(resolveLibrarySurface('collection', 'phone')).toMatchObject({ suiteId: 'phone', isFallback: false });
+        expect(resolveLibrarySurface('artist', 'phone')).toMatchObject({ suiteId: 'phone', isFallback: false });
+        expect(resolveLibrarySurface('home', 'phone')).toMatchObject({ suiteId: 'grid', isFallback: true });
+        expect(resolveLibrarySurface('account', 'phone')).toMatchObject({ suiteId: 'grid', isFallback: true });
+    });
+
     it('renders every TUI surface itself, the artist page included (P4.3)', () => {
         for (const surface of ['home', 'collection', 'artist'] as const) {
             expect(resolveLibrarySurface(surface, 'tui')).toMatchObject({ suiteId: 'tui', isFallback: false });

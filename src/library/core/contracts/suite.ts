@@ -408,6 +408,11 @@ export type LibrarySuiteManifest = {
     labelKey: string;
     /** false 时 registry 当它不存在（例如开发版专用的 suite 在生产构建里）。缺省为可用。 */
     available?: boolean;
+    /**
+     * 只给特定设备布局用的 suite:不出现在设置、命令面板与首启引导的选项里,用户的 suite 选择也不会被它改写——
+     * 该设备布局生效时宿主直接用它(没实现的 surface 照旧回退默认 suite)。目前只有手机版('phone')。
+     */
+    deviceOnly?: 'phone';
     surfaces: { readonly [Surface in LibrarySurfaceId]?: LibrarySurfaceDeclaration<LibrarySurfacePropsMap[Surface]> };
     transitions?: LibrarySuiteTransitions;
     /** 有布局记录的 suite 才给（网格：集合与歌手页的 sessionStorage 记录）。 */
