@@ -27,6 +27,7 @@ export const SETTINGS_ANCHOR_DEFINITIONS = {
     librarySuite: { section: 'general', labelKey: 'options.librarySuite', requiresLibrarySuiteChoice: true },
     // bravais 独有的设置（透光、每块窗数、集合叠页边）：只在生效 suite 是 bravais 时渲染（isBravaisLibraryActive）。
     bravaisSettings: { section: 'general', labelKey: 'options.bravaisSettings', requiresBravaisSuite: true },
+    layoutMode: { section: 'general', labelKey: 'options.layoutMode' },
     bottomUiSettings: { section: 'general', labelKey: 'options.bottomUiSettings' },
     pinnedCommands: { section: 'general', labelKey: 'options.pinnedCommands' },
     ponderHints: { section: 'general', labelKey: 'options.ponderHints' },

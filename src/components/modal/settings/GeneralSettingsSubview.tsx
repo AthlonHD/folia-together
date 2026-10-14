@@ -9,6 +9,7 @@ import PinnedCommandSettings from './PinnedCommandSettings';
 import PonderHintSettingsSection from './PonderHintSettingsSection';
 import PlaybackEntryViewSection from './PlaybackEntryViewSection';
 import LibrarySuiteSection from './LibrarySuiteSection';
+import LayoutModeSection from './LayoutModeSection';
 import BravaisSettingsSection from './BravaisSettingsSection';
 import PlayerBottomBarSection from './PlayerBottomBarSection';
 import HomeCardPositionSection from './HomeCardPositionSection';
@@ -201,6 +202,12 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
             />
 
             <BravaisSettingsSection
+                isDaylight={isDaylight}
+                settingsCardClass={settingsCardClass}
+                theme={theme}
+            />
+
+            <LayoutModeSection
                 isDaylight={isDaylight}
                 settingsCardClass={settingsCardClass}
                 theme={theme}

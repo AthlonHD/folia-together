@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer';
 import { installGlobalVisualizerFrameRateLimiter } from './utils/frameRateLimiter';
+import { installLayoutAttributes } from './services/deviceProfile';
 import { installConsoleLogCapture } from './utils/consoleLogBuffer';
 import { installDebugModule } from './services/debug/debugModule';
 import { installMemorySampleFeed } from './services/debug/memorySamples';
@@ -21,5 +22,7 @@ installMemorySampleFeed();
 // observer or the rows it retains.
 // if (import.meta.env.DEV) installCoverSizeAudit();
 installGlobalVisualizerFrameRateLimiter();
+// 把当前布局(手机 / 电脑)和设备方向写到 <html> 的 data-layout / data-orientation 上,先于应用渲染。
+installLayoutAttributes();
 
 void import('./bootstrap');

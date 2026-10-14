@@ -40,6 +40,25 @@ body {
   cursor: none;
 }
 
+/* 安全区(刘海、圆角、手势条)。需要 viewport-fit=cover 才有值;电脑上都是 0,不影响任何布局。
+   手机外壳的顶栏、底部 dock 和浮层都用这几个变量留出空位,不各自去读 env()。 */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* 手机布局下的触屏基础:不要点击高亮、不要双击缩放、不要下拉刷新和橡皮筋把整个应用拖走。 */
+:root[data-layout="phone"] {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+:root[data-layout="phone"] button,
+:root[data-layout="phone"] [role="button"] {
+  touch-action: manipulation;
+}
+
 :root {
   --scrollbar-track: #18181b;
   --scrollbar-thumb: #3f3f46;
