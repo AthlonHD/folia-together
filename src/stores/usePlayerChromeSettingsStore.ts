@@ -46,6 +46,21 @@ const readStoredPlayerControlSlot = (
     return isPlayerControlSlotActionId(saved) ? saved : fallback;
 };
 
+const SLOT_DEFAULT_MIGRATED_KEY = 'player_control_slot_secondary_like_default_v1';
+
+const migrateLegacyTimelineSlot = (slot: PlayerControlSlotActionId): PlayerControlSlotActionId => {
+    if (typeof window === 'undefined') return slot;
+    try {
+        if (localStorage.getItem(SLOT_DEFAULT_MIGRATED_KEY)) return slot;
+        localStorage.setItem(SLOT_DEFAULT_MIGRATED_KEY, '1');
+        if (slot !== 'lyrics-timeline') return slot;
+        localStorage.setItem(PLAYER_CONTROL_SLOT_SECONDARY_STORAGE_KEY, DEFAULT_PLAYER_CONTROL_SLOT_SECONDARY);
+        return DEFAULT_PLAYER_CONTROL_SLOT_SECONDARY;
+    } catch {
+        return slot;
+    }
+};
+
 export type PlayerChromeSettingsState = {
     hidePlayerProgressBar: boolean;
     playerBottomBarOffset: number;
@@ -87,10 +102,11 @@ export const usePlayerChromeSettingsStore = create<PlayerChromeSettingsState>((s
         PLAYER_CONTROL_SLOT_PRIMARY_STORAGE_KEY,
         DEFAULT_PLAYER_CONTROL_SLOT_PRIMARY,
     ),
-    playerControlSlotSecondary: readStoredPlayerControlSlot(
+    // 旧默认是歌词时间轴(多数人没主动选过它):读到它就换成新默认「喜欢」,并写回,之后在设置里重新选回时间轴不会再被改。
+    playerControlSlotSecondary: migrateLegacyTimelineSlot(readStoredPlayerControlSlot(
         PLAYER_CONTROL_SLOT_SECONDARY_STORAGE_KEY,
         DEFAULT_PLAYER_CONTROL_SLOT_SECONDARY,
-    ),
+    )),
     hidePlayerRightPanelButton: getStoredBoolean('hide_player_right_panel_button', false),
     alwaysShowPlayerBackButton: getStoredBoolean('always_show_player_back_button', false),
     alwaysShowTrackSwitchButtons: getStoredBoolean('always_show_track_switch_buttons', false),

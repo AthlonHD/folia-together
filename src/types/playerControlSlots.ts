@@ -29,9 +29,9 @@ export const PLAYER_CONTROL_SLOT_ACTION_IDS: readonly PlayerControlSlotActionId[
     'sleep-timer',
 ];
 
-/** 默认保持改动前的样子：循环模式 + 歌词时间轴。 */
+/** 默认:循环模式 + 喜欢(加入「我喜欢的音乐」)。歌词时间轴仍可在设置里选,但不再是默认。 */
 export const DEFAULT_PLAYER_CONTROL_SLOT_PRIMARY: PlayerControlSlotActionId = 'loop';
-export const DEFAULT_PLAYER_CONTROL_SLOT_SECONDARY: PlayerControlSlotActionId = 'lyrics-timeline';
+export const DEFAULT_PLAYER_CONTROL_SLOT_SECONDARY: PlayerControlSlotActionId = 'like';
 
 export const isPlayerControlSlotActionId = (value: unknown): value is PlayerControlSlotActionId => (
     typeof value === 'string' && (PLAYER_CONTROL_SLOT_ACTION_IDS as readonly string[]).includes(value)
