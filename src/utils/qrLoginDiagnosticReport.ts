@@ -137,7 +137,8 @@ export const formatQrLoginDiagnosticReport = ({
     '```',
 ].join('\n');
 
-const FOLIA_NEW_ISSUE_URL = 'https://github.com/chthollyphile/folia-major/issues/new';
+// 本 Fork 的反馈入口;上游已有功能的问题由维护者按需转到上游。
+const FOLIA_NEW_ISSUE_URL = 'https://github.com/AthlonHD/folia-together/issues/new';
 // GitHub 对过长的 new-issue 链接会直接报错；超过这个长度就不把报告塞进链接，改让用户粘贴剪贴板里的内容。
 const MAX_ISSUE_URL_LENGTH = 7000;
 

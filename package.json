@@ -2,10 +2,18 @@
   "name": "folia-major",
   "productName": "Folia",
   "desktopName": "folia-major.desktop",
-  "description": "Lyrics Reimagine",
+  "description": "Folia Together: fork of folia-major with server-side playback, multi-user remote control and a phone layout",
   "author": {
     "name": "chthollyphile",
     "email": "chthollyphile@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/AthlonHD/folia-together",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AthlonHD/folia-together.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AthlonHD/folia-together/issues"
   },
   "private": true,
   "version": "0.7.18",

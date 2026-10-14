@@ -4,6 +4,16 @@
 
 感谢你愿意参与 Folia。你可以通过报告问题、补充复现步骤、验证修复、改进文档或提交代码来贡献。本指南说明主线代码贡献的要求，请在开始修改和提交 Pull Request（PR）之前阅读。
 
+## 关于本 Fork
+
+本仓库（[AthlonHD/folia-together](https://github.com/AthlonHD/folia-together)）是[上游 folia-major](https://github.com/chthollyphile/folia-major)的长期维护 Fork。下文的主线贡献规则源自上游，对上游仓库的 PR 请严格遵守；对本 Fork 的 PR 同样建议遵守其中的验证与责任要求，并额外注意：
+
+- **反馈归属**：遥控 / Stage 中继、手机布局、QQ 音乐与酷狗接入、启动脚本等 Fork 特有功能的问题与建议，提到本仓库；上游已有功能的问题，请到[上游 Issues](https://github.com/chthollyphile/folia-major/issues) 反馈。
+- **分支**：本 Fork 的开发分支是 `stage-remote`，PR 请基于它。
+- **文档同步**：新增或改动 Fork 功能时，同步更新 [Fork 功能与修复清单](docs/fork-features.md)（涉及部署或遥控的还要更新 [Stage Remote 使用文档](docs/stage-remote.md)）。
+- **提交信息**：`feat(范围): …` / `fix(范围): …` / `chore(范围): …`。
+- 与上游重叠的代码尽量「只加不替换」，方便持续合并上游。
+
 ## 先理解主线贡献的边界
 
 **个人修改与主线贡献是两件不同的事情。** Folia 是一个 opinionated 软件，有独立的设计倾向和架构偏好。主线不会以满足所有用户需求为目标，也不会仅凭支持人数决定是否接纳功能。

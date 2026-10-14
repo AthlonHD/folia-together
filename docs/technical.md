@@ -1,3 +1,5 @@
+> **Fork 说明**：本文以上游内容为基础。桌面端、发布通道、Linux 打包等章节描述的是[上游](https://github.com/chthollyphile/folia-major)的产品形态，本 Fork 不发布桌面安装包，请到[上游 Releases](https://github.com/chthollyphile/folia-major/releases)查看；本 Fork 的部署与启动方式见 [Stage Remote 使用文档](stage-remote.md) 与[根 README](../README.md#部署与启动)，新增功能见 [Fork 功能与修复清单](fork-features.md)。
+
 # Folia 技术与开发说明
 
 这份文档收纳仓库 README 中较细的部署、开发、桌面端和技术栈说明。更完整的使用指南也可以访问专门的文档站点：
@@ -95,6 +97,10 @@ Gemini 通常更适合当前项目场景，因为 JSON 输出相对稳定。
 Folia 提供了从外部与播放器进行交互的 Stage API，从而可以实现外部程序与播放器的深度集成。可以通过 `npm run stage:client` 启动本地联调台，查看和测试这些接口的功能。
 
 具体可参考 [Stage API 文档](../test/manual/stage-client/README.md)。
+
+### Stage Relay（本 Fork）
+
+本 Fork 把桌面版 Stage API 的路由与状态逻辑搬到 Web 中继（`server/stage-relay/index.cjs`，端口 4100），用 WebSocket 连接 Host 页，并代理 `/ncm`、`/qq`、`/kugou` 三个音乐 API、校验访问令牌。启动、令牌、端口与排错见 [Stage Remote 使用文档](stage-remote.md)。相关 npm 脚本：`stage:relay`、`stage:qq`、`stage:kugou`、`stage:serve`、`stage:start`、`stage:stop`。
 
 ### 歌词接口
 
@@ -237,6 +243,8 @@ vercel dev
 | `npm run build:windowtolayer` | 单独构建 Linux 壁纸模式依赖的 `build/windowtolayer` |
 | `npm run build:wallpaper-helper` | 单独构建 Windows 壁纸模式依赖的 `build/folia-wallpaper-helper.exe`（非 Windows 主机为 no-op） |
 | `npm run stage:client` | 打开本地 Stage API 联调台 |
+| `npm run stage:start` / `stage:stop` | 本 Fork：单窗口启动 / 停止全部服务（`scripts\start-stage.cmd`） |
+| `npm run stage:relay` / `stage:qq` / `stage:kugou` / `stage:serve` | 本 Fork：单独启动中继 / QQ API / 酷狗 API / 前端打包版 |
 
 所有 `dev:electron*` 脚本都会注入 `FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer`，让开发运行也能找到壁纸模式所需的
 `windowtolayer`（打包运行时用的是 `resources/windowtolayer`）。该二进制不随仓库分发，首次联调壁纸模式前先跑一次

@@ -4,6 +4,16 @@
 
 Thank you for contributing to Folia. You can help by reporting issues, providing reproduction steps, verifying fixes, improving documentation, or submitting code. This guide sets out the requirements for contributions to the mainline. Please read it before making changes or submitting a pull request (PR).
 
+## About this fork
+
+This repository ([AthlonHD/folia-together](https://github.com/AthlonHD/folia-together)) is a long-term maintained fork of [folia-major](https://github.com/chthollyphile/folia-major). The mainline rules below come from upstream and must be followed for PRs to upstream. For PRs to this fork, please follow the verification and responsibility requirements too, and additionally:
+
+- **Where to report**: fork-specific features (remote control / Stage relay, phone layout, QQ Music and KuGou integration, launch scripts) go to this repository; issues in upstream features go to [upstream Issues](https://github.com/chthollyphile/folia-major/issues).
+- **Branch**: development happens on `stage-remote`; base PRs on it.
+- **Docs**: when you add or change fork features, update [docs/fork-features.md](docs/fork-features.md) (and [docs/stage-remote.md](docs/stage-remote.md) for deployment or remote-control changes).
+- **Commit messages**: `feat(scope): …` / `fix(scope): …` / `chore(scope): …`.
+- Prefer additive changes where code overlaps upstream, so upstream merges stay easy.
+
 ## Understand the boundaries of mainline contributions
 
 **Personal modifications and mainline contributions are two different things.** Folia is opinionated software with its own design direction and architectural preferences. The mainline does not aim to satisfy every user's needs, and feature acceptance is not decided solely by how many people support it.

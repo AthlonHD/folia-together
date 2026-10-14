@@ -1,3 +1,5 @@
+> **Fork 说明**：本文描述 Vercel / Cloudflare / Docker 等上游部署形态下的 QQ 音乐部署（[上游原文](https://github.com/chthollyphile/folia-major/blob/main/docs/qq-music-deployment.md)）。本 Fork 的单机形态不需要这些步骤：`scripts\start-stage.cmd` 会自动启动内置的 QQ 音乐 API（端口 4300），并通过 Stage 中继代理，详见 [Stage Remote 使用文档](stage-remote.md)。
+
 # 部署 QQ 音乐服务
 
 这篇指南会带你为 Folia Web 版启用 QQ 音乐，包括登录、歌单、收藏专辑、我喜欢和播放功能。

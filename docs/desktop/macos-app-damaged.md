@@ -1,3 +1,5 @@
+> **Fork 说明**：本文针对[上游](https://github.com/chthollyphile/folia-major/releases)发布的 macOS 桌面版；本 Fork 不发布桌面安装包。
+
 # macOS 提示：`Folia.app` 显示“应用已损坏”
 
 如果你从 GitHub Releases 下载桌面版后，macOS 弹出“`Folia.app` 已损坏，无法打开。你应该将它移到废纸篓”，通常不是安装包真的坏了，而是因为当前发布的 macOS 版本还没有做 Apple Developer 签名和 notarization。

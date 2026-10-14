@@ -1,3 +1,5 @@
+> **Fork 说明**：Sync Server 由上游维护（[上游原文](https://github.com/chthollyphile/folia-major/tree/main/sync-server)），本 Fork 未改动其行为，部署与升级请以上游为准。
+
 # Folia Sync Server
 
 这是 Folia 的官方同步服务端实现。本服务以“多端同构”为目标设计，底层逻辑完全一致。

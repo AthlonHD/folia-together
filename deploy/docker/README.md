@@ -1,3 +1,5 @@
+> **Fork 说明**：本目录沿用上游的 Docker 全栈部署（[上游原文](https://github.com/chthollyphile/folia-major/tree/main/deploy/docker)），这套镜像是上游的构建，**不包含本 Fork 的 Stage 中继与遥控能力**（手机布局等纯前端改动会随前端代码带上，但镜像不由本 Fork 发布）。本 Fork 的部署方式见[根 README](../../README.md#部署与启动) 与 [Stage Remote 使用文档](../../docs/stage-remote.md)。
+
 # Folia Web Docker 部署
 
 当前目录提供面向 Docker 部署的完整 Web 堆栈：前端网关、Folia Web API、在线音乐接口和独立的 Sync Server。对外只发布 Web 网关与 Sync Server 两个端口，其余服务仅通过 Docker 网络互访。

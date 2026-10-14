@@ -1,3 +1,5 @@
+> 本名单沿用[上游](https://github.com/chthollyphile/folia-major)的 all-contributors 记录；本 Fork 的改动见 [Fork 功能与修复清单](docs/fork-features.md)。
+
 # 贡献者
 
 Thanks goes to these wonderful people. Issue reports, bug reports, ideas, docs, design, tests, and code are all counted through the [all-contributors](https://allcontributors.org/) spec.
