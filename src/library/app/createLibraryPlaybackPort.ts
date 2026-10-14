@@ -24,19 +24,24 @@ type PlaybackSurface = Pick<
 >;
 
 // 这个集合是不是网易云账号自己的「我喜欢的音乐」:从它放出来的队列才能用心动模式。
-const isNeteaseLikedPlaylist = (collection: LibraryCollectionDescriptor | null | undefined): boolean => (
-    Boolean(collection)
-    && collection!.source === 'online'
-    && collection!.providerId === 'netease'
-    && collection!.type === 'playlist'
-    && collection!.isLiked === true
-);
+// 优先看 provider 标好的 isLiked;缓存里旧的歌单条目可能没有这个标记,再看网易云原始歌单的 specialType(5 = 我喜欢的音乐)。
+const isNeteaseLikedPlaylist = (collection: LibraryCollectionDescriptor | null | undefined): boolean => {
+    if (!collection || collection.source !== 'online' || collection.providerId !== 'netease') return false;
+    if (collection.type !== 'playlist') return false;
+    if (collection.isLiked === true) return true;
+    const raw = collection.raw as { specialType?: unknown; isLiked?: unknown } | undefined;
+    return raw?.isLiked === true || Number(raw?.specialType) === 5;
+};
 
 // 从集合里播放前记下播放上下文:放的是「我喜欢的音乐」就记下歌单与这批歌,否则清掉(先于播放,新队列才算在上下文里)。
 const noteQueueContext = (collection: LibraryCollectionDescriptor | null | undefined, queue: readonly SongResult[]) => {
     const contextStore = usePlayQueueContextStore.getState();
     const liked = collection && isNeteaseLikedPlaylist(collection) ? collection : null;
     const songKeys = liked ? queue.map(getPlaybackSongKey) : [];
+    if (collection?.source === 'online' && collection.providerId === 'netease') {
+        // 排查心动模式不可用时看这一行:歌单有没有被认成「我喜欢的音乐」。
+        console.info('[Heartbeat] play from netease collection', { id: collection.id, type: collection.type, isLiked: collection.isLiked, recognizedAsLiked: Boolean(liked), songs: songKeys.length });
+    }
     if (liked) contextStore.setLikedContext(liked.id, songKeys);
     else contextStore.clearLikedContext();
     // 遥控页自己不放歌:歌由 Host 放,上下文也要交给 Host,它才知道当前歌是不是「我喜欢的音乐」里的。

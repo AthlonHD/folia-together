@@ -1,5 +1,5 @@
-import React from 'react';
-import { AtSign, CornerDownLeft, ListEnd, ListPlus, Trash2, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AtSign, CornerDownLeft, ListEnd, ListPlus, ListX, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import CommandPaletteQueueList, { type CommandPaletteQueueListProps } from './CommandPaletteQueueList';
 import type { QueueSearchEvaluation, QueueSearchSuggestion } from './queueSearch';
@@ -17,6 +17,9 @@ type CommandPaletteQueueViewProps = CommandPaletteQueueListProps & {
     onClearAction: () => void;
     onClearFacet: () => void;
     onExecuteBatch: () => Promise<boolean>;
+    /** 清空整个播放队列;不能清(个性化电台、队列已空)时 canClearQueue 为 false,不显示按钮。 */
+    canClearQueue: boolean;
+    onClearQueue: () => void;
 };
 
 const actionIcon: Record<QueueBatchAction, typeof Trash2> = {
@@ -47,9 +50,21 @@ const CommandPaletteQueueView: React.FC<CommandPaletteQueueViewProps> = ({
     onClearAction,
     onClearFacet,
     onExecuteBatch,
+    canClearQueue,
+    onClearQueue,
     ...listProps
 }) => {
     const { t } = useTranslation();
+    // 清空整个队列不可撤销:第一次点只变成「确认清空?」,3 秒内再点才真清,不点就自己还原。
+    const [confirmingClear, setConfirmingClear] = useState(false);
+    useEffect(() => {
+        if (!confirmingClear) return undefined;
+        const timer = window.setTimeout(() => setConfirmingClear(false), 3000);
+        return () => window.clearTimeout(timer);
+    }, [confirmingClear]);
+    useEffect(() => {
+        if (!canClearQueue) setConfirmingClear(false);
+    }, [canClearQueue]);
     const { parsed, suggestions } = evaluation;
     const ActionIcon = parsed.action ? actionIcon[parsed.action] : null;
     const canExecuteBatch = Boolean(
@@ -70,6 +85,26 @@ const CommandPaletteQueueView: React.FC<CommandPaletteQueueViewProps> = ({
                         ? t('commandPalette.queueSyntaxHint')
                         : null}
                 </div>
+                {canClearQueue && (
+                    <button
+                        type="button"
+                        data-testid="command-palette-queue-clear"
+                        disabled={isExecuting}
+                        onClick={() => {
+                            if (confirmingClear) {
+                                setConfirmingClear(false);
+                                onClearQueue();
+                            } else {
+                                setConfirmingClear(true);
+                            }
+                        }}
+                        title={t('commandPalette.queueClearAllHint')}
+                        className={`flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 transition-opacity disabled:cursor-wait ${confirmingClear ? 'bg-red-500/15 text-red-400 opacity-100' : 'opacity-65 hover:opacity-100'}`}
+                    >
+                        <ListX size={12} />
+                        <span>{confirmingClear ? t('commandPalette.queueClearAllConfirm') : t('commandPalette.queueClearAll')}</span>
+                    </button>
+                )}
                 <label
                     className="flex shrink-0 cursor-pointer items-center gap-1.5 opacity-65 hover:opacity-100"
                     title={t('commandPalette.queueKeepOpenHint')}
