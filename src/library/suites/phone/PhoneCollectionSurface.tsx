@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { ListPlus, Play } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ListPlus, MoreHorizontal, Play, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { LibraryCollectionSurfaceProps } from '../../core/contracts/suite';
 import { collectionKey } from '../../core/model/collectionIdentity';
@@ -8,9 +8,12 @@ import { useCollectionView } from '../../core/bindings/useCollectionView';
 import { useCollectionActions } from '../../core/bindings/useCollectionActions';
 import { useCommittedQuery } from '../../core/bindings/useCommittedQuery';
 import { useLibrarySessionQuery } from '../../core/bindings/useLibrarySessionQuery';
-import { resolveTrackArtistLinks } from '../../core/model/trackLinks';
+import { useCollectionMutationSnapshot } from '../../core/bindings/useCollectionMutations';
+import { resolveDeclaredMutationActions } from '../../core/model/librarySuites';
+import type { SongResult } from '../../../types';
+import { resolveTrackAlbumLink, resolveTrackArtistLinks } from '../../core/model/trackLinks';
 import { canResolveSongCatalogRef } from '../../../services/onlineMusic/catalogRefs';
-import { PhoneButton, PhoneFilterField, PhoneFrame, PhoneTrackRow } from './PhoneParts';
+import { PhoneButton, PhoneFilterField, PhoneFrame, PhoneSheet, PhoneTrackRow, type PhoneSheetAction } from './PhoneParts';
 
 // src/library/suites/phone/PhoneCollectionSurface.tsx
 // 手机版集合页:一页竖向列表。数据、筛选、播放范围全部来自 Library Core(与网格 / TUI 同一套资源、会话与动作),
@@ -21,9 +24,12 @@ const PhoneCollectionSurface: React.FC<LibraryCollectionSurfaceProps> = ({
     collection,
     resource,
     playback,
+    mutations,
     theme,
     isDaylight,
     onDone,
+    onBack,
+    onOpenAlbum,
     onOpenArtist,
     declaredActions,
 }) => {
@@ -37,6 +43,57 @@ const PhoneCollectionSurface: React.FC<LibraryCollectionSurfaceProps> = ({
     const actions = useCollectionActions({ resource, snapshot, view, port: playback, collectionType: collection.type });
     const accent = theme.accentColor || '#3b82f6';
     const canOpenArtist = declaredActions.actions.includes('open-artist');
+    const canOpenAlbum = declaredActions.actions.includes('open-album');
+
+    // 变更动作:声明 ∩ 控制器能力才出现(与网格 / TUI 同一条规则)。
+    const mutationSnapshot = useCollectionMutationSnapshot(mutations);
+    const offered = useMemo(
+        () => new Set(mutations ? resolveDeclaredMutationActions(declaredActions, mutationSnapshot.capabilities) : []),
+        [declaredActions, mutationSnapshot.capabilities, mutations],
+    );
+    const pendingKeys = useMemo(() => new Set(mutationSnapshot.pendingEntryKeys), [mutationSnapshot.pendingEntryKeys]);
+    const displayTitle = mutationSnapshot.renamedTo ?? collection.name;
+    const [sheetTrack, setSheetTrack] = useState<{ track: SongResult; index: number } | null>(null);
+    const [collectionSheet, setCollectionSheet] = useState(false);
+
+    const removeTrack = (track: SongResult, index: number) => {
+        const entryKey = view.entryKeyAt(index);
+        if (mutations && entryKey) void mutations.removeEntry({ entryKey, track });
+    };
+    const renameCollection = () => {
+        const next = window.prompt(t('libraryTui.renamePrompt'), displayTitle);
+        if (next !== null && mutations) void mutations.rename(next);
+    };
+    const deleteCollection = async () => {
+        if (!mutations || !window.confirm(t('libraryTui.confirmDelete', { name: displayTitle }))) return;
+        const result = await mutations.deleteCollection();
+        if (result.ok) onBack();
+    };
+
+    const collectionActions: PhoneSheetAction[] = [];
+    if (offered.has('rename')) collectionActions.push({ key: 'rename', label: t('libraryTui.rename'), onSelect: renameCollection });
+    if (offered.has('delete-collection')) collectionActions.push({ key: 'delete', label: t('libraryTui.phoneDelete'), onSelect: () => { void deleteCollection(); }, danger: true });
+    if (declaredActions.actions.includes('reload') && actions.capabilities.reload.enabled) {
+        collectionActions.push({ key: 'reload', label: t('libraryTui.phoneReload'), onSelect: actions.reload });
+    }
+
+    const trackSheetActions = (track: SongResult, index: number): PhoneSheetAction[] => {
+        const list: PhoneSheetAction[] = [
+            { key: 'enqueue', label: t('libraryTui.phoneAddToQueue'), onSelect: () => actions.enqueueTrack(track) },
+        ];
+        const album = canOpenAlbum ? resolveTrackAlbumLink(track, canResolveSongCatalogRef) : null;
+        if (album) {
+            list.push({
+                key: 'album',
+                label: t('libraryTui.phoneOpenAlbum'),
+                onSelect: () => onOpenAlbum(album.targetId, { name: album.album.name }, track),
+            });
+        }
+        if (offered.has('remove-entry')) {
+            list.push({ key: 'remove', label: t('libraryTui.phoneRemoveEntry'), onSelect: () => removeTrack(track, index), danger: true });
+        }
+        return list;
+    };
 
     const status = snapshot?.status ?? 'loading';
     const sync = snapshot?.sync;
@@ -46,7 +103,7 @@ const PhoneCollectionSurface: React.FC<LibraryCollectionSurfaceProps> = ({
 
     return (
         <PhoneFrame
-            title={collection.name}
+            title={displayTitle}
             subtitle={snapshot ? t('libraryTui.phoneTrackCount', { count: tracks.length }) : undefined}
             isDaylight={isDaylight}
             onBack={onDone}
@@ -61,6 +118,17 @@ const PhoneCollectionSurface: React.FC<LibraryCollectionSurfaceProps> = ({
                     <ListPlus size={16} />
                     {t('libraryTui.phoneEnqueueAll')}
                 </PhoneButton>
+                {offered.has('subscribe') && mutationSnapshot.subscribed !== null ? (
+                    <PhoneButton accent={accent} isDaylight={isDaylight} disabled={mutationSnapshot.subscribing} onClick={() => { void mutations?.toggleSubscribe(); }}>
+                        <Star size={16} fill={mutationSnapshot.subscribed ? 'currentColor' : 'none'} />
+                        {mutationSnapshot.subscribed ? t('libraryTui.phoneSubscribed') : t('libraryTui.phoneSubscribe')}
+                    </PhoneButton>
+                ) : null}
+                {collectionActions.length > 0 ? (
+                    <PhoneButton accent={accent} isDaylight={isDaylight} onClick={() => setCollectionSheet(true)} label={t('libraryTui.phoneMoreActions')}>
+                        <MoreHorizontal size={18} />
+                    </PhoneButton>
+                ) : null}
             </div>
             <div className="pb-2">
                 <PhoneFilterField value={query} onChange={setQuery} placeholder={t('libraryTui.phoneFilter')} isDaylight={isDaylight} />
@@ -97,6 +165,9 @@ const PhoneCollectionSurface: React.FC<LibraryCollectionSurfaceProps> = ({
                         onOpenArtist={artistLink
                             ? () => onOpenArtist(artistLink.targetId as string | number, { name: artistLink.artist.name }, track)
                             : undefined}
+                        pending={pendingKeys.has(view.entryKeyAt(index) ?? '')}
+                        onMore={trackSheetActions(track, index).length > 1 ? () => setSheetTrack({ track, index }) : undefined}
+                        moreLabel={t('libraryTui.phoneMoreActions')}
                     />
                 );
             })}
@@ -108,6 +179,24 @@ const PhoneCollectionSurface: React.FC<LibraryCollectionSurfaceProps> = ({
             ) : null}
             {sync?.status === 'syncing' ? (
                 <div className="py-4 text-center text-xs" style={{ color: 'var(--text-secondary)' }}>{t('libraryTui.phoneLoading')}</div>
+            ) : null}
+            {sheetTrack ? (
+                <PhoneSheet
+                    title={sheetTrack.track.name}
+                    actions={trackSheetActions(sheetTrack.track, sheetTrack.index)}
+                    cancelLabel={t('libraryTui.cancel')}
+                    isDaylight={isDaylight}
+                    onClose={() => setSheetTrack(null)}
+                />
+            ) : null}
+            {collectionSheet ? (
+                <PhoneSheet
+                    title={displayTitle}
+                    actions={collectionActions}
+                    cancelLabel={t('libraryTui.cancel')}
+                    isDaylight={isDaylight}
+                    onClose={() => setCollectionSheet(false)}
+                />
             ) : null}
         </PhoneFrame>
     );

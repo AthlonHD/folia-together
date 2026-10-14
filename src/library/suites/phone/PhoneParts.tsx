@@ -1,5 +1,6 @@
 import React from 'react';
-import { ChevronLeft, ListPlus, Search, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronLeft, ListPlus, MoreHorizontal, Search, X } from 'lucide-react';
 import type { SongResult } from '../../../types';
 import { isSongUnavailable } from '../../../services/onlineMusic/songAvailability';
 import { getSongArtistLabel, getSongCoverUrl, getSongDurationMs } from '../../../services/onlineMusic/songMetadata';
@@ -59,11 +60,14 @@ export const PhoneButton: React.FC<{
     isDaylight: boolean;
     /** 保留给以后按主题强调色染色用;主按钮现在用与底色反差最大的前景 / 背景。 */
     accent?: string;
-}> = ({ onClick, children, primary, disabled, isDaylight }) => (
+    /** 只有图标的按钮用:无障碍名字。 */
+    label?: string;
+}> = ({ onClick, children, primary, disabled, isDaylight, label }) => (
     <button
         type="button"
         onClick={onClick}
         disabled={disabled}
+        aria-label={label}
         className="h-11 px-4 rounded-full text-sm font-medium flex items-center gap-2 disabled:opacity-40"
         style={primary
             ? { background: isDaylight ? '#18181b' : '#f4f4f5', color: isDaylight ? '#fafafa' : '#18181b' }
@@ -109,7 +113,12 @@ export const PhoneTrackRow: React.FC<{
     onEnqueue: () => void;
     /** 能解析出歌手目录时,歌手名可点(打开歌手页)。 */
     onOpenArtist?: () => void;
-}> = ({ track, index, isDaylight, enqueueLabel, onPlay, onEnqueue, onOpenArtist }) => {
+    /** 有更多操作(删除条目、打开专辑……)时给,点「⋯」打开操作面板。 */
+    onMore?: () => void;
+    moreLabel?: string;
+    /** 删除请求还没回来:整行变淡。 */
+    pending?: boolean;
+}> = ({ track, index, isDaylight, enqueueLabel, onPlay, onEnqueue, onOpenArtist, onMore, moreLabel, pending }) => {
     const unavailable = isSongUnavailable(track);
     const cover = getSongCoverUrl(track) || track.album?.coverUrl;
     const durationMs = getSongDurationMs(track);
@@ -118,7 +127,7 @@ export const PhoneTrackRow: React.FC<{
     return (
         <div
             className="flex items-center gap-3"
-            style={{ minHeight: 60, contentVisibility: 'auto', containIntrinsicSize: 'auto 60px', opacity: unavailable ? 0.4 : 1 }}
+            style={{ minHeight: 60, contentVisibility: 'auto', containIntrinsicSize: 'auto 60px', opacity: unavailable ? 0.4 : pending ? 0.5 : 1 }}
         >
             <button type="button" onClick={play} className="shrink-0 active:opacity-60" aria-label={track.name}>
                 {cover ? (
@@ -156,6 +165,64 @@ export const PhoneTrackRow: React.FC<{
             >
                 <ListPlus size={20} />
             </button>
+            {onMore ? (
+                <button
+                    type="button"
+                    onClick={onMore}
+                    aria-label={moreLabel}
+                    className="w-9 h-11 -ml-2 flex items-center justify-center rounded-full shrink-0 active:bg-white/10"
+                    style={{ color: 'var(--text-secondary)' }}
+                >
+                    <MoreHorizontal size={20} />
+                </button>
+            ) : null}
         </div>
     );
 };
+
+export type PhoneSheetAction = { key: string; label: string; onSelect: () => void; danger?: boolean; disabled?: boolean };
+
+/** 底部操作面板:点遮罩或「取消」关闭;选项高度 ≥ 48px,底部让开安全区。 */
+export const PhoneSheet: React.FC<{
+    title?: string;
+    actions: readonly PhoneSheetAction[];
+    cancelLabel: string;
+    isDaylight: boolean;
+    onClose: () => void;
+}> = ({ title, actions, cancelLabel, isDaylight, onClose }) => createPortal(
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end" onClick={onClose} data-phone-sheet>
+        <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
+        <div
+            className="relative rounded-t-2xl px-3 pt-3"
+            style={{
+                background: isDaylight ? '#ffffff' : '#18181b',
+                color: 'var(--text-primary)',
+                paddingBottom: 'calc(var(--safe-bottom, 0px) + 12px)',
+            }}
+            onClick={event => event.stopPropagation()}
+        >
+            {title ? <div className="px-2 pb-2 text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{title}</div> : null}
+            {actions.map(action => (
+                <button
+                    key={action.key}
+                    type="button"
+                    disabled={action.disabled}
+                    onClick={() => { onClose(); action.onSelect(); }}
+                    className="w-full h-12 px-2 text-left text-sm rounded-lg active:bg-white/10 disabled:opacity-40"
+                    style={action.danger ? { color: '#ef4444' } : undefined}
+                >
+                    {action.label}
+                </button>
+            ))}
+            <button
+                type="button"
+                onClick={onClose}
+                className="w-full h-12 mt-1 text-sm rounded-lg font-medium"
+                style={{ background: isDaylight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)' }}
+            >
+                {cancelLabel}
+            </button>
+        </div>
+    </div>,
+    document.body,
+);

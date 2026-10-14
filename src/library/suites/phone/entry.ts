@@ -17,7 +17,21 @@ const phone: LibrarySuiteManifest = {
     surfaces: {
         collection: {
             component: PhoneCollectionSurface,
-            actions: ['play', 'enqueue', 'play-scope', 'enqueue-scope', 'filter', 'reload', 'resume-sync', 'open-artist'],
+            actions: [
+                'play',
+                'enqueue',
+                'play-scope',
+                'enqueue-scope',
+                'filter',
+                'reload',
+                'resume-sync',
+                'remove-entry',
+                'subscribe',
+                'rename',
+                'delete-collection',
+                'open-album',
+                'open-artist',
+            ],
         },
         artist: {
             component: PhoneArtistSurface,
