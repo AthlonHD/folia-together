@@ -31,11 +31,32 @@ Lyrics Reimagined // 辞曲新境
 
 ## 项目简介
 
-Folia是一个以全屏沉浸式歌词播放为核心的在线音乐播放器，支持网易云、酷狗、Navidrome 和本地音乐库，通过智能歌词匹配，AI生成配色主题，以及多种全屏歌词动画为用户提供独特的听歌体验。
+Folia是一个以全屏沉浸式歌词播放为核心的在线音乐播放器，支持网易云、QQ 音乐、酷狗、Navidrome 和本地音乐库，通过智能歌词匹配，AI生成配色主题，以及多种全屏歌词动画为用户提供独特的听歌体验。
 
 提供基于Electron的 windows/ macOS/ Linux 桌面端版本与基于 Node.js 的 Web 版本，支持多平台部署。
 
 如果希望能够在移动设备上使用，或在浏览器上体验，可以选择[一键部署到 Vercel](https://folia-site.cielaniska.top/guide/deploy-vercel) 的 Web 版本，或自行部署到其他支持 Node.js 的平台。
+
+## 关于本 Fork
+
+本仓库是 [chthollyphile/folia-major](https://github.com/chthollyphile/folia-major) 的长期维护 Fork（开发分支 `stage-remote`），在保留上游全部功能的基础上，面向「**一台机器放歌、一群人遥控**」和「**手机也能完整使用**」做了扩展。上游更新会持续合并进来，完整清单见 [Fork 功能与修复清单](docs/fork-features.md)。
+
+| 方向 | 新增内容 |
+| --- | --- |
+| 服务器播放 + 多人遥控 | Host 页在服务器上出声，其他人用网址遥控；访问令牌鉴权、限流；遥控端可切回「本机播放」，账号与队列互相独立；可浏览 Host 本地曲库。详见 [Stage Remote 使用文档](docs/stage-remote.md)。 |
+| 多平台 | 接入 QQ 音乐、酷狗；三个平台的歌可混排进同一队列，切换平台不清队列；搜索按平台分标签；「+」选歌单跟随歌曲所属平台；启动默认平台按 网易云 > QQ > 酷狗 选第一个已登录的。 |
+| 手机适配 | 独立的手机布局：设备自动判断（可在设置里手动指定）、底部迷你播放器与展开控制条、竖向列表的歌单 / 歌手页、统一避让防遮挡。电脑界面不受影响。 |
+| 播放体验 | 点播放改为插队、循环增加「随机」、清空播放队列、大歌单入队修复、播放状态自动校正、底部控制条增加「喜欢」。 |
+| AI（自托管） | 自托管服务器提供 AI 主题 / 歌词分段接口，Key 仅在服务端，按网络状态自动选直连或系统代理。 |
+| 运维 | `scripts/start-stage.cmd` 单窗口一键启动全部服务、重启自动清旧进程、不误杀其他程序。 |
+
+快速开始（Windows 服务器）：
+
+```bat
+scripts\start-stage.cmd
+```
+
+启动后在黑框里会看到访问令牌；遥控端打开 `http://服务器:3000/?token=令牌`。需要 [api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) 位于 `%USERPROFILE%pi-enhanced`（或设置 `API_DIR`）。
 
 ## 展示
 
@@ -157,6 +178,8 @@ Linux 包、Wayland / Hyprland 遥控窗和桌面端细节见 [技术与开发�
 更完整的使用说明请访问 [Folia Guide](https://folia-site.cielaniska.top/guide/)。
 
 部署、环境变量、本地开发、Stage API、常用脚本和技术栈见 [技术与开发说明](docs/technical.md)。
+
+本 Fork 的扩展：[Fork 功能与修复清单](docs/fork-features.md) · [Stage Remote（服务器播放与多人遥控）](docs/stage-remote.md) · [QQ 音乐部署指南](docs/qq-music-deployment.md)。
 
 ## 模组系统（Folium v1.x）
 
