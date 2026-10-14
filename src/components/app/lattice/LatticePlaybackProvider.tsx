@@ -40,7 +40,7 @@ type Props = {
 export default function LatticePlaybackProvider({ actions, currentSong, queue, lyrics, currentTime, duration, onSeek, isDaylight, children }: Props) {
     const [timelineOpen, setTimelineOpen] = useState(false);
     const context = useMemo<PlayerControlSlotContext>(() => {
-        const neighbors = resolvePlaybackNeighbors({ playQueue: queue, currentSong, loopMode: actions.loopMode === 'shuffle' ? 'all' : actions.loopMode,
+        const neighbors = resolvePlaybackNeighbors({ playQueue: queue, currentSong, loopMode: actions.loopMode === 'shuffle' || actions.loopMode === 'heartbeat' ? 'all' : actions.loopMode,
             isFmMode: actions.playback.isFmMode, isStageActive: Boolean(actions.isStageActive) });
         return {
             loopMode: actions.loopMode,

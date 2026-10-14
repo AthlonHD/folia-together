@@ -46,7 +46,7 @@ const STAGE_PLAYER_CONTROL_ACTION_CAPABILITIES = {
   'set-loop': 'loop',
   'set-settings': 'settings',
 };
-const STAGE_LOOP_MODE_VALUES = new Set(['off', 'all', 'one', 'shuffle']);
+const STAGE_LOOP_MODE_VALUES = new Set(['off', 'all', 'one', 'shuffle', 'heartbeat']);
 const STAGE_PLAYER_QUEUE_ACTION_CAPABILITIES = {
   append: 'append',
   'insert-next': 'insertNext',
@@ -451,6 +451,7 @@ function createStageApi({
       queue,
       loopMode: STAGE_LOOP_MODE_VALUES.has(source.loopMode) ? source.loopMode : 'off',
       isFmMode: source.isFmMode === true,
+      heartbeatAvailable: source.heartbeatAvailable === true,
       localLibraryRevision: typeof source.localLibraryRevision === 'string' ? source.localLibraryRevision : '',
       // Host 的播放设置(音质、均衡器、音量等),原样透传给遥控端镜像;键由 Host 自己决定
       settings: source.settings && typeof source.settings === 'object' && !Array.isArray(source.settings) ? source.settings : {},
@@ -505,6 +506,7 @@ function createStageApi({
       queue: buildStagePlayerQueueSummary(snapshot),
       loopMode: snapshot.loopMode,
       isFmMode: snapshot.isFmMode,
+      heartbeatAvailable: snapshot.heartbeatAvailable,
       settings: snapshot.settings,
       localLibraryRevision: snapshot.localLibraryRevision,
     });
@@ -1814,7 +1816,7 @@ function createStageApi({
     if (action === 'set-loop') {
       loopMode = normalizeStageText(payload.loopMode);
       if (!STAGE_LOOP_MODE_VALUES.has(loopMode)) {
-        throw createStageValidationError('Stage player set-loop requires loopMode off, all, one or shuffle.', 'INVALID_STAGE_PLAYER_LOOP_MODE');
+        throw createStageValidationError('Stage player set-loop requires loopMode off, all, one, shuffle or heartbeat.', 'INVALID_STAGE_PLAYER_LOOP_MODE');
       }
     }
 

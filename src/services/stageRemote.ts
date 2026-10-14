@@ -62,7 +62,7 @@ export type RemoteSongRef =
     | { localSongId: string; songId?: undefined; online?: undefined }
     | { online: { providerId: string; mediaId: string }; songId?: undefined; localSongId?: undefined };
 
-export const remoteSetLoopMode = (loopMode: 'off' | 'all' | 'one' | 'shuffle') =>
+export const remoteSetLoopMode = (loopMode: 'off' | 'all' | 'one' | 'shuffle' | 'heartbeat') =>
     request('control', { action: 'set-loop', loopMode });
 /** 把遥控端改的播放设置(音质、音量、均衡器等)交给 Host 应用 */
 export const remoteSetSettings = (settings: Record<string, unknown>) =>

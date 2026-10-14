@@ -890,6 +890,25 @@ export const neteaseApi = {
     return fetchDefaultFm();
   },
 
+  // 心动模式:按一首歌和一个歌单(「我喜欢的音乐」)向网易云要相似的推荐歌曲。
+  // `/playmode/intelligence/list` 返回 `data: [{ id, recommended, songInfo: {...歌曲...} }]`,
+  // 这里把 songInfo 摊平成普通歌曲对象;缺 songInfo 的条目丢掉。
+  getHeartbeatSongs: async (songId: number, playlistId: number, count = 1) => {
+    const params = new URLSearchParams({
+      id: String(songId),
+      pid: String(playlistId),
+      sid: String(songId),
+      count: String(count),
+      timestamp: String(Date.now()),
+    });
+    const res = await fetchWithCreds(`/playmode/intelligence/list?${params.toString()}`);
+    const rawSongs = (Array.isArray(res?.data) ? res.data : [])
+      // 常见形态是 { songInfo };个别版本直接给歌曲对象,一并接住
+      .map((item: any) => item?.songInfo ?? (item?.name && item?.id ? item : null))
+      .filter((song: unknown): song is Record<string, unknown> => Boolean(song) && typeof song === 'object');
+    return { ...res, songs: rawSongs };
+  },
+
   getDailyRecommendedSongs: async (afresh = false) => {
     const res = await fetchWithCreds(`/recommend/songs?afresh=${afresh}&timestamp=${Date.now()}`);
     const rawSongs = res.data?.dailySongs || res.data?.songs || res.recommendData?.dailySongs || res.songs || [];

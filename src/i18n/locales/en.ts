@@ -3282,6 +3282,7 @@ export default {
     "loopAll": "Loop all",
     "loopOne": "Loop one",
     "loopShuffle": "Shuffle",
+    "loopHeartbeat": "Heartbeat mode",
     "unknownArtist": "Unknown Artist",
     "unknownAlbum": "Unknown Album",
   },

@@ -1,3 +1,6 @@
+import type { LibraryCollectionDescriptor } from '../core/contracts/collection';
+import { usePlayQueueContextStore } from '../../stores/usePlayQueueContextStore';
+import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
 import type { SongResult, UnifiedSong } from '../../types';
 import type { LibraryPlaybackPort } from '../core/contracts/ports';
 import { resolveNavidromePlaybackCarrier } from '../../utils/appPlaybackGuards';
@@ -19,9 +22,37 @@ type PlaybackSurface = Pick<
     | 'localSongs'
 >;
 
-export const createLibraryPlaybackPort = (surface: PlaybackSurface): LibraryPlaybackPort => ({
-    playTrack: (track, queue) => surface.onPlaySong(track, queue),
-    playAll: tracks => surface.onPlayAll?.(tracks),
+// 这个集合是不是网易云账号自己的「我喜欢的音乐」:从它放出来的队列才能用心动模式。
+const isNeteaseLikedPlaylist = (collection: LibraryCollectionDescriptor | null | undefined): boolean => (
+    Boolean(collection)
+    && collection!.source === 'online'
+    && collection!.providerId === 'netease'
+    && collection!.type === 'playlist'
+    && collection!.isLiked === true
+);
+
+// 从集合里播放前记下播放上下文:放的是「我喜欢的音乐」就记下歌单与这批歌,否则清掉(先于播放,新队列才算在上下文里)。
+const noteQueueContext = (collection: LibraryCollectionDescriptor | null | undefined, queue: readonly SongResult[]) => {
+    const contextStore = usePlayQueueContextStore.getState();
+    if (collection && isNeteaseLikedPlaylist(collection)) {
+        contextStore.setLikedContext(collection.id, queue.map(getPlaybackSongKey));
+    } else {
+        contextStore.clearLikedContext();
+    }
+};
+
+export const createLibraryPlaybackPort = (
+    surface: PlaybackSurface,
+    collection?: LibraryCollectionDescriptor | null,
+): LibraryPlaybackPort => ({
+    playTrack: (track, queue) => {
+        noteQueueContext(collection, queue);
+        surface.onPlaySong(track, queue);
+    },
+    playAll: tracks => {
+        noteQueueContext(collection, tracks);
+        surface.onPlayAll?.(tracks);
+    },
     // 单曲入队按来源分流：本地歌交给本地队列，Navidrome 歌交出它的播放载体，其余走在线入队。
     enqueueTrack: (track: SongResult) => {
         const unifiedTrack = track as UnifiedSong;

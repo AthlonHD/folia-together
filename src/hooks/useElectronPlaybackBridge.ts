@@ -22,6 +22,7 @@ import { resolveStagePlayerPositionSec } from '../utils/stagePlayerSnapshot';
 import { getStageBridge } from '../services/stageWebChannel';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { getLoopDisplayMode } from '../utils/loopDisplayMode';
+import { getHeartbeatAvailable } from '../utils/heartbeatAvailability';
 import { applyHostSettingsPatch, readAllHostSettings } from '../services/hostSettingsSync';
 import { getHostLocalLibraryRevision } from '../utils/localLibraryRevision';
 import { getPlaybackSourceRef } from '../utils/appPlaybackGuards';
@@ -347,10 +348,11 @@ export const useElectronPlaybackBridge = ({
 
     // 快照带上循环/随机模式,遥控页据此镜像显示
     const buildCurrentStagePlayerSnapshot = () => {
-        const { loopMode, shuffleEnabled } = useAudioSettingsStore.getState();
+        const { loopMode, shuffleEnabled, heartbeatEnabled } = useAudioSettingsStore.getState();
         return {
             ...buildStagePlayerSnapshotBase(),
-            loopMode: getLoopDisplayMode(loopMode, shuffleEnabled),
+            loopMode: getLoopDisplayMode(loopMode, shuffleEnabled, heartbeatEnabled),
+            heartbeatAvailable: getHeartbeatAvailable(),
             isFmMode: usePlaybackStore.getState().isFmMode,
             settings: readAllHostSettings(),
             localLibraryRevision: getHostLocalLibraryRevision(),

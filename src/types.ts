@@ -350,8 +350,10 @@ export interface StagePlayerSnapshot {
   controlCapabilities: StagePlayerControlCapabilities;
   queueCapabilities: StagePlayerQueueCapabilities;
   queue: StagePlayerQueueSnapshot;
-  /** 循环/随机模式(含随机),供遥控端镜像显示。 */
-  loopMode?: 'off' | 'all' | 'one' | 'shuffle';
+  /** 循环/随机/心动模式,供遥控端镜像显示。 */
+  loopMode?: 'off' | 'all' | 'one' | 'shuffle' | 'heartbeat';
+  /** Host 此刻能否用心动模式(正在播放网易云「我喜欢的音乐」),遥控端据此决定循环按钮要不要切到心动。 */
+  heartbeatAvailable?: boolean;
   /** Host 是否在播个性化电台,遥控端据此切换电台界面。 */
   isFmMode?: boolean;
   /** Host 的播放设置(音质、均衡器、音量等),遥控端镜像显示,见 hostSettingsSync。 */
@@ -364,7 +366,7 @@ export interface StagePlayerControlRequest {
   requestId: string;
   action: 'next' | 'prev' | 'pause' | 'resume' | 'seek' | 'set-loop' | 'set-settings';
   positionMs?: number;
-  loopMode?: 'off' | 'all' | 'one' | 'shuffle';
+  loopMode?: 'off' | 'all' | 'one' | 'shuffle' | 'heartbeat';
   settings?: Record<string, unknown>;
 }
 

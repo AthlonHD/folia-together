@@ -3169,6 +3169,7 @@ export default {
     "loopAll": "Ulangi Semua",
     "loopOne": "Ulangi Satu",
     "loopShuffle": "Acak",
+    "loopHeartbeat": "Mode detak jantung",
     "unknownArtist": "Artis Tidak Dikenal",
     "unknownAlbum": "Album Tidak Dikenal"
   },

@@ -633,6 +633,10 @@ export const neteaseProvider: OnlineMusicProvider = {
             const response = await neteaseApi.getPersonalFm(options ?? getPersonalFmRequestOptions());
             return (response?.data || []).map(normalizeNeteaseSong);
         },
+        async getHeartbeatSongs(songId, playlistId, count) {
+            const response = await neteaseApi.getHeartbeatSongs(toNeteaseId(songId), toNeteaseId(playlistId), count);
+            return (response?.songs || []).map(normalizeNeteaseSong);
+        },
         async getRecommendedCollections(limit) {
             const response = await neteaseApi.getPersonalizedPlaylists(limit);
             return (response?.result || []).map((item: any) => normalizeCollection(item));

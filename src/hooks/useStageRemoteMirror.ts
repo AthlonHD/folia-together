@@ -1,3 +1,4 @@
+import { usePlayQueueContextStore } from '../stores/usePlayQueueContextStore';
 import { useEffect, useRef } from 'react';
 import { PlayerState, type LocalSong, type LyricData, type SongResult } from '../types';
 import { buildUnifiedLocalSong, getLocalSongId } from '../services/playbackAdapters';
@@ -151,6 +152,7 @@ export function useStageRemoteMirror({
                 if (status.loopMode) {
                     useAudioSettingsStore.getState().setLoopDisplayMode(status.loopMode, { persist: false });
                 }
+                usePlayQueueContextStore.getState().setRemoteAvailable(status.heartbeatAvailable === true);
                 if (status.settings) {
                     applyMirroredHostSettings(status.settings);
                 }

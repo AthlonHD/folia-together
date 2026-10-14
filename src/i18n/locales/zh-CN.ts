@@ -3281,6 +3281,7 @@ export default {
     "loopAll": "列表循环",
     "loopOne": "单曲循环",
     "loopShuffle": "随机播放",
+    "loopHeartbeat": "心动模式",
     "unknownArtist": "未知歌手",
     "unknownAlbum": "未知专辑",
   },

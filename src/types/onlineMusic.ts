@@ -469,6 +469,8 @@ export interface PersonalFmRequestOptions {
 export interface OnlineRecommendationProvider {
     getDailySongs?(refresh?: boolean): Promise<UnifiedSong[]>;
     getPersonalFm?(options?: PersonalFmRequestOptions): Promise<UnifiedSong[]>;
+    /** 心动模式:按当前歌曲与歌单(「我喜欢的音乐」)推荐相似的歌。目前只有网易云提供。 */
+    getHeartbeatSongs?(songId: MediaId, playlistId: MediaId, count?: number): Promise<UnifiedSong[]>;
     getRecommendedCollections?(limit: number): Promise<ProviderCollection[]>;
     getHistoryEntries?(): Promise<ProviderHistoryEntry[]>;
     getHistoryDates?(): Promise<string[]>;

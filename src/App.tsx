@@ -115,6 +115,7 @@ import { useLyricApiPublisher } from './hooks/useLyricApiPublisher';
 import { useSessionRestoreController } from './hooks/useSessionRestoreController';
 import { useHostRenderIdle } from './hooks/useHostRenderIdle';
 import { usePlayerStateReconciler } from './hooks/usePlayerStateReconciler';
+import { useHeartbeatContextGuard } from './hooks/useHeartbeatContextGuard';
 import { useStagePlaybackController } from './hooks/useStagePlaybackController';
 import { useSongThemeAutoGeneration } from './hooks/useSongThemeAutoGeneration';
 import { useThemeController } from './hooks/useThemeController';
@@ -1184,6 +1185,7 @@ export default function App() {
     });
 
     // 本机出声时,把界面的播放/暂停状态和真实的 <audio> 对齐,并兜住"该自动播放却没播"(遥控模式没有本地音频)
+    useHeartbeatContextGuard();
     usePlayerStateReconciler(audioRef, !stageRemoteMode, {
         shouldAutoPlayRef: shouldAutoPlay,
         suppressAutoplayRef: automix.suppressAutoplayRef,

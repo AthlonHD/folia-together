@@ -457,6 +457,12 @@ export const omni = {
         return withActiveProvider(async provider => provider.recommendations?.getPersonalFm?.(options) ?? []);
     },
 
+    /** 心动模式:由这首歌所属的平台(目前只有网易云)按它与歌单推荐相似的歌;平台不支持时返回空。 */
+    async getHeartbeatSongs(song: SongResult, playlistId: MediaId, count?: number): Promise<UnifiedSong[]> {
+        const provider = providerForSong(song);
+        return provider.recommendations?.getHeartbeatSongs?.(song.id, playlistId, count) ?? [];
+    },
+
     async getDailySongs(refresh?: boolean): Promise<UnifiedSong[]> {
         return withActiveProvider(async provider => provider.recommendations?.getDailySongs?.(refresh) ?? []);
     },

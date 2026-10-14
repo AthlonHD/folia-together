@@ -1,3 +1,5 @@
+import { fetchHeartbeatNext, insertHeartbeatSong } from '../utils/heartbeatAdvance';
+import { getHeartbeatAvailable } from '../utils/heartbeatAvailability';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { MotionValue } from 'framer-motion';
@@ -222,6 +224,8 @@ export function usePlaybackQueueController({
     const queueAddBehavior = useAudioSettingsStore(state => state.queueAddBehavior);
     const loopMode = useAudioSettingsStore(state => state.loopMode);
     const shuffleEnabled = useAudioSettingsStore(state => state.shuffleEnabled);
+    const heartbeatEnabled = useAudioSettingsStore(state => state.heartbeatEnabled);
+    const setLoopDisplayMode = useAudioSettingsStore(state => state.setLoopDisplayMode);
     const activePlaybackContext = usePlaybackStore(state => state.activePlaybackContext);
     const currentSong = usePlaybackStore(state => state.currentSong);
     const playQueue = usePlaybackStore(state => state.playQueue);
@@ -1018,6 +1022,26 @@ export function usePlaybackQueueController({
         const currentSongKey = getPlaybackSongKey(heldSong ?? options?.fromSong ?? currentSong);
         const currentIndex = playQueue.findIndex(song => getPlaybackSongKey(song) === currentSongKey);
 
+        // 心动模式:按当前歌与「我喜欢的音乐」问网易云要下一首,插到当前歌后面;失败或脱离了「我喜欢的音乐」就退回普通顺序。
+        if (heartbeatEnabled && !isFmMode) {
+            if (!getHeartbeatAvailable()) {
+                setLoopDisplayMode('all');
+            } else {
+                const baseSong = heldSong ?? options?.fromSong ?? currentSong;
+                const heartbeatSong = baseSong ? await fetchHeartbeatNext(baseSong, playQueue) : null;
+                if (heartbeatSong) {
+                    const nextQueue = insertHeartbeatSong(playQueue, currentSongKey, heartbeatSong);
+                    setPlayQueue(nextQueue);
+                    void playSong(heartbeatSong, nextQueue, isFmMode, {
+                        shouldNavigateToPlayer,
+                        unavailableSkipCount: options?.unavailableSkipCount,
+                        isAutomixAdvance: options?.isAutomixAdvance,
+                    });
+                    return;
+                }
+            }
+        }
+
         if (isFmMode && currentIndex >= playQueue.length - 2) {
             try {
                 const fmSongs = await omni.getPersonalFm();
@@ -1071,7 +1095,7 @@ export function usePlaybackQueueController({
         } else if (options?.allowStopOnMissing) {
             stopAtQueueEnd();
         }
-    }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState, shouldNavigateToPlayerOnTrackChange, shuffleEnabled]);
+    }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState, shouldNavigateToPlayerOnTrackChange, shuffleEnabled, heartbeatEnabled, setLoopDisplayMode]);
 
     const handlePrevTrack = useCallback(() => {
         if (isStageRemoteMode()) {

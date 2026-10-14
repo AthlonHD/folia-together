@@ -1,4 +1,4 @@
-import { ChartBar, Heart, ListMusic, PanelsTopLeft, Repeat, Repeat1, RepeatOff, Shuffle, SkipBack, SkipForward, Timer, Volume2 } from 'lucide-react';
+import { ChartBar, Heart, HeartPulse, ListMusic, PanelsTopLeft, Repeat, Repeat1, RepeatOff, Shuffle, SkipBack, SkipForward, Timer, Volume2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { PlayerControlSlotActionId } from '../../types/playerControlSlots';
 import type { LoopDisplayMode } from '../../utils/loopDisplayMode';
@@ -70,6 +70,8 @@ export const PLAYER_CONTROL_SLOT_OPTIONS: readonly { id: PlayerControlSlotAction
 /** 循环按钮的图标反映当前模式，是这批动作里唯一的三态图标。 */
 const resolveLoopIcon = (loopMode: PlayerControlSlotContext['loopMode']): LucideIcon => {
     if (loopMode === 'shuffle') return Shuffle;
+    // 心动模式:心形里一道心跳线,与网易云自家心动模式的图标一致。
+    if (loopMode === 'heartbeat') return HeartPulse;
     if (loopMode === 'off') return RepeatOff;
     if (loopMode === 'one') return Repeat1;
     return Repeat;
@@ -78,6 +80,7 @@ const resolveLoopIcon = (loopMode: PlayerControlSlotContext['loopMode']): Lucide
 /** 循环按钮的提示文本反映当前模式。 */
 const resolveLoopLabelKey = (loopMode: PlayerControlSlotContext['loopMode']): string => {
     if (loopMode === 'shuffle') return 'player.loopShuffle';
+    if (loopMode === 'heartbeat') return 'player.loopHeartbeat';
     if (loopMode === 'off') return 'player.loopOff';
     if (loopMode === 'one') return 'player.loopOne';
     return 'player.loopAll';
