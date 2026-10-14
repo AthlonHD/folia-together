@@ -24,6 +24,8 @@ export type DeviceSignals = {
     noHover: boolean;
     /** 设备短边(CSS 像素)。 */
     shortSidePx: number;
+    /** UA 自报是手机(Android Mobile / iPhone)且有触点:有些手机浏览器的 pointer / hover 媒体查询不准,作为补充证据。 */
+    mobileUa?: boolean;
 };
 
 /** 纯规则:网址参数 > 用户偏好 > 自动判断。 */
@@ -39,9 +41,8 @@ export const resolveLayoutMode = ({
     if (urlParam === 'phone' || urlParam === 'mobile') return 'phone';
     if (urlParam === 'desktop') return 'desktop';
     if (preference === 'phone' || preference === 'desktop') return preference;
-    return signals.coarsePointer && signals.noHover && signals.shortSidePx < PHONE_SHORT_SIDE_MAX_PX
-        ? 'phone'
-        : 'desktop';
+    if (signals.shortSidePx >= PHONE_SHORT_SIDE_MAX_PX) return 'desktop';
+    return (signals.coarsePointer && signals.noHover) || signals.mobileUa ? 'phone' : 'desktop';
 };
 
 const hasWindow = (): boolean => typeof window !== 'undefined';
@@ -63,6 +64,9 @@ export const readDeviceSignals = (): DeviceSignals => {
         coarsePointer: matches('(pointer: coarse)'),
         noHover: matches('(hover: none)'),
         shortSidePx,
+        mobileUa: hasWindow() && typeof navigator !== 'undefined'
+            && /Android.+Mobile|iPhone|iPod/i.test(navigator.userAgent || '')
+            && (navigator.maxTouchPoints || 0) > 0,
     };
 };
 

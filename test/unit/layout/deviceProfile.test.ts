@@ -36,6 +36,12 @@ describe('resolveLayoutMode', () => {
         expect(resolveLayoutMode({ preference: 'auto', signals: { ...phone, coarsePointer: false } })).toBe('desktop');
     });
 
+    it('trusts a mobile user agent with touch points when the media queries disagree, but never on a wide screen', () => {
+        const odd: DeviceSignals = { coarsePointer: false, noHover: false, shortSidePx: 412, mobileUa: true };
+        expect(resolveLayoutMode({ preference: 'auto', signals: odd })).toBe('phone');
+        expect(resolveLayoutMode({ preference: 'auto', signals: { ...odd, shortSidePx: 800 } })).toBe('desktop');
+    });
+
     it('lets the user preference override the guess', () => {
         expect(resolveLayoutMode({ preference: 'desktop', signals: phone })).toBe('desktop');
         expect(resolveLayoutMode({ preference: 'phone', signals: desktop })).toBe('phone');
