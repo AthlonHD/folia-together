@@ -19,6 +19,7 @@ const HOST_OWNED_STORAGE_KEYS: ReadonlySet<string> = new Set([
     'folia_auto_play_on_launch',
     'folia_enable_transcode_fallback',
     'queue_add_behavior',
+    'folia_heartbeat_interval',
     'local_replaygain_mode',
     // 循环、随机与电台
     'player_loop_mode',

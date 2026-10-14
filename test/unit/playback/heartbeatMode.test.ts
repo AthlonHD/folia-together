@@ -3,6 +3,7 @@ import type { SongResult } from '@/types';
 import { getLoopDisplayMode, nextLoopDisplayMode } from '@/utils/loopDisplayMode';
 import { insertHeartbeatSong, pickHeartbeatSong } from '@/utils/heartbeatAdvance';
 import { getHeartbeatAvailable } from '@/utils/heartbeatAvailability';
+import { isHeartbeatInterval, planHeartbeatStep } from '@/utils/heartbeatPlan';
 import { usePlayQueueContextStore } from '@/stores/usePlayQueueContextStore';
 import { usePlaybackStore, setCurrentSong, setPlayQueue } from '@/stores/usePlaybackStore';
 import { useAudioSettingsStore } from '@/stores/useAudioSettingsStore';
@@ -110,5 +111,40 @@ describe('heartbeat availability follows the liked-playlist context', () => {
         expect(store.getState().heartbeatEnabled).toBe(false);
         expect(store.getState().loopMode).toBe('off');
         expect(usePlaybackStore.getState().currentSong).not.toBeNull();
+    });
+});
+
+describe('heartbeat recommendation rate', () => {
+    const simulate = (interval: 0 | 1 | 2 | 3, steps: number): string[] => {
+        let since = 0;
+        let currentIsRecommended = false;
+        const played: string[] = [];
+        for (let i = 0; i < steps; i += 1) {
+            const step = planHeartbeatStep({ interval, currentIsRecommended, songsSinceRecommendation: since });
+            since = step.songsSinceRecommendation;
+            if (step.fetchRecommendation) { played.push('R'); since = 0; currentIsRecommended = true; }
+            else { played.push('L'); currentIsRecommended = false; }
+        }
+        return played;
+    };
+
+    it('recommends every time at 0, alternates at 1, and keeps the playlist ahead at 2 and 3', () => {
+        expect(simulate(0, 4)).toEqual(['R', 'R', 'R', 'R']);
+        expect(simulate(1, 6)).toEqual(['R', 'L', 'R', 'L', 'R', 'L']);
+        expect(simulate(2, 6)).toEqual(['L', 'R', 'L', 'L', 'R', 'L']);
+        expect(simulate(3, 8)).toEqual(['L', 'L', 'R', 'L', 'L', 'L', 'R', 'L']);
+    });
+
+    it('never recommends twice in a row once the interval is at least 1', () => {
+        for (const interval of [1, 2, 3] as const) {
+            const seq = simulate(interval, 30).join('');
+            expect(seq.includes('RR')).toBe(false);
+        }
+    });
+
+    it('validates stored values', () => {
+        expect(isHeartbeatInterval(2)).toBe(true);
+        expect(isHeartbeatInterval(5)).toBe(false);
+        expect(isHeartbeatInterval('1')).toBe(false);
     });
 });

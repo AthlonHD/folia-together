@@ -8,6 +8,7 @@
 // - 遥控端:applyMirroredHostSettings 把 Host 的值镜像进本页 store(不落盘);
 //   startHostSettingsUplink 监听本页 store 的变化,把用户的修改发给 Host。
 
+import { isHeartbeatInterval } from '../utils/heartbeatPlan';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useAutomixSettingsStore } from '../stores/useAutomixSettingsStore';
 import { usePersonalFmModeStore } from '../stores/usePersonalFmModeStore';
@@ -94,6 +95,12 @@ const ENTRIES: Record<string, HostSettingEntry> = {
         validate: value => value === 'append' || value === 'next',
         hostApply: value => audio().handleSetQueueAddBehavior(value),
         mirrorApply: value => useAudioSettingsStore.setState({ queueAddBehavior: value }),
+    },
+    heartbeatInterval: {
+        read: () => audio().heartbeatInterval,
+        validate: isHeartbeatInterval,
+        hostApply: value => audio().handleSetHeartbeatInterval(value),
+        mirrorApply: value => useAudioSettingsStore.setState({ heartbeatInterval: value }),
     },
     replayGainMode: {
         read: () => usePlaybackStore.getState().replayGainMode,

@@ -12,6 +12,10 @@ import { create } from 'zustand';
 type LikedPlaylistContext = {
     playlistId: string | number;
     songKeys: ReadonlySet<string>;
+    /** 心动插进来的推荐歌(也在 songKeys 里)。 */
+    recommendedKeys: ReadonlySet<string>;
+    /** 自上一首推荐以来播放过的歌单歌曲数,心动按它决定什么时候再插推荐。 */
+    songsSinceRecommendation: number;
 };
 
 type PlayQueueContextState = {
@@ -23,18 +27,40 @@ type PlayQueueContextState = {
     clearLikedContext: () => void;
     /** 心动追加进队列的歌也算「我喜欢的音乐」播放上下文的一部分,否则下一首就脱离了。 */
     noteContextSong: (songKey: string) => void;
+    /** 心动插进来的推荐歌:记入上下文并把「歌单歌曲数」清零。 */
+    noteRecommendedSong: (songKey: string) => void;
+    setSongsSinceRecommendation: (count: number) => void;
     setRemoteAvailable: (available: boolean | null) => void;
 };
 
 export const usePlayQueueContextStore = create<PlayQueueContextState>((set, get) => ({
     likedContext: null,
     remoteAvailable: null,
-    setLikedContext: (playlistId, songKeys) => set({ likedContext: { playlistId, songKeys: new Set(songKeys) } }),
+    setLikedContext: (playlistId, songKeys) => set({
+        likedContext: { playlistId, songKeys: new Set(songKeys), recommendedKeys: new Set(), songsSinceRecommendation: 0 },
+    }),
     clearLikedContext: () => set({ likedContext: null }),
     noteContextSong: songKey => {
         const context = get().likedContext;
         if (!context || context.songKeys.has(songKey)) return;
         set({ likedContext: { ...context, songKeys: new Set([...context.songKeys, songKey]) } });
+    },
+    noteRecommendedSong: songKey => {
+        const context = get().likedContext;
+        if (!context) return;
+        set({
+            likedContext: {
+                ...context,
+                songKeys: new Set([...context.songKeys, songKey]),
+                recommendedKeys: new Set([...context.recommendedKeys, songKey]),
+                songsSinceRecommendation: 0,
+            },
+        });
+    },
+    setSongsSinceRecommendation: count => {
+        const context = get().likedContext;
+        if (!context || context.songsSinceRecommendation === count) return;
+        set({ likedContext: { ...context, songsSinceRecommendation: count } });
     },
     setRemoteAvailable: available => set({ remoteAvailable: available }),
 }));

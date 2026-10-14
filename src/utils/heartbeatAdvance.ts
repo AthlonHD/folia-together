@@ -36,7 +36,7 @@ export const insertHeartbeatSong = (
     currentSongKey: string,
     song: SongResult,
 ): SongResult[] => {
-    usePlayQueueContextStore.getState().noteContextSong(getPlaybackSongKey(song));
+    usePlayQueueContextStore.getState().noteRecommendedSong(getPlaybackSongKey(song));
     const index = queue.findIndex(item => getPlaybackSongKey(item) === currentSongKey);
     return index < 0
         ? [...queue, song]

@@ -1,3 +1,5 @@
+import { usePlayQueueContextStore } from '../stores/usePlayQueueContextStore';
+import { planHeartbeatStep } from '../utils/heartbeatPlan';
 import { fetchHeartbeatNext, insertHeartbeatSong } from '../utils/heartbeatAdvance';
 import { getHeartbeatAvailable } from '../utils/heartbeatAvailability';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -225,6 +227,7 @@ export function usePlaybackQueueController({
     const loopMode = useAudioSettingsStore(state => state.loopMode);
     const shuffleEnabled = useAudioSettingsStore(state => state.shuffleEnabled);
     const heartbeatEnabled = useAudioSettingsStore(state => state.heartbeatEnabled);
+    const heartbeatInterval = useAudioSettingsStore(state => state.heartbeatInterval);
     const setLoopDisplayMode = useAudioSettingsStore(state => state.setLoopDisplayMode);
     const activePlaybackContext = usePlaybackStore(state => state.activePlaybackContext);
     const currentSong = usePlaybackStore(state => state.currentSong);
@@ -1028,7 +1031,15 @@ export function usePlaybackQueueController({
                 setLoopDisplayMode('all');
             } else {
                 const baseSong = heldSong ?? options?.fromSong ?? currentSong;
-                const heartbeatSong = baseSong ? await fetchHeartbeatNext(baseSong, playQueue) : null;
+                // 不是每次切歌都推荐:每播 heartbeatInterval 首歌单里的歌插一首(推荐歌播完回到歌单里的下一首)
+                const contextState = usePlayQueueContextStore.getState().likedContext;
+                const step = planHeartbeatStep({
+                    interval: heartbeatInterval,
+                    currentIsRecommended: contextState?.recommendedKeys.has(currentSongKey) ?? false,
+                    songsSinceRecommendation: contextState?.songsSinceRecommendation ?? 0,
+                });
+                usePlayQueueContextStore.getState().setSongsSinceRecommendation(step.songsSinceRecommendation);
+                const heartbeatSong = baseSong && step.fetchRecommendation ? await fetchHeartbeatNext(baseSong, playQueue) : null;
                 if (heartbeatSong) {
                     const nextQueue = insertHeartbeatSong(playQueue, currentSongKey, heartbeatSong);
                     setPlayQueue(nextQueue);
@@ -1095,7 +1106,7 @@ export function usePlaybackQueueController({
         } else if (options?.allowStopOnMissing) {
             stopAtQueueEnd();
         }
-    }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState, shouldNavigateToPlayerOnTrackChange, shuffleEnabled, heartbeatEnabled, setLoopDisplayMode]);
+    }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState, shouldNavigateToPlayerOnTrackChange, shuffleEnabled, heartbeatEnabled, heartbeatInterval, setLoopDisplayMode]);
 
     const handlePrevTrack = useCallback(() => {
         if (isStageRemoteMode()) {

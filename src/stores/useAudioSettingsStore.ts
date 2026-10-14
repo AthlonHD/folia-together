@@ -6,6 +6,7 @@
 // they are audio-output state, and this is their nearest owner until the Phase B transport store
 // exists — at which point they may move once more.
 
+import { DEFAULT_HEARTBEAT_INTERVAL, isHeartbeatInterval, type HeartbeatInterval } from '../utils/heartbeatPlan';
 import { isStageRemoteMode, remoteSetLoopMode } from '../services/stageRemote';
 import { nextLoopDisplayMode, type LoopDisplayMode } from '../utils/loopDisplayMode';
 import { create } from 'zustand';
@@ -102,6 +103,17 @@ const readStoredAudioQuality = (): AudioQuality => {
     return quality;
 };
 
+export const HEARTBEAT_INTERVAL_KEY = 'folia_heartbeat_interval';
+
+const readStoredHeartbeatInterval = (): HeartbeatInterval => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_HEARTBEAT_INTERVAL;
+    }
+
+    const saved = Number(localStorage.getItem(HEARTBEAT_INTERVAL_KEY));
+    return localStorage.getItem(HEARTBEAT_INTERVAL_KEY) !== null && isHeartbeatInterval(saved) ? saved : DEFAULT_HEARTBEAT_INTERVAL;
+};
+
 const readStoredQueueAddBehavior = (): QueueAddBehavior => {
     if (typeof window === 'undefined') {
         return 'append';
@@ -171,10 +183,13 @@ export type AudioSettingsState = {
     shuffleEnabled: boolean;
     /** 心动模式(网易云):loopMode 为 'all' 时每首播完按当前歌与「我喜欢的音乐」向网易云要下一首。只在本次会话有效,不落盘。 */
     heartbeatEnabled: boolean;
+    /** 心动模式每播放几首歌单里的歌插一首推荐(0 = 每次都推荐)。 */
+    heartbeatInterval: HeartbeatInterval;
     setAudioQuality: (quality: AudioQuality) => void;
     handleToggleMediaCache: (enable: boolean) => void;
     handleSetMediaCacheLimitGb: (gigabytes: number) => void;
     handleSetQueueAddBehavior: (behavior: QueueAddBehavior) => void;
+    handleSetHeartbeatInterval: (interval: HeartbeatInterval) => void;
     handleToggleAutoPlayOnLaunch: (enable: boolean) => void;
     handleToggleTranscodeFallback: (enable: boolean) => void;
     handleToggleNeteaseScrobble: (enable: boolean) => void;
@@ -212,6 +227,7 @@ export const useAudioSettingsStore = create<AudioSettingsState>((set, get) => ({
     loopMode: readStoredLoopMode(),
     shuffleEnabled: readStoredShuffleEnabled(),
     heartbeatEnabled: false,
+    heartbeatInterval: readStoredHeartbeatInterval(),
     setAudioQuality: (quality) => {
         if (typeof window !== 'undefined') {
             localStorage.setItem('default_audio_quality', quality);
@@ -228,6 +244,12 @@ export const useAudioSettingsStore = create<AudioSettingsState>((set, get) => ({
             localStorage.setItem(MEDIA_CACHE_LIMIT_GB_KEY, String(next));
         }
         set({ mediaCacheLimitGb: next });
+    },
+    handleSetHeartbeatInterval: (interval) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(HEARTBEAT_INTERVAL_KEY, String(interval));
+        }
+        set({ heartbeatInterval: interval });
     },
     handleSetQueueAddBehavior: (behavior) => {
         if (typeof window !== 'undefined') {
@@ -366,6 +388,7 @@ export const selectAudioSettingsSnapshot = (state: AudioSettingsState) => ({
     handleToggleMediaCache: state.handleToggleMediaCache,
     handleSetMediaCacheLimitGb: state.handleSetMediaCacheLimitGb,
     handleSetQueueAddBehavior: state.handleSetQueueAddBehavior,
+    handleSetHeartbeatInterval: state.handleSetHeartbeatInterval,
     handleToggleAutoPlayOnLaunch: state.handleToggleAutoPlayOnLaunch,
     handleToggleTranscodeFallback: state.handleToggleTranscodeFallback,
     handleToggleNeteaseScrobble: state.handleToggleNeteaseScrobble,

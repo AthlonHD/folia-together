@@ -1,3 +1,4 @@
+import { HEARTBEAT_INTERVAL_OPTIONS } from '../../../utils/heartbeatPlan';
 import { isStageRemoteMode } from '../../../services/stageRemote';
 import { isStageRelayAvailable } from '../../../services/stageMode';
 import PlayTargetPanel from './PlayTargetPanel';
@@ -56,6 +57,8 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
         neteaseScrobbleEnabled,
         playbackFadeEnabled,
         queueAddBehavior,
+        heartbeatInterval,
+        onHeartbeatIntervalChange,
         onToggleTranscodeFallback,
         onToggleNeteaseScrobble,
         onTogglePlaybackFade,
@@ -66,6 +69,8 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
         neteaseScrobbleEnabled: state.neteaseScrobbleEnabled,
         playbackFadeEnabled: state.playbackFadeEnabled,
         queueAddBehavior: state.queueAddBehavior,
+        heartbeatInterval: state.heartbeatInterval,
+        onHeartbeatIntervalChange: state.handleSetHeartbeatInterval,
         onToggleTranscodeFallback: state.handleToggleTranscodeFallback,
         onToggleNeteaseScrobble: state.handleToggleNeteaseScrobble,
         onTogglePlaybackFade: state.handleTogglePlaybackFade,
@@ -230,6 +235,32 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                 </button>
                             );
                         })}
+                    </div>
+                    <div className="space-y-1 pt-2">
+                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {t('options.heartbeatInterval')}
+                        </div>
+                        <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                            {t('options.heartbeatIntervalDesc')}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        {HEARTBEAT_INTERVAL_OPTIONS.map((value) => (
+                            <button
+                                key={value}
+                                type="button"
+                                onClick={() => onHeartbeatIntervalChange(value)}
+                                className="rounded-xl border px-3 py-3 text-left transition-colors"
+                                style={getAccentOptionStyle(heartbeatInterval === value)}
+                            >
+                                <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                    {t(`options.heartbeatInterval_${value}`)}
+                                </div>
+                                <div className="mt-1 text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                                    {t(`options.heartbeatInterval_${value}_desc`)}
+                                </div>
+                            </button>
+                        ))}
                     </div>
                 </div>
             </SettingsAnchor>
