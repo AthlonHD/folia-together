@@ -38,10 +38,6 @@ const noteQueueContext = (collection: LibraryCollectionDescriptor | null | undef
     const contextStore = usePlayQueueContextStore.getState();
     const liked = collection && isNeteaseLikedPlaylist(collection) ? collection : null;
     const songKeys = liked ? queue.map(getPlaybackSongKey) : [];
-    if (collection?.source === 'online' && collection.providerId === 'netease') {
-        // 排查心动模式不可用时看这一行:歌单有没有被认成「我喜欢的音乐」。
-        console.info('[Heartbeat] play from netease collection', { id: collection.id, type: collection.type, isLiked: collection.isLiked, recognizedAsLiked: Boolean(liked), songs: songKeys.length });
-    }
     if (liked) contextStore.setLikedContext(liked.id, songKeys);
     else contextStore.clearLikedContext();
     // 遥控页自己不放歌:歌由 Host 放,上下文也要交给 Host,它才知道当前歌是不是「我喜欢的音乐」里的。

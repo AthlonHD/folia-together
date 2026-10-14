@@ -525,7 +525,8 @@ export default function App() {
 
     const effectiveLoopMode: StageLoopMode = loopMode;
     const shuffleEnabled = useAudioSettingsStore(state => state.shuffleEnabled);
-    const loopDisplayMode = getLoopDisplayMode(effectiveLoopMode, shuffleEnabled);
+    const heartbeatEnabled = useAudioSettingsStore(state => state.heartbeatEnabled);
+    const loopDisplayMode = getLoopDisplayMode(effectiveLoopMode, shuffleEnabled, heartbeatEnabled);
 
     const getTargetPlaybackVolume = useCallback(() => (isMuted ? 0 : volume), [isMuted, volume]);
 
