@@ -31,6 +31,8 @@ export type AppOverlaysModel = {
     memoryMonitor?: MemoryMonitorProps | null;
     floatingControls?: FloatingControlsProps | null;
     nowPlayingToast?: NowPlayingToastProps | null;
+    /** 手机布局的外壳要的额外动作(电脑布局不用)。 */
+    phoneChrome?: { onBack: () => void } | null;
 };
 
 // What the model needs that this file can read for itself: store state, the per-frame motion
@@ -103,6 +105,7 @@ export type AppOverlaysDeps = {
     toggleLoop: FloatingControlsProps['onToggleLoop'];
     navigateToPlayer: () => void;
     navigateFromPlayerCapsule: () => void;
+    navigateBackFromPlayer: () => void;
     shouldHidePlayerProgressBar: boolean;
     onSeekMainAudio: (time: number) => void;
     onStagePlayerSeek: () => Promise<unknown>;
@@ -163,6 +166,7 @@ export const buildAppOverlaysModel = ({
     toggleLoop,
     navigateToPlayer,
     navigateFromPlayerCapsule,
+    navigateBackFromPlayer,
     isPlayerChromeHidden,
     shouldHidePlayerProgressBar,
     onSeekMainAudio,
@@ -193,6 +197,7 @@ export const buildAppOverlaysModel = ({
     // Gated on stageTrackPillOnScreen (computed in App: display mode plus which page allows the
     // card) rather than on the view directly, so the countdown that feeds the "up next" preview
     // and the card that shows it can never disagree about where the card lives.
+    phoneChrome: { onBack: navigateBackFromPlayer },
     nowPlayingToast: stageTrackPillOnScreen && currentSong
         ? {
             song: {

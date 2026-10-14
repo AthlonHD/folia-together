@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSupportsFinePointer } from '../../hooks/useSupportsFinePointer';
+import { useIsPhoneLayout } from '../../hooks/useLayoutMode';
 import { useAppViewStore } from '../../stores/useAppViewStore';
 import { usePonderStore } from '../../stores/usePonderStore';
 import { useSettingsModalStore } from '../../stores/useSettingsModalStore';
@@ -26,6 +27,13 @@ const REVEAL_MS = 4000;
 /** 右上角热区的边长，px。按触摸目标给，不按视觉尺寸给。 */
 const HOTSPOT_SIZE_PX = 96;
 
+/** 手机布局下热区在左下角、底部控制条上方的这一段高度里(控制条的高度读自 --phone-dock-height)。 */
+const isInPhoneHotspotBand = (clientY: number): boolean => {
+    const dockHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--phone-dock-height')) || 0;
+    const bandBottom = window.innerHeight - dockHeight;
+    return clientY <= bandBottom && clientY >= bandBottom - HOTSPOT_SIZE_PX;
+};
+
 type PagePonderTouchButtonProps = {
     accent: string;
     isDaylight: boolean;
@@ -35,6 +43,10 @@ type PagePonderTouchButtonProps = {
 const PagePonderTouchButton: React.FC<PagePonderTouchButtonProps> = ({ accent, isDaylight }) => {
     const { t } = useTranslation();
     const isCoarsePointer = !useSupportsFinePointer();
+    // 手机布局的顶部是各页自己的标题栏和搜索框,右上角没有空位:改成贴左下角、停在底部控制条上方
+    const isPhoneLayout = useIsPhoneLayout();
+    const isPhoneLayoutRef = useRef(isPhoneLayout);
+    isPhoneLayoutRef.current = isPhoneLayout;
     const hasSession = usePonderStore(state => state.session !== null);
     const isOnboardingOpen = useSettingsModalStore(state => state.isUserGuideModalOpen);
     const showTouchButton = usePonderStore(state => state.showPonderTouchButton);
@@ -91,8 +103,9 @@ const PagePonderTouchButton: React.FC<PagePonderTouchButtonProps> = ({ accent, i
                 return;
             }
 
-            const inHotspot = event.clientY <= HOTSPOT_SIZE_PX
-                && event.clientX >= window.innerWidth - HOTSPOT_SIZE_PX;
+            const inHotspot = isPhoneLayoutRef.current
+                ? event.clientX <= HOTSPOT_SIZE_PX && isInPhoneHotspotBand(event.clientY)
+                : event.clientY <= HOTSPOT_SIZE_PX && event.clientX >= window.innerWidth - HOTSPOT_SIZE_PX;
             if (!inHotspot) {
                 // 手指落在别处，上一面没用掉的旗就作废 —— 免得它留到下一次真正的点击上。
                 suppressNextClickRef.current = false;
@@ -127,10 +140,13 @@ const PagePonderTouchButton: React.FC<PagePonderTouchButtonProps> = ({ accent, i
             aria-label={t('ponder.openPage')}
             title={t('ponder.openPage')}
             // 收起来之后不可点：留着可点的话，右上角会变成一块看不见却能按的地方。
-            className={`fixed right-5 top-5 z-[190] flex h-12 w-12 items-center justify-center rounded-full border shadow-lg backdrop-blur-md transition-all duration-200 active:scale-95 ${
-                isRevealed ? 'opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
+            className={`fixed ${isPhoneLayout ? 'left-3' : 'right-5 top-5'} z-[190] flex h-12 w-12 items-center justify-center rounded-full border shadow-lg backdrop-blur-md transition-all duration-200 active:scale-95 ${
+                isRevealed ? 'opacity-100' : `pointer-events-none ${isPhoneLayout ? 'translate-y-2' : '-translate-y-2'} opacity-0`
             } ${isDaylight ? 'border-black/10 bg-white/80' : 'border-white/15 bg-zinc-900/80'}`}
-            style={{ color: accent }}
+            style={{
+                color: accent,
+                ...(isPhoneLayout ? { bottom: 'calc(var(--phone-dock-height, 0px) + max(var(--safe-bottom), 0px) + 16px)', marginLeft: 'var(--safe-left)' } : {}),
+            }}
         >
             <Lightbulb size={20} aria-hidden="true" />
         </button>

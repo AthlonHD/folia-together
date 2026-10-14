@@ -900,6 +900,7 @@ export default {
     "play": "Play",
     "pause": "Pause",
     "close": "Close",
+    "phoneMore": "More",
     "volume": "Volume",
     "openEqualizer": "Open audio equalizer",
     "automix": "Smart transition",

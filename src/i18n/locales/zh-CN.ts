@@ -900,6 +900,7 @@ export default {
     "play": "播放",
     "pause": "暂停",
     "close": "关闭",
+    "phoneMore": "更多",
     "volume": "音量",
     "openEqualizer": "打开音频均衡器",
     "automix": "智能过渡",

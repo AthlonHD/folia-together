@@ -165,6 +165,7 @@ import { useHomeProviderRefresh } from './hooks/useHomeProviderRefresh';
 import { useAudioOutputDevice } from './hooks/useAudioOutputDevice';
 import { useThemeQuickEditorContext } from './hooks/useThemeQuickEditorContext';
 import { usePlayerBottomBarOffset } from './hooks/usePlayerBottomBarOffset';
+import { useIsPhoneLayout } from './hooks/useLayoutMode';
 import { usePlayerBottomBarPositioningEntry } from './hooks/usePlayerBottomBarPositioningEntry';
 import { PlayerBottomBarLayoutContext } from './components/floating-player/PlayerBottomBarLayoutContext';
 import { useFoliumHostBridge } from './mods/folium/hostBridge';
@@ -695,7 +696,9 @@ export default function App() {
         if (currentView === 'lattice') setHasLatticeExited(false);
     }, [currentView]);
 
-    usePlayerBottomBarOffset(playerBottomBarOffset);
+    // 手机布局下基线由底部 dock 自己设置(PhoneChrome)
+    const isPhoneLayout = useIsPhoneLayout();
+    usePlayerBottomBarOffset(playerBottomBarOffset, !isPhoneLayout);
     usePlayerBottomBarPositioningEntry(navigateToPlayer);
 
     // Auto-close the player panel when leaving the player view
@@ -2365,6 +2368,7 @@ export default function App() {
         toggleLoop,
         navigateToPlayer,
         navigateFromPlayerCapsule,
+        navigateBackFromPlayer,
         shouldHidePlayerProgressBar,
         onSeekMainAudio: seekMainAudio,
         onStagePlayerSeek: publishStagePlayerPlaybackUpdate,

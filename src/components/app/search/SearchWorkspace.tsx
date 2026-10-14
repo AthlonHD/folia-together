@@ -14,6 +14,7 @@ import { useCollectionNavigationStore } from '../../../stores/useCollectionNavig
 import { useOnlineProviderAccountStore } from '../../../stores/useOnlineProviderAccountStore';
 import { omni } from '../../../services/onlineMusic/omni';
 import { useIsBravaisLibraryActive } from '../../../library/app/bravaisLibraryActive';
+import { useIsPhoneLayout } from '../../../hooks/useLayoutMode';
 import { isStageRemoteMode, REMOTE_PLAYABLE_PROVIDER_IDS } from '../../../services/stageMode';
 
 // src/components/app/search/SearchWorkspace.tsx
@@ -98,6 +99,8 @@ const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({
     // 只是看不见、点不到,仍然挂着,所以返回时搜索词、结果和滚动位置都在。
     const isBravais = useIsBravaisLibraryActive();
     const hideBehindCollection = hasCollection && isBravais;
+    // 手机上底部有常驻的迷你播放器 / 控制条(PhoneChrome),搜索列表要给它留出位置,免得最后几行被盖住
+    const isPhoneLayout = useIsPhoneLayout();
 
     // 有搜索词却没有结果、也没在搜:补发一次搜索。
     // Bravais 首页的搜索框提交时只是跳到搜索页,不像 Grid 首页那样先发起搜索,
@@ -149,6 +152,7 @@ const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({
                         color: theme.primaryColor,
                         backgroundColor: isDaylight ? 'rgba(250,250,250,0.96)' : 'rgba(8,8,10,0.94)',
                         backdropFilter: 'blur(24px)',
+                        ...(isPhoneLayout ? { paddingBottom: 'calc(max(var(--phone-dock-height, 0px), var(--safe-bottom)) + 12px)', paddingTop: 'calc(var(--safe-top) + 12px)' } : {}),
                     }}
                 >
                     <header className="mx-auto flex w-full max-w-5xl shrink-0 flex-col gap-3">

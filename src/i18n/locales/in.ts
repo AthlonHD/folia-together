@@ -895,6 +895,7 @@ export default {
     "play": "Putar",
     "pause": "Jeda",
     "close": "Tutup",
+    "phoneMore": "Lainnya",
     "volume": "Volume",
     "openEqualizer": "Buka equalizer audio",
     "automix": "Transisi pintar",
