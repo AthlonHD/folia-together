@@ -7,7 +7,6 @@ import { usePlayQueueContextStore } from '@/stores/usePlayQueueContextStore';
 import { usePlaybackStore, setCurrentSong, setPlayQueue } from '@/stores/usePlaybackStore';
 import { useAudioSettingsStore } from '@/stores/useAudioSettingsStore';
 import { getPlaybackSongKey } from '@/utils/appPlaybackGuards';
-import { shouldDropLikedContext } from '@/hooks/useHeartbeatContextGuard';
 import { registerHeartbeatAvailabilityResolver } from '@/stores/useAudioSettingsStore';
 
 // 心动模式(网易云):只在播放「我喜欢的音乐」时进入循环按钮的切换,图标与排队规则见 utils/heartbeat*。
@@ -75,21 +74,20 @@ describe('heartbeat availability follows the liked-playlist context', () => {
         expect(getHeartbeatAvailable()).toBe(false);
     });
 
-    it('is not available without a context, and drops the context when other songs join the queue', () => {
-        setCurrentSong(song(1));
-        expect(getHeartbeatAvailable()).toBe(false);
-
+    it('stays available when the liked song was inserted into a queue that already had other songs', () => {
+        // 点歌单里的歌是插队进现有队列:队列里有别的歌,不影响「当前这首属于我喜欢的音乐」
         const liked = [song(1), song(2)];
         usePlayQueueContextStore.getState().setLikedContext(7, liked.map(getPlaybackSongKey));
-        setPlayQueue(liked);
-        setCurrentSong(song(1));
+        setPlayQueue([song(50), liked[0], song(51)]);
+        setCurrentSong(liked[0]);
         expect(getHeartbeatAvailable()).toBe(true);
+        setCurrentSong(song(50));
+        expect(getHeartbeatAvailable()).toBe(false);
+    });
 
-        // 队列里混进别处的歌:守卫(useHeartbeatContextGuard)据此丢掉上下文
-        const context = usePlayQueueContextStore.getState().likedContext;
-        expect(shouldDropLikedContext(context, liked)).toBe(false);
-        expect(shouldDropLikedContext(context, [...liked, song(50)])).toBe(true);
-        expect(shouldDropLikedContext(null, [song(50)])).toBe(false);
+    it('is not available without a context', () => {
+        setCurrentSong(song(1));
+        expect(getHeartbeatAvailable()).toBe(false);
     });
 
     it('lets the loop button reach heartbeat only while available', () => {
