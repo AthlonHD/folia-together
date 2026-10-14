@@ -1,3 +1,4 @@
+import { isStageRemoteMode, remoteSetHeartbeatContext } from '../../services/stageRemote';
 import type { LibraryCollectionDescriptor } from '../core/contracts/collection';
 import { usePlayQueueContextStore } from '../../stores/usePlayQueueContextStore';
 import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
@@ -34,10 +35,13 @@ const isNeteaseLikedPlaylist = (collection: LibraryCollectionDescriptor | null |
 // 从集合里播放前记下播放上下文:放的是「我喜欢的音乐」就记下歌单与这批歌,否则清掉(先于播放,新队列才算在上下文里)。
 const noteQueueContext = (collection: LibraryCollectionDescriptor | null | undefined, queue: readonly SongResult[]) => {
     const contextStore = usePlayQueueContextStore.getState();
-    if (collection && isNeteaseLikedPlaylist(collection)) {
-        contextStore.setLikedContext(collection.id, queue.map(getPlaybackSongKey));
-    } else {
-        contextStore.clearLikedContext();
+    const liked = collection && isNeteaseLikedPlaylist(collection) ? collection : null;
+    const songKeys = liked ? queue.map(getPlaybackSongKey) : [];
+    if (liked) contextStore.setLikedContext(liked.id, songKeys);
+    else contextStore.clearLikedContext();
+    // 遥控页自己不放歌:歌由 Host 放,上下文也要交给 Host,它才知道当前歌是不是「我喜欢的音乐」里的。
+    if (isStageRemoteMode()) {
+        void remoteSetHeartbeatContext(liked ? liked.id : null, songKeys).catch(() => undefined);
     }
 };
 

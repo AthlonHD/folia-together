@@ -364,10 +364,12 @@ export interface StagePlayerSnapshot {
 
 export interface StagePlayerControlRequest {
   requestId: string;
-  action: 'next' | 'prev' | 'pause' | 'resume' | 'seek' | 'set-loop' | 'set-settings';
+  action: 'next' | 'prev' | 'pause' | 'resume' | 'seek' | 'set-loop' | 'set-settings' | 'set-heartbeat-context';
   positionMs?: number;
   loopMode?: 'off' | 'all' | 'one' | 'shuffle' | 'heartbeat';
   settings?: Record<string, unknown>;
+  /** set-heartbeat-context:遥控端从「我喜欢的音乐」歌单放歌时带给 Host 的歌单与歌曲键;playlistId 为 null 表示清除。 */
+  heartbeatContext?: { playlistId: string | null; songKeys: string[] };
 }
 
 export interface StagePlayerQueueRequest {

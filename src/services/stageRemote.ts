@@ -64,6 +64,9 @@ export type RemoteSongRef =
 
 export const remoteSetLoopMode = (loopMode: 'off' | 'all' | 'one' | 'shuffle' | 'heartbeat') =>
     request('control', { action: 'set-loop', loopMode });
+/** 告诉 Host 这批歌来自网易云「我喜欢的音乐」(playlistId 为 null 表示清除),心动模式在 Host 上才认得。 */
+export const remoteSetHeartbeatContext = (playlistId: string | number | null, songKeys: readonly string[]) =>
+    request('control', { action: 'set-heartbeat-context', playlistId, songKeys });
 /** 把遥控端改的播放设置(音质、音量、均衡器等)交给 Host 应用 */
 export const remoteSetSettings = (settings: Record<string, unknown>) =>
     request('control', { action: 'set-settings', settings });

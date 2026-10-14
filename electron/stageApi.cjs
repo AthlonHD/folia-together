@@ -45,6 +45,8 @@ const STAGE_PLAYER_CONTROL_ACTION_CAPABILITIES = {
   seek: 'seek',
   'set-loop': 'loop',
   'set-settings': 'settings',
+  // 遥控端告诉 Host「这批歌来自网易云我喜欢的音乐」,心动模式在 Host 上才认得
+  'set-heartbeat-context': 'settings',
 };
 const STAGE_LOOP_MODE_VALUES = new Set(['off', 'all', 'one', 'shuffle', 'heartbeat']);
 const STAGE_PLAYER_QUEUE_ACTION_CAPABILITIES = {
@@ -1828,8 +1830,20 @@ function createStageApi({
       settings = payload.settings;
     }
 
+    let heartbeatContext;
+    if (action === 'set-heartbeat-context') {
+      // playlistId 为空表示清掉上下文(从别的集合播放了)
+      const rawKeys = Array.isArray(payload.songKeys) ? payload.songKeys : [];
+      const songKeys = rawKeys.filter((key) => typeof key === 'string' && key.length > 0 && key.length <= 200).slice(0, 20000);
+      const playlistId = payload.playlistId === null || payload.playlistId === undefined || payload.playlistId === ''
+        ? null
+        : String(payload.playlistId).slice(0, 64);
+      heartbeatContext = { playlistId, songKeys };
+    }
+
     await requestStagePlayerControl({
       action,
+      ...(heartbeatContext !== undefined ? { heartbeatContext } : {}),
       ...(positionMs !== undefined ? { positionMs } : {}),
       ...(loopMode !== undefined ? { loopMode } : {}),
       ...(settings !== undefined ? { settings } : {}),

@@ -22,6 +22,7 @@ import { resolveStagePlayerPositionSec } from '../utils/stagePlayerSnapshot';
 import { getStageBridge } from '../services/stageWebChannel';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { getLoopDisplayMode } from '../utils/loopDisplayMode';
+import { usePlayQueueContextStore } from '../stores/usePlayQueueContextStore';
 import { getHeartbeatAvailable } from '../utils/heartbeatAvailability';
 import { applyHostSettingsPatch, readAllHostSettings } from '../services/hostSettingsSync';
 import { getHostLocalLibraryRevision } from '../utils/localLibraryRevision';
@@ -682,6 +683,15 @@ export const useElectronPlaybackBridge = ({
                 // 切换循环/随机模式不需要当前有歌,先于"控制是否可用"的判断处理
                 if (request.action === 'set-settings' && request.settings) {
                     applyHostSettingsPatch(request.settings);
+                    complete(request.requestId, true);
+                    return;
+                }
+
+                if (request.action === 'set-heartbeat-context' && request.heartbeatContext) {
+                    const { playlistId, songKeys } = request.heartbeatContext;
+                    const contextStore = usePlayQueueContextStore.getState();
+                    if (playlistId) contextStore.setLikedContext(playlistId, songKeys);
+                    else contextStore.clearLikedContext();
                     complete(request.requestId, true);
                     return;
                 }
