@@ -56,7 +56,7 @@ Folia是一个以全屏沉浸式歌词播放为核心的在线音乐播放器，
 scripts\start-stage.cmd
 ```
 
-启动后在黑框里会看到访问令牌；遥控端打开 `http://服务器:3000/?token=令牌`。需要 [api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) 位于 `%USERPROFILE%pi-enhanced`（或设置 `API_DIR`）。
+启动后在黑框里会看到访问令牌；遥控端打开 `http://服务器:3000/?token=令牌`。需要 [api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) 位于 `%USERPROFILE%\api-enhanced`（或设置 `API_DIR`）。
 
 ## 展示
 
