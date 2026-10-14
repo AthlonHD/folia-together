@@ -1,7 +1,8 @@
 @echo off
 rem scripts/start-stage.cmd
 rem One-click start for the "play on the server, remote control for everyone" setup.
-rem Opens one window per service so each keeps its own log:
+rem Runs everything in ONE window (logs prefixed; close it to stop all; old instances are stopped first).
+rem Use --separate for one window per service:
 rem   1. Netease API   (port 4000)
 rem   2. Stage relay   (port 4100)
 rem   3. QQ Music API  (port 4300)
@@ -17,6 +18,7 @@ rem first.
 rem Flags (combine in any order):
 rem   --dev         use "vite dev" instead of the production build
 rem   --no-browser  do not open the host page
+rem   --separate   old behaviour: one window per service
 rem   --dry-run     only print what would be done
 setlocal
 for %%I in ("%~dp0..") do set "REPO=%%~fI"
@@ -40,12 +42,16 @@ set "WEB_CMD=npm run stage:serve"
 set "WEB_TITLE=Folia - Frontend build (3000)"
 set "DRY_RUN="
 set "NO_BROWSER="
+set "SEPARATE="
+set "DEV_FLAG="
 rem Flags can be combined and given in any order.
 for %%A in (%*) do (
     if /i "%%~A"=="--dev" (
         set "WEB_CMD=npm run dev"
         set "WEB_TITLE=Folia - Frontend dev (3000)"
     )
+    if /i "%%~A"=="--dev" set "DEV_FLAG=--dev"
+    if /i "%%~A"=="--separate" set "SEPARATE=1"
     if /i "%%~A"=="--dry-run" set "DRY_RUN=1"
     if /i "%%~A"=="--no-browser" set "NO_BROWSER=1"
 )
@@ -77,13 +83,18 @@ if defined DRY_RUN (
     exit /b 0
 )
 
-start "Folia - Netease API (4000)" /D "%API_DIR%" cmd /k "%API_CMD%"
-start "Folia - Stage Relay (4100)" /D "%REPO%" cmd /k "npm run stage:relay"
-start "Folia - QQ Music API (4300)" /D "%REPO%" cmd /k "npm run stage:qq"
-start "Folia - KuGou API (4400)" /D "%REPO%" cmd /k "npm run stage:kugou"
-start "%WEB_TITLE%" /D "%REPO%" cmd /k "%WEB_CMD%"
-
-echo Started 5 windows. The frontend window builds first (a few seconds) before it listens on port 3000.
+if defined SEPARATE (
+    start "Folia - Netease API (4000)" /D "%API_DIR%" cmd /k "%API_CMD%"
+    start "Folia - Stage Relay (4100)" /D "%REPO%" cmd /k "npm run stage:relay"
+    start "Folia - QQ Music API (4300)" /D "%REPO%" cmd /k "npm run stage:qq"
+    start "Folia - KuGou API (4400)" /D "%REPO%" cmd /k "npm run stage:kugou"
+    start "%WEB_TITLE%" /D "%REPO%" cmd /k "%WEB_CMD%"
+    echo Started 5 windows. The frontend window builds first before it listens on port 3000.
+) else (
+    rem Default: one window runs everything (logs prefixed); closing it stops all. Old instances are stopped first.
+    start "Folia - Stage (all services)" /D "%REPO%" cmd /k "node scripts\stage-all.cjs %DEV_FLAG%"
+    echo Started 1 window with all services. The frontend builds first before it listens on port 3000.
+)
 
 if defined NO_BROWSER goto done
 
