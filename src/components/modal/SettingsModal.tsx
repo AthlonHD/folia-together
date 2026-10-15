@@ -1568,7 +1568,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                                 style={BUILD_KIND === 'unofficial' ? undefined : { color: 'var(--text-secondary)' }}
                                                 data-build-kind-notice={BUILD_KIND}
                                             >
-                                                {t(BUILD_KIND === 'unofficial' ? 'options.unofficialBuildNotice' : 'options.selfHostedBuildNotice')}
+                                                {t(BUILD_KIND === 'unofficial' ? 'options.unofficialBuildNotice' : BUILD_KIND === 'fork' ? 'options.forkBuildNotice' : 'options.selfHostedBuildNotice')}
                                             </p>
                                         )}
 

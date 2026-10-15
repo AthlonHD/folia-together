@@ -2748,6 +2748,7 @@ export default {
     "versionCopiedHint": "Klik untuk menyalin info versi",
     "unofficialBuildNotice": "Build tidak resmi: versi ini tidak dibangun oleh CI repositori Folia maupun di-deploy lewat cara self-hosting yang terdokumentasi (Docker, Vercel, Cloudflare), dan mungkin telah dimodifikasi atau tidak memiliki layanan backend. Hubungi pihak yang menyediakannya terlebih dahulu; build resmi ada di GitHub Releases.",
     "selfHostedBuildNotice": "Self-hosted: dibangun dan di-hosting oleh pihak yang men-deploy, termasuk layanan backend platform musik. Hubungi pihak tersebut terlebih dahulu, dan laporkan di GitHub jika memang masalah Folia.",
+    "forkBuildNotice": "Build fork (folia-together): berbasis Folia upstream dengan pemutaran di server, kendali jarak jauh multi-pengguna, dan tata letak ponsel. Laporkan masalah di AthlonHD/folia-together; masalah pada fitur upstream akan diteruskan ke upstream bila perlu. Build desktop resmi ada di GitHub Releases upstream.",
     "versionCopiedToast": "Disalin",
     "stageConnected": "Stage terhubung",
     "nowPlayingConnectedStatus": "Now Playing terhubung",

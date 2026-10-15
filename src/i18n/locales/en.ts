@@ -2882,6 +2882,7 @@ export default {
     "versionCopiedHint": "Click to copy version info",
     "unofficialBuildNotice": "Unofficial build: this version was neither built by the Folia repository's CI nor deployed through a documented self-hosting setup (Docker, Vercel, Cloudflare), and may be modified or missing its backend services. Please contact whoever provided it first; official builds are on GitHub Releases.",
     "selfHostedBuildNotice": "Self-hosted: built and hosted by whoever deployed it, including the music platform backends. Please contact the deployer first, and report on GitHub once it is clearly a Folia problem.",
+    "forkBuildNotice": "Fork build (folia-together): based on upstream Folia with server-side playback, multi-user remote control and a phone layout. Please report problems at AthlonHD/folia-together; issues in upstream features are forwarded upstream when needed. Official desktop builds are on the upstream GitHub Releases.",
     "versionCopiedToast": "Copied",
     "stageConnected": "Stage connected",
     "nowPlayingConnectedStatus": "Now Playing connected",

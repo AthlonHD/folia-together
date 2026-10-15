@@ -9,6 +9,10 @@
 // fork 的 Actions 里 GITHUB_REPOSITORY 是 fork 自己，本地构建根本没有 GITHUB_ACTIONS。
 export const OFFICIAL_BUILD_REPO = 'chthollyphile/folia-major';
 
+// 本 Fork 的仓库:从这个仓库(远端地址或 GITHUB_REPOSITORY)构建出来的算「Fork 构建」,
+// 反馈走本 Fork,不再提示「非官方构建、请找提供者」。
+export const FORK_BUILD_REPO = 'AthlonHD/folia-together';
+
 const REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const COMMIT_PATTERN = /^[0-9a-f]{7,40}$/i;
 
@@ -55,15 +59,18 @@ export function normalizeBuildCommit(commitHash) {
 // - self-hosted：文档里给出的自部署方式——Docker 镜像（gateway.Dockerfile 设了 APP_RELEASE_CHANNEL=docker，
 //   官方 CI 推的镜像也算，因为服务是用户自己托管的）、Vercel、Cloudflare（Pages / Workers Builds）；
 // - official：本仓库 GitHub Actions 构建的（桌面版 release、nightly、canary）；
-// - unofficial：其余一切——fork 的 CI、本地构建、他人打包。
+// - fork：来源仓库是本 Fork(AthlonHD/folia-together)的构建;
+// - unofficial：其余一切——别人 fork 的 CI、本地构建、他人打包。
 // host 是自部署平台（docker / vercel / cloudflare），其他类别为 null。
 // 环境变量能被手动伪造，这个标记防的是「别人打包后把问题反馈到本仓库」，不是防恶意冒充。
-export function resolveBuildKind(env) {
+export function resolveBuildKind(env, buildRepo) {
   if (env.APP_RELEASE_CHANNEL?.trim().toLowerCase() === 'docker') return { kind: 'self-hosted', host: 'docker' };
   if (env.VERCEL === '1') return { kind: 'self-hosted', host: 'vercel' };
   if (env.CF_PAGES === '1' || env.WORKERS_CI === '1') return { kind: 'self-hosted', host: 'cloudflare' };
   if (env.GITHUB_ACTIONS === 'true' && String(env.GITHUB_REPOSITORY ?? '').trim() === OFFICIAL_BUILD_REPO) {
     return { kind: 'official', host: null };
   }
+  // 本 Fork 自己的构建(本地、Actions 或自托管服务器上构建,来源仓库都是 Fork)
+  if (buildRepo === FORK_BUILD_REPO) return { kind: 'fork', host: null };
   return { kind: 'unofficial', host: null };
 }

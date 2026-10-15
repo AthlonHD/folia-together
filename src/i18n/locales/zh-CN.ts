@@ -2884,6 +2884,7 @@ export default {
     "versionCopiedHint": "点击复制版本信息",
     "unofficialBuildNotice": "非官方构建：这个版本既不是 Folia 仓库的 CI 构建的，也不是文档里的自部署方式（Docker、Vercel、Cloudflare），可能经过他人修改或缺少后端服务。遇到问题请先联系提供者，官方版本请从 GitHub Releases 下载。",
     "selfHostedBuildNotice": "自部署版本：由部署者自行构建并托管，音乐平台的后端服务也由部署者配置。遇到问题请先联系部署者；确认是 Folia 本身的问题再到 GitHub 反馈。",
+    "forkBuildNotice": "本 Fork 构建（folia-together）：基于上游 Folia 增加了服务器播放、多人遥控、手机布局等功能。遇到问题请到 AthlonHD/folia-together 反馈；上游已有功能的问题我们会视情况转给上游，官方桌面版请从上游 GitHub Releases 下载。",
     "versionCopiedToast": "已复制",
     "stageConnected": "Stage 已连接",
     "nowPlayingConnectedStatus": "Now Playing 已连接",

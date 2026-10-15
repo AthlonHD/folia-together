@@ -327,7 +327,7 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
   const buildRepo = resolveBuildRepo(process.env, () => execSync('git remote get-url origin', { stdio: ['ignore', 'pipe', 'ignore'] }).toString());
   const buildCommit = normalizeBuildCommit(commitHash);
   // 官方 / 自部署 / 非官方：设置里的版本号、扫码诊断报告和反馈入口都会读它
-  const buildKind = resolveBuildKind(process.env);
+  const buildKind = resolveBuildKind(process.env, buildRepo);
 
   const appVersionLabel = process.env.APP_VERSION_LABEL?.trim() || 'Realeco';
   const appReleaseChannel = process.env.APP_RELEASE_CHANNEL?.trim().toLowerCase() || 'realeco';

@@ -75,5 +75,13 @@ describe('resolveBuildKind', () => {
         expect(resolveBuildKind({ GITHUB_REPOSITORY: 'chthollyphile/folia-major' }).kind).toBe('unofficial');
         expect(resolveBuildKind({ FOLIA_BUILD_REPO: 'chthollyphile/folia-major' }).kind).toBe('unofficial');
         expect(resolveBuildKind({}).kind).toBe('unofficial');
+        expect(resolveBuildKind({}, 'someone/folia-major').kind).toBe('unofficial');
+    });
+
+    it('marks builds from this fork as fork builds, but never above the official or self-hosted kinds', () => {
+        expect(resolveBuildKind({}, 'AthlonHD/folia-together')).toEqual({ kind: 'fork', host: null });
+        expect(resolveBuildKind({ GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'AthlonHD/folia-together' }, 'AthlonHD/folia-together').kind).toBe('fork');
+        expect(resolveBuildKind({ APP_RELEASE_CHANNEL: 'docker' }, 'AthlonHD/folia-together').kind).toBe('self-hosted');
+        expect(resolveBuildKind({ GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'chthollyphile/folia-major' }, 'chthollyphile/folia-major').kind).toBe('official');
     });
 });

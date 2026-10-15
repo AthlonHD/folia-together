@@ -176,7 +176,7 @@ export const resolveLoginDiagnosticsPrompt = (failure: QrLoginFailureKind): Libr
  * 跑这个前端的构建与运行环境（反馈去向用）。build 与 utils/buildProvenance 的 BuildKind 相同：official 是本仓库 CI
  * 构建的，self-hosted 是文档里的自部署方式（Docker、Vercel、Cloudflare），unofficial 是其余一切。web 即网页版。
  */
-export type LibraryLoginReportEnvironment = { build: 'official' | 'self-hosted' | 'unofficial'; web: boolean };
+export type LibraryLoginReportEnvironment = { build: 'official' | 'self-hosted' | 'unofficial' | 'fork'; web: boolean };
 
 /**
  * 诊断报告该交给谁。github：照常去本仓库反馈（官方构建与自部署）；web-deployment：网页版的后端没配置或连不上，
