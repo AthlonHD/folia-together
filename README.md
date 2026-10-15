@@ -92,6 +92,14 @@ scripts\start-stage.cmd
 | Vercel / Cloudflare 一键部署 | 见[上游部署指南](https://folia-site.cielaniska.top/guide/deploy-vercel)；QQ 音乐在这些平台上的部署见 [QQ 音乐部署指南](docs/qq-music-deployment.md) |
 | Docker 全栈 / Sync Server | 见 [deploy/docker](deploy/docker/README.md) 与 [sync-server](sync-server/README.md)（沿用上游的文档与镜像，不含 Stage 中继） |
 
+## 快速下载
+
+> [!TIP]
+> - **GitHub**：[Latest Release](https://github.com/chthollyphile/folia-major/releases/latest)，提供 Windows / macOS / Linux 全平台安装包。
+> - **网盘**：[夸克网盘](https://pan.quark.cn/s/6e4c6fa3bc6f) · [百度云](https://pan.baidu.com/s/1f0x3g-8PMcNCO-TJ5z1rPw?pwd=flia)（提取码 `flia`），适合国内网络，仅提供 Windows 与 Apple silicon 的正式版安装包。
+>
+> 更多获取方式（Web 部署、Docker、AUR、Flatpak）见下方 [获取方式](#获取方式)。
+
 ## 展示
 
 > 以下展示来自上游的歌词动画，本 Fork 沿用。
