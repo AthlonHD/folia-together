@@ -34,6 +34,7 @@ import ReleaseNotesDialog from './ReleaseNotesDialog';
 import { JoinCommunityButton } from '../shared/JoinCommunityButton';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { BUILD_KIND_TAGS, getBuildKind } from '../../utils/buildProvenance';
+import { getForkVersion } from '../../utils/forkVersion';
 import meowImageUrl from '../../../build/miao.png';
 import type { LyricData } from '../../types';
 import { type SettingsModalState, type SettingsSubviewId, type VisualizerSettingsSection } from '../../stores/useSettingsModalStore';
@@ -77,9 +78,12 @@ import { useIsBravaisLibraryActive } from '../../library/app/bravaisLibraryActiv
 const DEFAULT_OPENAI_TEMPERATURE = '0.7';
 const AUR_PACKAGE_URL = 'https://aur.archlinux.org/packages/folia-major-bin';
 const BUILD_KIND = getBuildKind();
+// Fork 构建在上游版本号之后加上本 Fork 自己的版本号(FORK_VERSION),例如 `Realeco v0.7.19 · Together v1.0.0 - stage-remote - 7cb47cb0`
+const FORK_VERSION = BUILD_KIND === 'fork' ? getForkVersion() : null;
+const BASE_VERSION_LABEL = `${__APP_VERSION_LABEL__} v${__APP_VERSION__}${FORK_VERSION ? ` · Together v${FORK_VERSION}` : ''}`;
 const VERSION_INFO = (__DOCKER_STACK_VERSION__
-    ? `${__APP_VERSION_LABEL__} v${__APP_VERSION__} · Stack ${__DOCKER_STACK_VERSION__} · ${__COMMIT_HASH__}`
-    : `${__APP_VERSION_LABEL__} v${__APP_VERSION__} - ${__GIT_BRANCH__} - ${__COMMIT_HASH__}`)
+    ? `${BASE_VERSION_LABEL} · Stack ${__DOCKER_STACK_VERSION__} · ${__COMMIT_HASH__}`
+    : `${BASE_VERSION_LABEL} - ${__GIT_BRANCH__} - ${__COMMIT_HASH__}`)
     // 自部署与非官方构建强制带上标记（固定英文，复制进 issue 后 triage 能认出来）
     + (BUILD_KIND === 'official' ? '' : ` · ${BUILD_KIND_TAGS[BUILD_KIND]}`);
 

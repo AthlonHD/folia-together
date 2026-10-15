@@ -46,7 +46,7 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 | AI（自托管） | 自托管服务器提供 AI 主题 / 歌词分段接口，Key 仅在服务端，按网络状态自动选直连或系统代理。 |
 | 运维 | `scripts\start-stage.cmd` 单窗口一键启动全部服务，重启自动清理旧进程，不误杀其他程序。 |
 
-逐条清单、已知限制和维护约定见 [Fork 功能与修复清单](docs/fork-features.md)。
+逐条清单、已知限制和维护约定见 [Fork 功能与修复清单](docs/fork-features.md)；Fork 有自己的版本号（当前 `FORK_VERSION`），各版本变更见 [Fork 更新日志](FORK_CHANGELOG.md)。
 
 ## 部署与启动
 

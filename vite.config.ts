@@ -13,6 +13,16 @@ import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// 本 Fork 的版本号:根目录 FORK_VERSION 的第一行,格式不对就当没有(设置页不显示)
+const readForkVersion = (): string => {
+  try {
+    const value = fs.readFileSync(path.resolve(__dirname, 'FORK_VERSION'), 'utf-8').split(/\r?\n/)[0].trim();
+    return /^\d+\.\d+\.\d+$/.test(value) ? value : '';
+  } catch {
+    return '';
+  }
+};
+
 const LYRIC_PROXY_CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
@@ -475,6 +485,7 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
       '__BUILD_HOST__': JSON.stringify(buildKind.host ?? ''),
       '__APP_VERSION__': JSON.stringify(JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version),
       '__APP_VERSION_LABEL__': JSON.stringify(appVersionLabel),
+      '__FORK_VERSION__': JSON.stringify(readForkVersion()),
       '__APP_RELEASE_CHANNEL__': JSON.stringify(appReleaseChannel),
       '__DOCKER_STACK_VERSION__': JSON.stringify(dockerStackVersion)
     },

@@ -14,6 +14,8 @@ declare global {
   /** 自部署平台 docker / vercel / cloudflare；其他类别为空串。 */
   const __BUILD_HOST__: string;
   const __APP_VERSION__: string;
+  /** 本 Fork 自己的版本号(根目录 FORK_VERSION);与上游的 __APP_VERSION__ 互不影响。 */
+  const __FORK_VERSION__: string;
   const __APP_VERSION_LABEL__: string;
   const __APP_RELEASE_CHANNEL__: string;
   const __DOCKER_STACK_VERSION__: string;

@@ -17,6 +17,7 @@
 - 新增或修改 Fork 功能（遥控 / Stage 中继、手机布局、QQ / 酷狗、启动脚本、AI 接口等）时，**同步更新** `docs/fork-features.md`；涉及部署、端口、令牌、脚本参数的，还要更新 `docs/stage-remote.md` 与根 `README.md` 的「部署与启动」。
 - 与上游重复的说明不要在本仓库重写，用链接指向上游；上游沿用文档只在顶部加「Fork 说明」，不改正文，以减少合并冲突。
 - 与上游重叠的代码尽量只加不替换；合并上游后跑 `npx tsc --noEmit -p .` 与 `npx vitest run -c vitest.config.ts`，并核对文档是否仍准确。
+- 发布 Fork 版本时改根目录 `FORK_VERSION` 并在 `FORK_CHANGELOG.md` 最上面加一节（规则见该文件）；合并上游不单独升 Fork 版本号，也不要改 `package.json` 的上游版本号。
 - 提交信息：`feat(范围): …` / `fix(范围): …` / `chore(范围): …`。不要提交 `.env.local`、令牌文件、账号 Cookie 与 API Key。
 
 ## 代码定位

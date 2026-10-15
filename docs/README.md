@@ -10,6 +10,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [根 README](../README.md) | Fork 概览、部署与启动、反馈约定 |
+| [Fork 更新日志](../FORK_CHANGELOG.md) | Fork 自己的版本号规则与各版本变更（独立于上游版本号） |
 | [Fork 功能与修复清单](fork-features.md) | 相对上游多出来的全部功能与修复、已知限制、维护约定 |
 | [Stage Remote 使用文档](stage-remote.md) | 服务器本机播放与多人遥控：角色、端口、启动脚本、令牌、账号共享、排错 |
 | [QQ 音乐部署指南](qq-music-deployment.md) | QQ 音乐在 Vercel / Cloudflare / Docker 上的部署（本 Fork 单机形态直接用 `start-stage.cmd`，不需要这篇） |
