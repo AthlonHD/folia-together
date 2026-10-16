@@ -2152,6 +2152,7 @@ export default function App() {
         next: () => { void handleNextTrack(); },
         previous: handlePrevTrack,
         playSong: (song) => playSong(song),
+        playQueueSong: (song, queue, isFm) => playSong(song, queue, isFm),
         enqueue: addOnlineSongToQueue,
         navigateToPlayer,
         navigateToHome,
