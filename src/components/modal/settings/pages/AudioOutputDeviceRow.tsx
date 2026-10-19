@@ -18,9 +18,11 @@ type AudioOutputDeviceRowProps = {
     option: SettingsOptionDef;
     /** Switches the player's output; false when the device could not be used. */
     onDeviceChange: (deviceId: string) => Promise<boolean> | boolean;
+    /** Why the row does nothing right now (pass-through makes the sound elsewhere); the row is then dimmed and says so. */
+    notApplied?: string;
 };
 
-const AudioOutputDeviceRow: React.FC<AudioOutputDeviceRowProps> = ({ option, onDeviceChange }) => {
+const AudioOutputDeviceRow: React.FC<AudioOutputDeviceRowProps> = ({ option, onDeviceChange, notApplied }) => {
     const { t } = useTranslation();
     const deviceId = useAudioSettingsStore(state => state.audioOutputDeviceId);
     const { devices, ensureLoaded, errorKey, hasLoaded, isLoading, isSupported, refresh, selectedDeviceLabel, setErrorKey } = useAudioOutputDevices(deviceId);
@@ -80,7 +82,7 @@ const AudioOutputDeviceRow: React.FC<AudioOutputDeviceRowProps> = ({ option, onD
                         : undefined;
 
     return (
-        <Row option={option} hint={state} disabled={!isSupported}>
+        <Row option={option} hint={notApplied ?? state} disabled={!isSupported || Boolean(notApplied)}>
             <Button icon={RefreshCw} tip={t('options.audioOutputRefresh')} onClick={() => void refresh()} disabled={isLoading || isSelecting} />
             <Select value={deviceId} options={options} onChange={next => void selectDevice(next)} onOpen={ensureLoaded} disabled={isSelecting} />
         </Row>

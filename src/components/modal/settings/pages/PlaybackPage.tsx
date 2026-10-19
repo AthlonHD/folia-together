@@ -10,6 +10,7 @@ import { useAudioSettingsStore } from '../../../../stores/useAudioSettingsStore'
 import { useAutomixSettingsStore } from '../../../../stores/useAutomixSettingsStore';
 import { useDesktopSettingsStore } from '../../../../stores/useDesktopSettingsStore';
 import { runsOnWindows } from '../../../../utils/platform';
+import { usePassthroughSettingsStore } from '../../../../stores/usePassthroughSettingsStore';
 import { Button, Chips, Group, Reveal, Row, Segmented, Slider, Status, Toggle, option, type SettingsGroupDef, type SettingsOptionDef } from '../kit';
 import PlayTargetGroup, { PLAY_TARGET_OPTIONS } from '../PlayTargetPanel';
 import { HEARTBEAT_INTERVAL_OPTIONS } from '../../../../utils/heartbeatPlan';
@@ -89,6 +90,9 @@ const PlaybackPage: React.FC = () => {
         setQueueBehavior: state.handleSetQueueAddBehavior,
         setAutoSkipUnplayable: state.handleToggleAutoSkipUnplayable,
     })));
+    // With pass-through on, the sound is made by the separate player: the web player's output device, ReplayGain and fade do nothing to it.
+    const passthroughOn = usePassthroughSettingsStore(state => state.passthroughEnabled) && Boolean(window.electron?.audioHelper) && runsOnWindows();
+    const notApplied = passthroughOn ? t('passthrough.notApplied') : undefined;
     const preventSleep = useDesktopSettingsStore(state => state.preventDisplaySleepDuringPlayback);
     const setPreventSleep = useDesktopSettingsStore(state => state.handleTogglePreventDisplaySleepDuringPlayback);
 
@@ -200,8 +204,8 @@ const PlaybackPage: React.FC = () => {
             </Group>
 
             <Group def={SOUND}>
-                <AudioOutputDeviceRow option={O.outputDevice} onDeviceChange={onAudioOutputDeviceChange} />
-                <Row option={O.replayGain} note={t('options.replayGainModeDesc')}>
+                <AudioOutputDeviceRow option={O.outputDevice} onDeviceChange={onAudioOutputDeviceChange} notApplied={notApplied} />
+                <Row option={O.replayGain} note={t('options.replayGainModeDesc')} hint={notApplied} disabled={passthroughOn}>
                     <Segmented
                         value={replayGainMode}
                         options={[
@@ -212,7 +216,7 @@ const PlaybackPage: React.FC = () => {
                         onChange={onReplayGainModeChange}
                     />
                 </Row>
-                <Row option={O.fade} hint={t('options.playbackFadeDesc')}>
+                <Row option={O.fade} hint={notApplied ?? t('options.playbackFadeDesc')} disabled={passthroughOn}>
                     <Toggle checked={audio.fade} onChange={audio.setFade} />
                 </Row>
                 {window.electron?.requestTranscodeFallback && (

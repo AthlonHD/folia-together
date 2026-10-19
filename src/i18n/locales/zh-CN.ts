@@ -72,6 +72,7 @@ export default {
     "probeFailed": "检测失败:{{error}}",
     "probeLine": "{{label}}:{{rates}} kHz",
     "chain": "当前链路",
+    "notApplied": "直通模式开启时不生效:声音由下面的直通播放器输出(回退到普通播放的歌曲除外)",
     "level": "输出电平",
     "levelSilent": "静音",
     "chainIdle": "没有正在直通的歌曲",

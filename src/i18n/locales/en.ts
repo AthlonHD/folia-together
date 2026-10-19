@@ -72,6 +72,7 @@ export default {
     "probeFailed": "Test failed: {{error}}",
     "probeLine": "{{label}}: {{rates}} kHz",
     "chain": "Current chain",
+    "notApplied": "Not used while pass-through is on: the sound comes from the pass-through player below (songs that fall back to normal playback excepted)",
     "level": "Output level",
     "levelSilent": "silent",
     "chainIdle": "Nothing is playing through pass-through",

@@ -72,6 +72,7 @@ export default {
     "probeFailed": "Pengujian gagal: {{error}}",
     "probeLine": "{{label}}: {{rates}} kHz",
     "chain": "Rantai saat ini",
+    "notApplied": "Tidak berlaku saat mode pass-through aktif: suara keluar dari pemutar pass-through di bawah (kecuali lagu yang kembali ke pemutaran biasa)",
     "level": "Level keluaran",
     "levelSilent": "senyap",
     "chainIdle": "Tidak ada yang diputar lewat pass-through",
