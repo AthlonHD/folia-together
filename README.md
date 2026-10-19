@@ -56,7 +56,7 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 
 - Windows（启动脚本为 `.cmd`；Stage 中继本身是普通 Node 程序，也可以手动在其他系统运行）
 - [Node.js](https://nodejs.org/) ≥ 24
-- 网易云 API：[api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) 放在 `%USERPROFILE%\api-enhanced`（或设置环境变量 `API_DIR`）
+- 网易云 API：用仓库里的（`scripts/start-netease-api.cjs`，与桌面版同一份代码和补丁），不用另装；要改用外部的 [api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) 目录，设置环境变量 `API_DIR`
 - QQ 音乐 / 酷狗 API 的依赖由 `npm install` 一并安装，启动脚本会自动拉起它们
 - Chrome（Host 页用它打开，脚本会带防后台降级参数）
 

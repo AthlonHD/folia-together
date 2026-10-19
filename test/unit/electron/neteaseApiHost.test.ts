@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const { createNeteaseApiHost } = require('../../../electron/netease/neteaseApiHost.cjs') as {
     createNeteaseApiHost: (options?: Record<string, unknown>) => {
         preload: () => void;
-        start: (options: { host: string }) => Promise<{ port: number }>;
+        start: (options: { host: string; port?: number }) => Promise<{ port: number }>;
         diagnostics: () => Promise<any>;
     };
 };
@@ -54,6 +54,14 @@ describe('Netease API host', () => {
         workers[0].emit('message', { type: 'result', id: message.id, ok: true, value: { port: 4321 } });
 
         await expect(started).resolves.toEqual({ port: 4321 });
+    });
+
+    it('passes a fixed port to the worker when one is given (the server), and none for the desktop app', async () => {
+        const { host, workers } = createHost();
+        void host.start({ host: '127.0.0.1', port: 4000 }).catch(() => {});
+        expect(workers[0].posted[0]).toMatchObject({ type: 'start', host: '127.0.0.1', port: 4000 });
+        void host.start({ host: '127.0.0.1' }).catch(() => {});
+        expect(workers[0].posted[1].port).toBeUndefined();
     });
 
     it('rejects a start with the value the worker failed with', async () => {

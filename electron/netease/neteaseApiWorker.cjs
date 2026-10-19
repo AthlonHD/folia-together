@@ -142,7 +142,8 @@ try {
 
 // 第 2 段：一次完整的拉起，成功时回 { port }。失败时抛出的错带上失败的那一步，界面上的故障原因一眼能看出卡在哪；
 // 是不是断网造成的（resolveXeapiPublicKey 记在错上）也带着。
-async function startNcmApi({ host }) {
+// port:桌面版不给,由线程挑一个空闲端口;服务端(scripts/start-netease-api.cjs)给固定端口,好让中继和前端的代理找到它。
+async function startNcmApi({ host, port: requestedPort }) {
   startup.begin();
   let currentStep = '';
   const step = (id, fn) => {
@@ -158,9 +159,9 @@ async function startNcmApi({ host }) {
     const { ncmUtil, registerAnonymous, getXeapiPublicKey, serveNcmApi } = upstream;
 
     const port = await step('port', async (note) => {
-      const freePort = await findFreePort();
-      note({ port: freePort });
-      return freePort;
+      const chosen = Number.isInteger(requestedPort) && requestedPort > 0 ? requestedPort : await findFreePort();
+      note({ port: chosen, requested: chosen === requestedPort });
+      return chosen;
     });
 
     await step('runtime', async (note) => {

@@ -76,8 +76,9 @@ function createNeteaseApiHost({
     preload: () => {
       ensureWorker();
     },
-    // 在线程里拉起 API（端口由线程挑），监听成功后 resolve { port }；失败时 reject 的是线程里抛出的那个值。
-    start: ({ host }) => request('start', { host }),
+    // 在线程里拉起 API（默认端口由线程挑），监听成功后 resolve { port }；失败时 reject 的是线程里抛出的那个值。
+    // port 可不给:不给时线程自己挑空闲端口(桌面版);给了就用它(服务端)。
+    start: ({ host, port }) => request('start', { host, port }),
     // 拉起步骤、登录请求、扫码身份与上游连接都记在线程里（请求在那里发出）。线程还没开过时，给同样形状的空记录。
     diagnostics: () => (
       worker ? request('diagnostics') : Promise.resolve({ startup: [], login: null, identity: null, connections: [] })

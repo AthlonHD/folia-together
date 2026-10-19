@@ -106,6 +106,10 @@
 
 ---
 
+## 9.5 服务端与桌面版共用同一个网易云后端
+
+服务端的网易云 API 不再用仓库外的 `api-enhanced` 目录，改跑 `scripts/start-netease-api.cjs`：它直接启动桌面版用的那个工作线程（`electron/netease/`，`@neteasecloudmusicapienhanced/api` 加应用自己的补丁：扫码登录的网络重试、请求超时、身份轮换、登录诊断），监听 `NETEASE_PORT`（默认 4000，只绑本机）。因此服务端和桌面版的网易云版本与行为一致，版本由仓库的 `package-lock.json` 管，`git pull` 就会跟上。QQ 音乐、酷狗原来就是仓库依赖里的同一个包。设置环境变量 `API_DIR` 仍可改用外部目录（旧办法）。
+
 ## 10. 安装包自动发布
 
 每次推送到 `stage-remote`，GitHub Actions（`.github/workflows/together-installer.yml`）都会在 `windows-latest` 上构建一个新的 Windows 安装包（含直通播放器、分析模型），发布到名为 **together-latest** 的滚动预发布页，文件名 `Folia-Together-v<Fork 版本>-<提交>-Setup.exe`；同时留一份 14 天的工作流产物。发布页始终只有最新的那一个。

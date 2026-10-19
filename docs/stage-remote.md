@@ -19,7 +19,7 @@
 | 服务 | 端口 | 说明 |
 | --- | --- | --- |
 | 前端 | 3000 | 默认托管打包产物（`vite preview`），`--dev` 用开发模式 |
-| 网易云 API | 4000 | 读取 `%USERPROFILE%\api-enhanced`，也可用 `API_DIR` 指定 |
+| 网易云 API | 4000 | 跑仓库里的 `scripts/start-netease-api.cjs`（与桌面版同一份代码和补丁）；设了 `API_DIR` 才改用外部的 api-enhanced 目录（旧办法） |
 | Stage 中继 | 4100 | WebSocket + HTTP，转发遥控、代理各音乐 API、校验令牌 |
 | QQ 音乐 API | 4300 | `scripts/start-qq-api.cjs` |
 | 酷狗 API | 4400 | `scripts/start-kugou-api.cjs` |
@@ -110,7 +110,7 @@ Host 上登录的网易云、QQ 音乐、酷狗账号，遥控端可以直接借
 | `LISTEN_HOST` | 0.0.0.0 | 中继监听地址 |
 | `NETEASE_PORT` / `QQ_PORT` / `KUGOU_PORT` | 4000 / 4300 / 4400 | 中继代理的后端端口 |
 | `STAGE_TOKEN` / `STAGE_TOKEN_FILE` | 自动生成 | 访问令牌来源 |
-| `API_DIR` | `%USERPROFILE%\api-enhanced` | 网易云 API 目录（启动脚本用） |
+| `API_DIR` | （不设） | 不设就用仓库里的网易云 API；设成 api-enhanced 目录则改用它（旧办法） |
 
 ## 排错
 

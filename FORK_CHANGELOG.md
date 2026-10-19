@@ -17,6 +17,7 @@
 
 ### 新增
 
+- **服务端与桌面版共用同一个网易云后端**：服务端网易云 API 改跑仓库里的 `scripts/start-netease-api.cjs`（桌面版同一份代码与补丁），不再依赖仓库外的 `api-enhanced` 目录；`API_DIR` 仍可改用旧办法。
 - **服务端自动更新**：`start-stage.cmd --auto-update` 定时问 GitHub 分支有没有新提交，有就快进合并、必要时 `npm ci`、重启服务；中继新增公开接口 `/stage/version`，桌面版设置里显示服务器版本并和本应用比较。
 - **本 Fork 自己的检测更新与更新**：设置 → 通用 → 本 Fork 更新，问发布页是否有比本构建新的安装包，下载、校验 SHA-256 后安装；启动时也会检查一次（可关）。
 - **每次推送自动出安装包**：推送到 `stage-remote` 后，GitHub Actions 构建 Windows 安装包并发布到 `together-latest` 滚动预发布页；安装版不再检查上游更新（`foliaReleaseChannel: internal`）。
