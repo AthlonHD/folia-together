@@ -23,14 +23,19 @@ import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAcc
 
 type AddToPlaylistHostProps = {
     isDaylight: boolean;
+    localPlaylists: LocalPlaylist[];
+    /** 上游按当前平台给的歌单;本 Fork 改为跟着「这首歌」所属的平台算(见组件里的 playlistsFor),这个值不再使用。 */
+    onlinePlaylists?: ProviderCollection[];
     /** 列表"+"选中的歌曲加入播放队列(选择框里的"播放队列"项)。 */
     onAddSongToPlayQueue: (song: SongResult) => void;
-    localPlaylists: LocalPlaylist[];
-    onAddCurrentSongToLocalPlaylist: (playlistId: string) => Promise<void>;
-    onCreateCurrentLocalPlaylist: (name: string) => Promise<void>;
-    onAddCurrentSongToOnlinePlaylist: (playlist: ProviderCollection) => Promise<void>;
-    onAddCurrentSongToNavidromePlaylist: (playlistId: string) => Promise<void>;
-    onCreateCurrentNavidromePlaylist: (name: string) => Promise<void>;
+    // All six are handed the song the picker is about: the playback store's current song is
+    // another one during a blend, and after any change of track under the open dialog.
+    onAddCurrentSongToLocalPlaylist: (playlistId: string, song: SongResult) => Promise<void>;
+    onCreateCurrentLocalPlaylist: (name: string, song: SongResult) => Promise<void>;
+    onAddCurrentSongToOnlinePlaylist: (playlist: ProviderCollection, song: SongResult) => Promise<void>;
+    onCreateCurrentOnlinePlaylist: (name: string, song: SongResult) => Promise<void>;
+    onAddCurrentSongToNavidromePlaylist: (playlistId: string, song: SongResult) => Promise<void>;
+    onCreateCurrentNavidromePlaylist: (name: string, song: SongResult) => Promise<void>;
 };
 
 type PlaylistEntry = { id: string; name: string; description?: string };
@@ -38,47 +43,80 @@ type PlaylistEntry = { id: string; name: string; description?: string };
 // 选择框里"播放队列"这一项的保留 id,不会与任何歌单 id 冲突
 const PLAY_QUEUE_ENTRY_ID = '__play_queue__';
 
+// What kind of song this is to the picker, and whether its source takes it into a playlist.
+const describeSong = (song: SongResult | null, hasOnlinePlaylists: boolean) => {
+    const isStage = Boolean(song && (song as any).isStage === true);
+    const isNavidrome = Boolean(song && (song as any).isNavidrome === true);
+    const isLocal = Boolean(song && !isNavidrome && (((song as any).isLocal === true) || Boolean((song as any).localRef?.songId)));
+    const playbackSourceRef = song ? getPlaybackSourceRef(song) : null;
+    const isOnline = playbackSourceRef?.kind === 'online';
+    const canAddOnlineSong = Boolean(song && isOnline && omni.canAddSongToPlaylist(song));
+    const canCreateOnline = Boolean(song && isOnline && omni.canCreatePlaylistForSong(song));
+    return {
+        isNavidrome, isLocal, isOnline, canAddOnlineSong, canCreateOnline,
+        onlineProviderLabel: playbackSourceRef?.kind === 'online' ? omni.getProviderLabel(playbackSourceRef.providerId) : '',
+        isApplicable: Boolean(song && !isStage && (isLocal || isOnline || isNavidrome)),
+        // Local, Navidrome and some online providers can make a playlist on the spot, so having
+        // none is not a refusal there.
+        canAdd: isLocal || (isOnline && canAddOnlineSong && (hasOnlinePlaylists || canCreateOnline)) || isNavidrome,
+    };
+};
+
 export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
     isDaylight,
-    onAddSongToPlayQueue,
     localPlaylists,
+    onAddSongToPlayQueue,
     onAddCurrentSongToLocalPlaylist,
     onCreateCurrentLocalPlaylist,
     onAddCurrentSongToOnlinePlaylist,
+    onCreateCurrentOnlinePlaylist,
     onAddCurrentSongToNavidromePlaylist,
     onCreateCurrentNavidromePlaylist,
 }) => {
     const { t } = useTranslation();
-    // The song as the listener sees it, so a blend shows the track that is on screen.
-    const displaySong = usePlaybackStore(selectDisplaySong);
+    // The song as the listener sees it, so a blend shows the track that is on screen. It is what
+    // the star button answers for.
+    const shownSong = usePlaybackStore(selectDisplaySong);
     const { isOpen, close, setAvailability, targetSong } = useAddToPlaylistStore(useShallow(state => ({
         isOpen: state.isOpen,
         close: state.close,
         setAvailability: state.setAvailability,
         targetSong: state.targetSong,
     })));
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
-    // 列表里的"+"会指定一首歌;只在对话框开着(含新建歌单提示)时生效,其余时候仍以当前歌曲为准
-    const currentSong = (isOpen || isCreateOpen) && targetSong ? targetSong : displaySong;
+    // The song the picker is about: the one that was shown when it came up. The track can change
+    // under an open picker (a blend lands, the queue advances), and the picker does not say which
+    // song it is for; what it adds is the song the listener asked about.
+    const [askedSong, setAskedSong] = useState<SongResult | null>(null);
+    // 列表里的"+"会指定一首歌(targetSong),这时问的是它而不是当前播放的歌。
+    const songToAsk = targetSong ?? shownSong;
+    if (isOpen && !askedSong && songToAsk) {
+        setAskedSong(songToAsk);
+    } else if (!isOpen && askedSong) {
+        setAskedSong(null);
+    }
+    // The song the "new playlist" prompt is for: the one the picker it came from was about.
+    const [createFor, setCreateFor] = useState<SongResult | null>(null);
     const [navidromePlaylists, setNavidromePlaylists] = useState<PlaylistEntry[]>([]);
 
-    const isStage = Boolean(currentSong && (currentSong as any).isStage === true);
-    const isNavidrome = Boolean(currentSong && (currentSong as any).isNavidrome === true);
-    const isLocal = Boolean(currentSong && !isNavidrome && (((currentSong as any).isLocal === true) || Boolean((currentSong as any).localRef?.songId)));
-    const playbackSourceRef = currentSong ? getPlaybackSourceRef(currentSong) : null;
-    const isOnline = playbackSourceRef?.kind === 'online';
-    const onlineProviderLabel = playbackSourceRef?.kind === 'online'
-        ? omni.getProviderLabel(playbackSourceRef.providerId)
-        : '';
-    // 歌单要跟着"这首歌"所属的平台走(QQ 的歌列 QQ 的歌单,网易云的歌列网易云的歌单),
-    // 不是跟着当前播放的歌;账户缓存变了(登录、歌单刷新)要重算
+    // The dialogs are about the song they were asked for, whatever is playing by now.
+    const currentSong = createFor ?? (isOpen ? askedSong : null) ?? shownSong;
+    // 歌单要跟着"这首歌"所属的平台走(QQ 的歌列 QQ 的歌单,网易云的歌列网易云的歌单),不是跟着当前浏览的平台;
+    // 账户缓存变了(登录、歌单刷新)要重算。
     const providerAccounts = useOnlineProviderAccountStore(state => state.accounts);
-    const onlinePlaylists = useMemo<ProviderCollection[]>(
-        () => (currentSong && isOnline ? omni.getPlaylistsForSong(currentSong) : []),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [currentSong, isOnline, providerAccounts],
+    const playlistsFor = (song: SongResult | null): ProviderCollection[] => (
+        song && getPlaybackSourceRef(song).kind === 'online' ? omni.getPlaylistsForSong(song) : []
     );
-    const canAddOnlineSong = Boolean(currentSong && isOnline && omni.canAddSongToPlaylist(currentSong));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const shownPlaylists = useMemo(() => playlistsFor(shownSong), [shownSong, providerAccounts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const onlinePlaylists = useMemo(() => playlistsFor(currentSong), [currentSong, providerAccounts]);
+    // 由列表"+"指定了歌曲时,选择框首位多一项"播放队列"
+    const hasQueueEntry = Boolean(targetSong && isOpen);
+    const shown = describeSong(shownSong, shownPlaylists.length > 0);
+    const { isNavidrome, isLocal, isOnline, canCreateOnline, onlineProviderLabel, canAddOnlineSong, isApplicable: songApplicable, canAdd: songCanAdd } = describeSong(currentSong, onlinePlaylists.length > 0);
+    const isApplicable = songApplicable || hasQueueEntry;
+    const canAdd = songCanAdd || hasQueueEntry;
+    const needsNavidromePlaylists = isNavidrome || shown.isNavidrome;
 
     const refreshNavidromePlaylists = useCallback(async () => {
         const { getNavidromeConfig, navidromeApi } = await import('../../services/navidromeService');
@@ -97,16 +135,13 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
     }, [t]);
 
     useEffect(() => {
-        if (!isNavidrome) {
+        if (!needsNavidromePlaylists) {
             setNavidromePlaylists([]);
             return;
         }
 
         void refreshNavidromePlaylists();
-    }, [currentSong?.id, isNavidrome, refreshNavidromePlaylists]);
-
-    // 由列表"+"指定了歌曲时,选择框首位多一项"播放队列"
-    const hasQueueEntry = Boolean(targetSong);
+    }, [shownSong?.id, needsNavidromePlaylists, refreshNavidromePlaylists]);
 
     const availablePlaylists = useMemo<PlaylistEntry[]>(() => {
         if (isLocal) {
@@ -132,18 +167,12 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
         return [];
     }, [isLocal, isOnline, isNavidrome, localPlaylists, navidromePlaylists, onlinePlaylists, t]);
 
-    const isApplicable = Boolean(currentSong && !isStage && (isLocal || isOnline || isNavidrome)) || hasQueueEntry;
-    // Local and Navidrome can make a playlist on the spot, so having none is not a refusal there.
-    const canAdd = (isLocal)
-        || (isOnline && canAddOnlineSong && onlinePlaylists.length > 0)
-        || (isNavidrome)
-        || hasQueueEntry;
-    const disabledReason = isOnline && !canAddOnlineSong
-        ? t('status.providerPlaylistMutationUnavailable', { provider: onlineProviderLabel })
-        : (!canAdd ? t('localMusic.noPlaylistsFound') : undefined);
+    const disabledReason = shown.isOnline && !shown.canAddOnlineSong
+        ? t('status.providerPlaylistMutationUnavailable', { provider: shown.onlineProviderLabel })
+        : (!shown.canAdd ? t('localMusic.noPlaylistsFound') : undefined);
 
-    // The track can change under an open dialog — a blend lands, the queue advances — and the new
-    // one may have nowhere to go. Closing beats leaving a picker up that cannot pick.
+    // A picker asked for a song that has nowhere to go, or whose playlists went under it (the
+    // account signed out): closing beats leaving a picker up that cannot pick.
     useEffect(() => {
         if (isOpen && !(isApplicable && canAdd)) {
             close();
@@ -153,8 +182,8 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
     // Published rather than recomputed by each consumer: the star button and the command both need
     // this answer, and only one of them can afford to be the thing that fetches it.
     useEffect(() => {
-        setAvailability({ isApplicable, canAdd: isApplicable && canAdd, disabledReason });
-    }, [canAdd, disabledReason, isApplicable, setAvailability]);
+        setAvailability({ isApplicable: shown.isApplicable, canAdd: shown.isApplicable && shown.canAdd, disabledReason });
+    }, [disabledReason, setAvailability, shown.canAdd, shown.isApplicable]);
 
     return (
         <div className="pointer-events-auto">
@@ -175,47 +204,53 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
                         close();
                         return;
                     }
-
+                    if (!currentSong) throw new Error('Selected playlist is unavailable');
                     if (isLocal) {
-                        await onAddCurrentSongToLocalPlaylist(String(playlistId));
+                        await onAddCurrentSongToLocalPlaylist(String(playlistId), currentSong);
                         return;
                     }
 
                     if (isOnline) {
                         const playlist = onlinePlaylists.find(item => String(item.id) === String(playlistId));
                         if (!playlist) throw new Error('Selected playlist is unavailable');
-                        await onAddCurrentSongToOnlinePlaylist(playlist);
+                        await onAddCurrentSongToOnlinePlaylist(playlist, currentSong);
                         return;
                     }
 
                     if (isNavidrome) {
-                        await onAddCurrentSongToNavidromePlaylist(String(playlistId));
+                        await onAddCurrentSongToNavidromePlaylist(String(playlistId), currentSong);
                         await refreshNavidromePlaylists();
                     }
                 }}
-                onCreate={(isLocal || isNavidrome) ? () => {
+                onCreate={(isLocal || isNavidrome || canCreateOnline) ? () => {
+                    setCreateFor(currentSong);
                     close();
-                    setIsCreateOpen(true);
                 } : undefined}
                 createLabel={t(isNavidrome ? 'navidrome.createPlaylist' : 'localMusic.createPlaylist')}
             />
 
             <TextInputDialog
-                isOpen={isCreateOpen}
-                onClose={() => setIsCreateOpen(false)}
+                isOpen={createFor !== null}
+                onClose={() => setCreateFor(null)}
                 isDaylight={isDaylight}
                 title={t(isNavidrome ? 'navidrome.createPlaylist' : 'localMusic.createPlaylist')}
                 description={t('localMusic.enterPlaylistName')}
                 placeholder={t('localMusic.enterPlaylistName')}
                 confirmLabel={t('options.save')}
                 onConfirm={async (name) => {
+                    if (!currentSong) return;
                     if (isLocal) {
-                        await onCreateCurrentLocalPlaylist(name);
+                        await onCreateCurrentLocalPlaylist(name, currentSong);
+                        return;
+                    }
+
+                    if (isOnline) {
+                        await onCreateCurrentOnlinePlaylist(name, currentSong);
                         return;
                     }
 
                     if (isNavidrome) {
-                        await onCreateCurrentNavidromePlaylist(name);
+                        await onCreateCurrentNavidromePlaylist(name, currentSong);
                         await refreshNavidromePlaylists();
                     }
                 }}

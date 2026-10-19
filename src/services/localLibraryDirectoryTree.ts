@@ -1,7 +1,7 @@
 import { isStageRemoteMode } from './stageRemote';
 import { readHostLocalLibrary } from './hostLocalLibraryClient';
 import type { LocalLibrarySnapshot, LocalLibrarySnapshotNode, LocalSong } from '../types';
-import type { LibraryDirectoryNode } from '../library/core/contracts/directory';
+import type { LibraryDirectoryNode } from '../library/core/directory/directory.contract';
 import { getDirHandles, getLocalLibrarySnapshot, getLocalSongs } from './db';
 
 // src/services/localLibraryDirectoryTree.ts

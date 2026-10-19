@@ -3,7 +3,7 @@ import {
     orderStartupProviders,
     pickStartupProvider,
     type StartupAccountState,
-} from '@/library/core/model/startupProvider';
+} from '@/library/core/collection/startupProvider';
 
 // 启动时默认平台:网易云 > QQ 音乐 > 酷狗,取第一个有账号的。
 

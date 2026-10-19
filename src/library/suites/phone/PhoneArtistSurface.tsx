@@ -1,10 +1,10 @@
 import React from 'react';
 import { ListPlus, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { LibraryArtistSurfaceProps } from '../../core/contracts/suite';
-import { useArtistResourceState } from '../../core/bindings/useArtistResourceState';
-import { useArtistView } from '../../core/bindings/useArtistView';
-import { resolveTrackArtistLinks } from '../../core/model/trackLinks';
+import type { LibraryArtistSurfaceProps } from '../../core/suite/suite.contract';
+import { useArtistResourceState } from '../../core/artist/useArtistResourceState';
+import { useArtistView } from '../../core/artist/useArtistView';
+import { resolveTrackArtistLinks } from '../../core/shared/trackLinks';
 import { canResolveSongCatalogRef } from '../../../services/onlineMusic/catalogRefs';
 import { setStatusMessage } from '../../../stores/useStatusMessageStore';
 import { PhoneButton, PhoneFilterField, PhoneFrame, PhoneTrackRow } from './PhoneParts';

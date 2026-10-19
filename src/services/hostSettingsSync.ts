@@ -106,7 +106,7 @@ const ENTRIES: Record<string, HostSettingEntry> = {
         read: () => usePlaybackStore.getState().replayGainMode,
         validate: value => typeof value === 'string' && value.length > 0 && value.length < 32,
         hostApply: value => usePlaybackStore.getState().setReplayGainMode(value),
-        mirrorApply: value => usePlaybackStore.setState({ replayGainMode: value }),
+        mirrorApply: value => usePlaybackStore.getState().setReplayGainMode(value),
     },
     automixEnabled: {
         read: () => automix().automixEnabled,

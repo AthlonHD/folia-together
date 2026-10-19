@@ -5,6 +5,7 @@ import { buildUnifiedLocalSong, getLocalSongId } from '../services/playbackAdapt
 import { getPreferredLocalSongCoverUrl } from '../services/localCoverAssetUrl';
 import { noteHostLocalLibraryRevision, readHostLocalLibrary, type HostLocalLibrary } from '../services/hostLocalLibraryClient';
 import { omni } from '../services/onlineMusic/omni';
+import { makeSongCurrent } from '../components/app/playback/currentSong';
 import { loadOnlineSongLyrics } from '../services/onlinePlayback';
 import {
     setActivePlaybackContext,
@@ -78,7 +79,7 @@ export function useStageRemoteMirror({
 
             latest.current.setLyrics(null);
             setCurrentLineIndex(-1);
-            setCurrentSong(buildLocalSongForRemote(localSong));
+            makeSongCurrent(buildLocalSongForRemote(localSong));
             setCachedCoverUrl(getPreferredLocalSongCoverUrl(localSong) ?? fallbackCoverUrl);
             latest.current.setIsLyricsLoading(true);
             try {
@@ -102,7 +103,7 @@ export function useStageRemoteMirror({
 
             latest.current.setLyrics(null);
             setCurrentLineIndex(-1);
-            setCurrentSong(song);
+            makeSongCurrent(song);
             setCachedCoverUrl(coverUrl);
             latest.current.setIsLyricsLoading(true);
             try {
@@ -144,7 +145,7 @@ export function useStageRemoteMirror({
                             void loadTrack(nextId, status.current.coverUrl ?? null, status.current.source ?? 'netease', status.current.mediaId);
                         }
                     } else {
-                        setCurrentSong(null);
+                        makeSongCurrent(null);
                         latest.current.setLyrics(null);
                     }
                 }

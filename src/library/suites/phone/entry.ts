@@ -1,5 +1,5 @@
 import React from 'react';
-import type { LibrarySuiteManifest } from '../../core/contracts/suite';
+import type { LibrarySuiteManifest } from '../../core/suite/suite.contract';
 
 // src/library/suites/phone/entry.ts
 // 手机版 suite(deviceOnly:不出现在选项里,也不改写用户的 suite 选择;手机布局生效时宿主直接用它)。

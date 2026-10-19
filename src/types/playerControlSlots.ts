@@ -14,7 +14,8 @@ export type PlayerControlSlotActionId =
     | 'volume'
     | 'queue'
     | 'song-wall'
-    | 'sleep-timer';
+    | 'sleep-timer'
+    | 'locate';
 
 export const PLAYER_CONTROL_SLOT_ACTION_IDS: readonly PlayerControlSlotActionId[] = [
     'loop',
@@ -27,6 +28,7 @@ export const PLAYER_CONTROL_SLOT_ACTION_IDS: readonly PlayerControlSlotActionId[
     'queue',
     'song-wall',
     'sleep-timer',
+    'locate',
 ];
 
 /** 默认:循环模式 + 喜欢(加入「我喜欢的音乐」)。歌词时间轴仍可在设置里选,但不再是默认。 */

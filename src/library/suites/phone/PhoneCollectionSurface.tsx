@@ -1,17 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { ListPlus, MoreHorizontal, Play, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { LibraryCollectionSurfaceProps } from '../../core/contracts/suite';
-import { collectionKey } from '../../core/model/collectionIdentity';
-import { useCollectionResourceState } from '../../core/bindings/useCollectionResourceState';
-import { useCollectionView } from '../../core/bindings/useCollectionView';
-import { useCollectionActions } from '../../core/bindings/useCollectionActions';
-import { useCommittedQuery } from '../../core/bindings/useCommittedQuery';
-import { useLibrarySessionQuery } from '../../core/bindings/useLibrarySessionQuery';
-import { useCollectionMutationSnapshot } from '../../core/bindings/useCollectionMutations';
-import { resolveDeclaredMutationActions } from '../../core/model/librarySuites';
+import type { LibraryCollectionSurfaceProps } from '../../core/suite/suite.contract';
+import { collectionKey } from '../../core/collection/collectionIdentity';
+import { useCollectionResourceState } from '../../core/collection/resource/useCollectionResourceState';
+import { useCollectionView } from '../../core/collection/useCollectionView';
+import { useCollectionActions } from '../../core/collection/mutations/useCollectionActions';
+import { useCommittedQuery } from '../../core/shared/useCommittedQuery';
+import { useLibrarySessionQuery } from '../../core/shared/useLibrarySessionQuery';
+import { useCollectionMutationSnapshot } from '../../core/collection/mutations/useCollectionMutations';
+import { resolveDeclaredMutationActions } from '../../core/suite/librarySuites';
 import type { SongResult } from '../../../types';
-import { resolveTrackAlbumLink, resolveTrackArtistLinks } from '../../core/model/trackLinks';
+import { resolveTrackAlbumLink, resolveTrackArtistLinks } from '../../core/shared/trackLinks';
 import { canResolveSongCatalogRef } from '../../../services/onlineMusic/catalogRefs';
 import { PhoneButton, PhoneFilterField, PhoneFrame, PhoneSheet, PhoneTrackRow, type PhoneSheetAction } from './PhoneParts';
 

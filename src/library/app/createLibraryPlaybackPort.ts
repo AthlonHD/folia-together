@@ -1,9 +1,9 @@
 import { isStageRemoteMode, remoteSetHeartbeatContext } from '../../services/stageRemote';
-import type { LibraryCollectionDescriptor } from '../core/contracts/collection';
+import type { LibraryCollectionDescriptor } from '../core/collection/collection.contract';
 import { usePlayQueueContextStore } from '../../stores/usePlayQueueContextStore';
 import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
 import type { SongResult, UnifiedSong } from '../../types';
-import type { LibraryPlaybackPort } from '../core/contracts/ports';
+import type { LibraryPlaybackPort } from '../core/shared/ports.contract';
 import { resolveNavidromePlaybackCarrier } from '../../utils/appPlaybackGuards';
 import type { HomeSurfaceProps } from '../../components/app/home/homeSurfaceTypes';
 

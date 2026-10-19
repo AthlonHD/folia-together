@@ -1,12 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useReducedMotionFor } from '../../hooks/useReducedMotionFor';
 import { useSupportsFinePointer } from '../../hooks/useSupportsFinePointer';
 import { useIsPhoneLayout } from '../../hooks/useLayoutMode';
 import { useAppViewStore } from '../../stores/useAppViewStore';
 import { usePonderStore } from '../../stores/usePonderStore';
 import { useSettingsModalStore } from '../../stores/useSettingsModalStore';
 import { openCurrentPagePonder } from '../../services/ponder/pagePonderTarget';
+import type { Theme } from '../../types';
+import { ponderMotionTokens } from './ponderMotion';
+import { ponderLayerTokens, ponderWindowTokens } from './ponderTheme';
 
 // src/components/ponder/PagePonderTouchButton.tsx
 // 触屏上代替 Ctrl+G 的入口。
@@ -35,13 +39,14 @@ const isInPhoneHotspotBand = (clientY: number): boolean => {
 };
 
 type PagePonderTouchButtonProps = {
-    accent: string;
+    theme?: Theme;
     isDaylight: boolean;
 };
 
 /** Touch-only equivalent of Ctrl+G. It deliberately has no component-target API. */
-const PagePonderTouchButton: React.FC<PagePonderTouchButtonProps> = ({ accent, isDaylight }) => {
+const PagePonderTouchButton: React.FC<PagePonderTouchButtonProps> = ({ theme, isDaylight }) => {
     const { t } = useTranslation();
+    const calm = useReducedMotionFor('uiMicroMotion');
     const isCoarsePointer = !useSupportsFinePointer();
     // 手机布局的顶部是各页自己的标题栏和搜索框,右上角没有空位:改成贴左下角、停在底部控制条上方
     const isPhoneLayout = useIsPhoneLayout();
@@ -138,17 +143,24 @@ const PagePonderTouchButton: React.FC<PagePonderTouchButtonProps> = ({ accent, i
                 openCurrentPagePonder();
             }}
             aria-label={t('ponder.openPage')}
-            title={t('ponder.openPage')}
             // 收起来之后不可点：留着可点的话，右上角会变成一块看不见却能按的地方。
-            className={`fixed ${isPhoneLayout ? 'left-3' : 'right-5 top-5'} z-[190] flex h-12 w-12 items-center justify-center rounded-full border shadow-lg backdrop-blur-md transition-all duration-200 active:scale-95 ${
-                isRevealed ? 'opacity-100' : `pointer-events-none ${isPhoneLayout ? 'translate-y-2' : '-translate-y-2'} opacity-0`
-            } ${isDaylight ? 'border-black/10 bg-white/80' : 'border-white/15 bg-zinc-900/80'}`}
+            // 出来时淡入、从略小长到位；关了微动效就只淡入淡出。
+            // 本 Fork:手机布局把思索按钮放到左下角、抬到底部 dock 之上,避开右侧的账户悬浮按钮与底部控制条。
+            className={`fixed ${isPhoneLayout ? 'left-3' : 'right-5 top-5'} z-[190] h-12 w-12 rounded-full transition-[opacity,transform] active:scale-95 ${
+                isRevealed ? 'pd-t-enter opacity-100' : `pd-t-base pointer-events-none opacity-0 ${calm ? '' : 'scale-[0.94]'}`
+            }`}
             style={{
-                color: accent,
+                ...ponderLayerTokens(isDaylight, theme),
+                ...ponderMotionTokens(calm),
                 ...(isPhoneLayout ? { bottom: 'calc(var(--phone-dock-height, 0px) + max(var(--safe-bottom), 0px) + 16px)', marginLeft: 'var(--safe-left)' } : {}),
             }}
         >
-            <Lightbulb size={20} aria-hidden="true" />
+            <span
+                className="grid h-full w-full place-items-center rounded-full bg-[var(--st-card)] text-[color:var(--st-t1)] shadow-[0_0_0_1px_var(--st-line),0_8px_20px_rgba(0,0,0,0.25)]"
+                style={ponderWindowTokens(isDaylight, theme, calm)}
+            >
+                <Lightbulb size={20} aria-hidden="true" />
+            </span>
         </button>
     );
 };

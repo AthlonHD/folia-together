@@ -6,7 +6,7 @@ import {
     STARTUP_PROVIDER_WAIT_MS,
     type StartupProviderStore,
 } from '@/library/app/startupProviderSelector';
-import type { StartupAccountState } from '@/library/core/model/startupProvider';
+import type { StartupAccountState } from '@/library/core/collection/startupProvider';
 
 // 启动时默认平台的选择时序:账号状态在启动瞬间会抖动,不能被瞬间的"未登录"带偏。
 

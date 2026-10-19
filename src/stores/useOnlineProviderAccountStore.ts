@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DEFAULT_ONLINE_PROVIDER_ID } from '../types/onlineMusic';
 import type { MediaId, OnlineProviderId, ProviderCollection, ProviderUser } from '../types/onlineMusic';
 import { isStageRemoteMode } from '../services/stageMode';
 
@@ -9,8 +10,12 @@ export interface OnlineProviderAccountState {
     user: ProviderUser | null;
     collections: ProviderCollection[];
     likedSongIds: MediaId[];
-    /** Playlist-local row ids keyed by the global song hash/id; only providers that need them fill this. */
-    likedSongFileIds: Record<string, MediaId>;
+    /**
+     * What a press on a heart asked for, by song id, while its request is not settled. It is shown
+     * in place of `likedSongIds` for those songs; `likedSongIds` stays what the provider holds.
+     * Written by omni alone (see `pressSongLike`).
+     */
+    wantedLikes: Record<string, boolean>;
     error?: string;
     hydration: 'loading' | 'ready';
     freshness: 'stale' | 'refreshing' | 'fresh' | 'error';
@@ -31,14 +36,14 @@ const activeProviderKey = () => (isStageRemoteMode() ? `${ACTIVE_PROVIDER_KEY}@r
 
 // 每次启动都从网易云开始,由 useLibraryAccountController 按 网易云 > QQ 音乐 > 酷狗 的优先级选第一个有账号的平台
 // (不再沿用上次用的那个);运行中用户手动切换仍会照常保存。
-const getInitialProviderId = (): OnlineProviderId => 'netease';
+const getInitialProviderId = (): OnlineProviderId => DEFAULT_ONLINE_PROVIDER_ID;
 
 const emptyAccount = (): OnlineProviderAccountState => ({
     status: 'unknown',
     user: null,
     collections: [],
     likedSongIds: [],
-    likedSongFileIds: {},
+    wantedLikes: {},
     hydration: 'loading',
     freshness: 'stale',
 });

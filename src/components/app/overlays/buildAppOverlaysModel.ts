@@ -12,7 +12,7 @@ import { getPlaybackSongKey } from '../../../utils/appPlaybackGuards';
 import type { LoopDisplayMode } from '../../../utils/loopDisplayMode';
 import { getSongArtistLabel } from '../../../services/onlineMusic/songMetadata';
 import { setPlayerState } from '../../../stores/usePlaybackStore';
-import { focusLatticeCurrentSong } from '../../../stores/useLatticeControlsStore';
+import { locatePlayingSongOnWall } from '../lattice/wallLocate';
 import { setIsDevDebugOverlayVisible, setIsMemoryMonitorVisible } from '../../../stores/useAppChromeStore';
 import type { SlotContextFromApp } from '../../FloatingPlayerControls';
 import type { PlayerControlSlotActionId } from '../../../types/playerControlSlots';
@@ -215,7 +215,7 @@ export const buildAppOverlaysModel = ({
             onActivate: currentView === 'home'
                 ? navigateToPlayer
                 : currentView === 'lattice'
-                    ? () => { focusLatticeCurrentSong(); }
+                    ? locatePlayingSongOnWall
                     : openSongCardPanel,
             activateLabel: currentView === 'home'
                 ? stageTrackPillOpenPlayerLabel
@@ -293,7 +293,7 @@ export const buildAppOverlaysModel = ({
             onTogglePlay: togglePlay,
             onToggleLoop: toggleLoop,
             onNavigateToPlayer: navigateFromPlayerCapsule,
-            onFocusLatticeCurrentSong: () => { focusLatticeCurrentSong(); },
+            onFocusLatticeCurrentSong: locatePlayingSongOnWall,
             noTrackText,
             primaryColor: 'var(--text-primary)',
             secondaryColor: 'var(--text-secondary)',

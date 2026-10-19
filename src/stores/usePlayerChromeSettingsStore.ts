@@ -76,6 +76,7 @@ export type PlayerChromeSettingsState = {
     enablePlayerPageNativeBlur: boolean;
     autoHidePlayerChrome: boolean;
     autoHideCursorWithPlayerChrome: boolean;
+    hideCursorWhenIdle: boolean;
     showOpenPanelCloseButton: boolean;
     setTransparentPlayerBackgroundFromSystem: (enabled: boolean) => void;
     handleTogglePlayerPageNativeBlur: (enable: boolean) => void;
@@ -92,6 +93,7 @@ export type PlayerChromeSettingsState = {
     handleWallpaperTransparentRefused: () => void;
     handleToggleAutoHidePlayerChrome: (enable: boolean) => void;
     handleToggleAutoHideCursorWithPlayerChrome: (enable: boolean) => void;
+    handleToggleHideCursorWhenIdle: (enable: boolean) => void;
     handleToggleOpenPanelCloseButton: (enable: boolean) => void;
 };
 
@@ -119,6 +121,7 @@ export const usePlayerChromeSettingsStore = create<PlayerChromeSettingsState>((s
     // Rides the chrome auto-hide clock rather than owning one: the cursor goes away with the
     // controls it would have clicked. Opt-out, so auto-hide can keep the pointer if wanted.
     autoHideCursorWithPlayerChrome: getStoredBoolean('auto_hide_cursor_with_player_chrome', true),
+    hideCursorWhenIdle: getStoredBoolean('hide_cursor_when_idle', false),
     showOpenPanelCloseButton: getStoredBoolean('show_open_panel_close_button', true),
     setTransparentPlayerBackgroundFromSystem: (enabled) => {
         setStoredBoolean('transparent_player_background', enabled);
@@ -141,6 +144,14 @@ export const usePlayerChromeSettingsStore = create<PlayerChromeSettingsState>((s
         setStatusMessage({
             type: 'info',
             text: i18n.t('notifications.' + (enable ? 'cursorAutoHideOn' : 'cursorAutoHideOff')),
+        });
+    },
+    handleToggleHideCursorWhenIdle: (enable) => {
+        setStoredBoolean('hide_cursor_when_idle', enable);
+        set({ hideCursorWhenIdle: enable });
+        setStatusMessage({
+            type: 'info',
+            text: i18n.t('notifications.' + (enable ? 'cursorIdleHideOn' : 'cursorIdleHideOff')),
         });
     },
     handleToggleHidePlayerProgressBar: (enable) => {
@@ -259,6 +270,7 @@ export const selectPlayerChromeSettingsSnapshot = (state: PlayerChromeSettingsSt
     enablePlayerPageNativeBlur: state.enablePlayerPageNativeBlur,
     autoHidePlayerChrome: state.autoHidePlayerChrome,
     autoHideCursorWithPlayerChrome: state.autoHideCursorWithPlayerChrome,
+    hideCursorWhenIdle: state.hideCursorWhenIdle,
     showOpenPanelCloseButton: state.showOpenPanelCloseButton,
     handleToggleHidePlayerProgressBar: state.handleToggleHidePlayerProgressBar,
     handleSetPlayerBottomBarOffset: state.handleSetPlayerBottomBarOffset,
@@ -274,6 +286,7 @@ export const selectPlayerChromeSettingsSnapshot = (state: PlayerChromeSettingsSt
     handleTogglePlayerPageNativeBlur: state.handleTogglePlayerPageNativeBlur,
     handleToggleAutoHidePlayerChrome: state.handleToggleAutoHidePlayerChrome,
     handleToggleAutoHideCursorWithPlayerChrome: state.handleToggleAutoHideCursorWithPlayerChrome,
+    handleToggleHideCursorWhenIdle: state.handleToggleHideCursorWhenIdle,
     handleToggleOpenPanelCloseButton: state.handleToggleOpenPanelCloseButton,
     handleWallpaperTransparentRefused: state.handleWallpaperTransparentRefused,
 });

@@ -3,21 +3,33 @@ import { useTranslation } from 'react-i18next';
 import {
     getStageToken,
     isStageHostMode,
+    isStageRelayAvailable,
     isStageRemoteMode,
     saveStageToken,
     switchPlayTarget,
     type PlayTarget,
 } from '../../../services/stageMode';
+import { Button, CopyButton, CopyValue, Group, Reveal, Row, Segmented, TextField, option, type SettingsGroupDef, type SettingsOptionDef } from './kit';
 
 // src/components/modal/settings/PlayTargetPanel.tsx
-// "播放位置"设置的内容:
+// 「播放位置」设置(本 Fork):
 // - 普通页面:选择声音从哪里出(遥控服务器 / 本机播放)。选遥控要先填 Host 的令牌,中继验证通过才切换;
 // - Host 页:显示这台服务器的访问令牌和带令牌的访问地址,给要遥控它的人用。
+// 只在配置了 Stage 中继时出现(isStageRelayAvailable)。用设置页的 kit(Group / Row)画,与别的页一致。
 
-type PlayTargetPanelProps = {
-    settingsCardClass: string;
-    getAccentOptionStyle: (selected: boolean) => React.CSSProperties;
+export const PLAY_TARGET_GROUP: SettingsGroupDef = {
+    id: 'playTarget',
+    titleKey: 'options.playTarget',
+    available: () => isStageRelayAvailable(),
 };
+
+const O = {
+    target: option(PLAY_TARGET_GROUP, 'playTargetChoice', 'options.playTarget'),
+    hostToken: option(PLAY_TARGET_GROUP, 'hostToken', 'options.hostToken'),
+};
+
+/** 页面声明的选项(设置搜索与锚点覆盖测试读它);只给出本机能画出的那一种。 */
+export const PLAY_TARGET_OPTIONS: SettingsOptionDef[] = [O.target, O.hostToken];
 
 const checkToken = async (token: string): Promise<'ok' | 'invalid' | 'limited' | 'unreachable'> => {
     try {
@@ -29,67 +41,30 @@ const checkToken = async (token: string): Promise<'ok' | 'invalid' | 'limited' |
     }
 };
 
-const copyText = async (text: string) => {
-    try {
-        await navigator.clipboard.writeText(text);
-        return true;
-    } catch {
-        return false;
-    }
-};
-
-const HostTokenCard: React.FC<{ settingsCardClass: string }> = ({ settingsCardClass }) => {
+const HostTokenRows: React.FC = () => {
     const { t } = useTranslation();
     const token = getStageToken();
-    const [copied, setCopied] = useState<'token' | 'link' | null>(null);
     const link = token ? `${window.location.origin}/?token=${token}` : '';
-    const copy = async (kind: 'token' | 'link', text: string) => {
-        if (await copyText(text)) {
-            setCopied(kind);
-            window.setTimeout(() => setCopied(null), 1500);
-        }
-    };
-    const buttonClass = 'rounded-lg border px-3 py-2 text-xs transition-colors hover:bg-white/10';
     return (
-        <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
-            <div className="text-[11px] opacity-50 max-w-[460px]" style={{ color: 'var(--text-secondary)' }}>
-                {t('options.hostTokenDesc')}
-            </div>
-            {token ? (
-                <>
-                    <div className="font-mono text-xs break-all select-all rounded-lg px-3 py-2 bg-black/20" style={{ color: 'var(--text-primary)' }}>
-                        {token}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        <button type="button" className={buttonClass} style={{ color: 'var(--text-primary)' }} onClick={() => void copy('token', token)}>
-                            {copied === 'token' ? t('options.copied') : t('options.hostTokenCopy')}
-                        </button>
-                        <button type="button" className={buttonClass} style={{ color: 'var(--text-primary)' }} onClick={() => void copy('link', link)}>
-                            {copied === 'link' ? t('options.copied') : t('options.hostTokenCopyLink')}
-                        </button>
-                    </div>
-                    <div className="text-[11px] opacity-50 max-w-[460px]" style={{ color: 'var(--text-secondary)' }}>
-                        {t('options.hostTokenLinkHint')}
-                    </div>
-                </>
-            ) : (
-                <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    {t('options.hostTokenMissing')}
-                </div>
+        <>
+            <Row option={O.hostToken} hint={t('options.hostTokenDesc')}>
+                {token ? <CopyValue value={token} /> : <span className="text-[13px] text-[color:var(--st-t2)]">{t('options.hostTokenMissing')}</span>}
+            </Row>
+            {token && (
+                <Row label={t('options.hostTokenCopyLink')} hint={t('options.hostTokenLinkHint')}>
+                    <CopyButton text={link} />
+                </Row>
             )}
-        </div>
+        </>
     );
 };
 
-const PlayTargetPanel: React.FC<PlayTargetPanelProps> = ({ settingsCardClass, getAccentOptionStyle }) => {
+const PlayTargetRows: React.FC = () => {
     const { t } = useTranslation();
     const [askingToken, setAskingToken] = useState(false);
     const [tokenDraft, setTokenDraft] = useState(() => getStageToken());
     const [tokenError, setTokenError] = useState<string | null>(null);
     const [isChecking, setIsChecking] = useState(false);
-
-    if (isStageHostMode()) return <HostTokenCard settingsCardClass={settingsCardClass} />;
-
     const current: PlayTarget = isStageRemoteMode() ? 'remote' : 'local';
 
     const chooseTarget = (target: PlayTarget) => {
@@ -104,6 +79,7 @@ const PlayTargetPanel: React.FC<PlayTargetPanelProps> = ({ settingsCardClass, ge
     };
 
     const confirmToken = async () => {
+        if (isChecking) return;
         const token = tokenDraft.trim();
         if (!token) {
             setTokenError(t('options.playTargetTokenEmpty'));
@@ -126,77 +102,42 @@ const PlayTargetPanel: React.FC<PlayTargetPanelProps> = ({ settingsCardClass, ge
     };
 
     return (
-        <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
-            <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                {t('options.playTargetDesc')}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-                {([
-                    { value: 'remote', label: t('options.playTargetRemote'), desc: t('options.playTargetRemoteDesc') },
-                    { value: 'local', label: t('options.playTargetLocal'), desc: t('options.playTargetLocalDesc') },
-                ] as Array<{ value: PlayTarget; label: string; desc: string }>).map((option) => {
-                    const selected = current === option.value;
-                    return (
-                        <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => chooseTarget(option.value)}
-                            className="rounded-xl border px-3 py-3 text-left transition-colors"
-                            style={getAccentOptionStyle(selected)}
-                        >
-                            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                {option.label}
-                            </div>
-                            <div className="mt-1 text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
-                                {option.desc}
-                            </div>
-                        </button>
-                    );
-                })}
-            </div>
-            {askingToken && current === 'local' && (
-                <form
-                    className="space-y-2"
-                    onSubmit={(event) => {
-                        event.preventDefault();
-                        void confirmToken();
-                    }}
-                >
-                    <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {t('options.playTargetTokenTitle')}
-                    </div>
-                    <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                        {t('options.playTargetTokenDesc')}
-                    </div>
-                    <div className="flex gap-2">
-                        <input
-                            value={tokenDraft}
-                            onChange={(event) => setTokenDraft(event.target.value)}
-                            placeholder={t('options.playTargetTokenPlaceholder')}
-                            autoComplete="off"
-                            spellCheck={false}
-                            autoFocus
-                            className="flex-1 min-w-0 rounded-lg border px-3 py-2 text-xs font-mono bg-transparent outline-none"
-                            style={{ color: 'var(--text-primary)' }}
-                        />
-                        <button
-                            type="submit"
-                            disabled={isChecking}
-                            className="rounded-lg border px-3 py-2 text-xs transition-colors hover:bg-white/10 disabled:opacity-50"
-                            style={{ color: 'var(--text-primary)' }}
-                        >
-                            {isChecking ? t('options.playTargetTokenChecking') : t('options.playTargetTokenConfirm')}
-                        </button>
-                    </div>
-                    {tokenError && (
-                        <div className="text-[11px]" style={{ color: '#ef4444' }}>
-                            {tokenError}
-                        </div>
-                    )}
-                </form>
-            )}
-        </div>
+        <>
+            <Row option={O.target} note={`${t('options.playTargetRemoteDesc')} ${t('options.playTargetLocalDesc')}`} hint={t('options.playTargetDesc')}>
+                <Segmented
+                    value={current}
+                    options={[
+                        { value: 'remote', label: t('options.playTargetRemote') },
+                        { value: 'local', label: t('options.playTargetLocal') },
+                    ]}
+                    onChange={chooseTarget}
+                />
+            </Row>
+            <Reveal when={askingToken && current === 'local'}>
+                <Row sub label={t('options.playTargetTokenTitle')} hint={tokenError ?? t('options.playTargetTokenDesc')}>
+                    <TextField
+                        value={tokenDraft}
+                        onChange={setTokenDraft}
+                        placeholder={t('options.playTargetTokenPlaceholder')}
+                        onCommit={() => void confirmToken()}
+                    />
+                    <Button variant="primary" disabled={isChecking} onClick={() => void confirmToken()}>
+                        {isChecking ? t('options.playTargetTokenChecking') : t('options.playTargetTokenConfirm')}
+                    </Button>
+                </Row>
+            </Reveal>
+        </>
     );
 };
 
-export default PlayTargetPanel;
+/** 播放页里的「播放位置」组:没有中继的部署不画。 */
+const PlayTargetGroup: React.FC = () => {
+    if (!isStageRelayAvailable()) return null;
+    return (
+        <Group def={PLAY_TARGET_GROUP}>
+            {isStageHostMode() ? <HostTokenRows /> : <PlayTargetRows />}
+        </Group>
+    );
+};
+
+export default PlayTargetGroup;
