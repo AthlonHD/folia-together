@@ -1,6 +1,9 @@
 
 
 export default {
+  "quality": {
+    "switchFailed": "切换音质失败,仍在放原来的音质"
+  },
   "togetherUpdate": {
     "groupTitle": "本 Fork 更新",
     "version": "当前版本",

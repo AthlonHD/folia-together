@@ -1,6 +1,9 @@
 
 
 export default {
+  "quality": {
+    "switchFailed": "Gagal mengganti kualitas; lagu tetap diputar pada kualitas lama"
+  },
   "togetherUpdate": {
     "groupTitle": "Pembaruan Fork",
     "version": "Versi saat ini",

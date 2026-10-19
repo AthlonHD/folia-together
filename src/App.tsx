@@ -103,6 +103,7 @@ import { useIdleCursorHide } from './hooks/useIdleCursorHide';
 import { usePlaybackAudioBridge } from './components/app/playback/bridges/usePlaybackAudioBridge';
 import { usePassthroughPlayback } from './components/app/passthrough/usePassthroughPlayback';
 import { useTogetherUpdateCheck } from './components/app/togetherUpdate/useTogetherUpdateCheck';
+import { useQualitySwitchReload } from './components/app/playback/quality/useQualitySwitchReload';
 import { useTranscodeFallback } from './hooks/useTranscodeFallback';
 import { useAutomixDecks, type AutomixDeckId } from './services/automix/useAutomixDecks';
 import { usePlaybackInteractionBridge } from './components/app/playback/bridges/usePlaybackInteractionBridge';
@@ -630,6 +631,9 @@ export default function App() {
         onlineAudioUrlTtlMs: ONLINE_AUDIO_URL_TTL_MS,
         onlineAudioUrlRefreshBufferMs: ONLINE_AUDIO_URL_REFRESH_BUFFER_MS,
     }), [audioQuality, audioSrc, audioRef, blobUrlRef, currentOnlineAudioUrlFetchedAtRef, currentSong, lastAudioRecoverySourceRef, onlinePlaybackRecoveryRef, pendingResumeTimeRef, persistLastPlaybackCache, setAudioSrc, setCurrentSong, setPlayQueue, shouldAutoPlay]);
+
+    // 改音质立即生效:正在播的歌按新音质重新取,从原来的位置接着放
+    useQualitySwitchReload({ audioRef, recoverOnlinePlaybackSource });
 
     const getCoverUrl = useMemo(
         () => createCoverUrlResolver(cachedCoverUrl, currentSong),

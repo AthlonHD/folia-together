@@ -41,6 +41,8 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
     // Set around our own element.currentTime writes so the 'seeking' they cause is not sent back to the helper.
     const ownSeekRef = useRef(false);
     const reportedReasonRef = useRef<string | null>(null);
+    // When the page last told the helper to move: its position reports from just before it took effect are old news and must not pull the page back.
+    const lastMoveAtRef = useRef(0);
 
     const { setSilenceWebOutput, setEngaged, setChain, setFallbackReason, setLevelDb } = usePassthroughStatusStore.getState();
     // The level is shown about twice a second, not at the helper's ten reports a second.
@@ -85,6 +87,11 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
                     setFallbackReason(null);
                     reportedReasonRef.current = null;
                     console.info('[PassthroughPlayback] chain', event.chain);
+                    // A song reloaded at another level comes back at the second the page restored it to; the helper starts from the beginning.
+                    if (element && element.currentTime > 1) {
+                        lastMoveAtRef.current = Date.now();
+                        void api.seek(element.currentTime);
+                    }
                     // The page may have pressed play while the helper was still opening the device.
                     if (element && !element.paused) void api.play();
                     break;
@@ -92,6 +99,7 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
                 case 'position': {
                     if (event.token === tokenRef.current && ++levelTickRef.current % 5 === 0) setLevelDb(event.peakDb);
                     if (event.token !== tokenRef.current || !element || element.seeking) return;
+                    if (Date.now() - lastMoveAtRef.current < 700) return;
                     if (Math.abs(element.currentTime - event.sec) > DRIFT_TOLERANCE_SEC) {
                         ownSeekRef.current = true;
                         element.currentTime = event.sec;
@@ -173,6 +181,7 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
                 ownSeekRef.current = false;
                 return;
             }
+            lastMoveAtRef.current = Date.now();
             void api.seek(element.currentTime);
         };
         element.addEventListener('play', onPlay);

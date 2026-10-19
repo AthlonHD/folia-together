@@ -1,6 +1,9 @@
 
 
 export default {
+  "quality": {
+    "switchFailed": "Could not switch the quality; the song keeps playing at the old level"
+  },
   "togetherUpdate": {
     "groupTitle": "Fork updates",
     "version": "Current version",
