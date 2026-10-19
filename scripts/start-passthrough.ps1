@@ -194,12 +194,15 @@ try {
 
     if ($ToneTest) {
         Step "Tone test on '$Device' ($Rate Hz) - watch the level meter on the other side"
-        Write-Host '   Five 3-second 440 Hz tones play, one per format. Note which ones move the meter.'
+        Write-Host '   Six 3-second 440 Hz tones play, one per format. Note which ones move the meter.'
         Write-Host ''
         $toneFile = Join-Path $root 'passthrough-tone.txt'
         & 'build\folia-audio-helper.exe' tone $Device $Rate 3 | Tee-Object -FilePath $toneFile
         Write-Host ''
-        Write-Host "Result saved to $toneFile. Tell Claude which numbered tones (1-5) moved the meter, and paste the text above." -ForegroundColor Green
+        Write-Host '   Shared-mode self-check: plays a known signal and records it back from the device to see whether Windows passes it through unchanged.'
+        & 'build\folia-audio-helper.exe' selftest $Device | Tee-Object -FilePath $toneFile -Append
+        Write-Host ''
+        Write-Host "Result saved to $toneFile. Tell Claude which numbered tones (1-6) moved the meter, and paste the text above." -ForegroundColor Green
     }
 
     if (-not $BuildOnly -and -not $NoStart) {

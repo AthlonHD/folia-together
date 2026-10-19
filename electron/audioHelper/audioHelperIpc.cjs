@@ -73,6 +73,7 @@ function registerAudioHelperIpc({ ipcMain, isTrusted, getWindow, stageDirectory,
     guarded('audio-helper:configure', (_event, config) => helper.configure({
         deviceId: String(config?.deviceId ?? ''),
         rateStrategy: config?.rateStrategy === 'fixed' ? 'fixed' : 'native',
+        mode: config?.mode === 'shared' ? 'shared' : 'exclusive',
         fixedRate: Number.isFinite(config?.fixedRate) ? Math.round(config.fixedRate) : 192000,
     }));
 

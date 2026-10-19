@@ -6,18 +6,23 @@
 
 import { create } from 'zustand';
 import { getStoredBoolean, getStoredString, setStoredBoolean } from './storagePrimitives';
-import type { PassthroughRateStrategy } from '../services/passthrough/types';
+import type { PassthroughOutputMode, PassthroughRateStrategy } from '../services/passthrough/types';
 
 export const PASSTHROUGH_ENABLED_STORAGE_KEY = 'passthrough_enabled';
 export const PASSTHROUGH_DEVICE_STORAGE_KEY = 'passthrough_device_id';
 export const PASSTHROUGH_RATE_STRATEGY_STORAGE_KEY = 'passthrough_rate_strategy';
 export const PASSTHROUGH_FIXED_RATE_STORAGE_KEY = 'passthrough_fixed_rate';
+export const PASSTHROUGH_MODE_STORAGE_KEY = 'passthrough_mode';
 
 export const PASSTHROUGH_FIXED_RATES = [44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000] as const;
 export const DEFAULT_PASSTHROUGH_FIXED_RATE = 192000;
 
 const readRateStrategy = (): PassthroughRateStrategy => (
     getStoredString(PASSTHROUGH_RATE_STRATEGY_STORAGE_KEY, 'native') === 'fixed' ? 'fixed' : 'native'
+);
+
+const readMode = (): PassthroughOutputMode => (
+    getStoredString(PASSTHROUGH_MODE_STORAGE_KEY, 'exclusive') === 'shared' ? 'shared' : 'exclusive'
 );
 
 const readFixedRate = (): number => {
@@ -37,10 +42,12 @@ interface PassthroughSettingsState {
     passthroughDeviceId: string;
     passthroughRateStrategy: PassthroughRateStrategy;
     passthroughFixedRate: number;
+    passthroughMode: PassthroughOutputMode;
     handleTogglePassthrough: (enabled: boolean) => void;
     handleSetPassthroughDevice: (deviceId: string) => void;
     handleSetPassthroughRateStrategy: (strategy: PassthroughRateStrategy) => void;
     handleSetPassthroughFixedRate: (rate: number) => void;
+    handleSetPassthroughMode: (mode: PassthroughOutputMode) => void;
 }
 
 export const usePassthroughSettingsStore = create<PassthroughSettingsState>((set) => ({
@@ -48,6 +55,7 @@ export const usePassthroughSettingsStore = create<PassthroughSettingsState>((set
     passthroughDeviceId: getStoredString(PASSTHROUGH_DEVICE_STORAGE_KEY, ''),
     passthroughRateStrategy: readRateStrategy(),
     passthroughFixedRate: readFixedRate(),
+    passthroughMode: readMode(),
     handleTogglePassthrough: (enabled) => {
         setStoredBoolean(PASSTHROUGH_ENABLED_STORAGE_KEY, enabled);
         set({ passthroughEnabled: enabled });
@@ -63,5 +71,9 @@ export const usePassthroughSettingsStore = create<PassthroughSettingsState>((set
     handleSetPassthroughFixedRate: (rate) => {
         writeString(PASSTHROUGH_FIXED_RATE_STORAGE_KEY, String(rate));
         set({ passthroughFixedRate: rate });
+    },
+    handleSetPassthroughMode: (mode) => {
+        writeString(PASSTHROUGH_MODE_STORAGE_KEY, mode);
+        set({ passthroughMode: mode });
     },
 }));

@@ -8,7 +8,7 @@ mod tone;
 mod source;
 
 use player::{start_session, Session};
-use protocol::{emit, emit_error, Command, Event, RateStrategy};
+use protocol::{emit, emit_error, Command, Event, OutputMode, RateStrategy};
 use std::io::BufRead;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
@@ -26,6 +26,20 @@ fn main() {
             None => eprintln!("usage: folia-audio-helper probe <deviceId>"),
         },
         Some("serve") => serve(),
+        // Developer check of the Windows engine stage: loopback <endpoint name part> <seconds> <out.raw>
+        Some("loopback") if args.len() >= 5 => {
+            if let Err(e) = capture::loopback(&args[2], args[3].parse().unwrap_or(5.0), &args[4]) {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
+        // Self-check of shared mode: selftest <device id or name part>
+        Some("selftest") if args.len() >= 3 => {
+            if let Err(e) = tone::selftest(&args[2]) {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
         // Diagnostic: tone <device id or name part> [rate=48000] [seconds=3]
         Some("tone") if args.len() >= 3 => {
             let rate = args.get(3).and_then(|v| v.parse().ok()).unwrap_or(48_000);
@@ -61,6 +75,7 @@ struct Config {
     device_id: String,
     strategy: RateStrategy,
     fixed_rate: u32,
+    mode: OutputMode,
 }
 
 fn serve() {
@@ -85,7 +100,7 @@ fn serve() {
         let _ = tx.send(Command::Quit);
     });
 
-    let mut config = Config { device_id: String::new(), strategy: RateStrategy::Native, fixed_rate: 192_000 };
+    let mut config = Config { device_id: String::new(), strategy: RateStrategy::Native, fixed_rate: 192_000, mode: OutputMode::Exclusive };
     let mut session: Option<Session> = None;
     let mut last_position = Instant::now();
     loop {
@@ -123,10 +138,11 @@ fn handle(cmd: Command, config: &mut Config, session: &mut Option<Session>) {
             Ok(formats) => emit(&Event::Probe { device_id, formats }),
             Err(e) => emit_error("probe-failed", e),
         },
-        Command::Configure { device_id, rate_strategy, fixed_rate } => {
+        Command::Configure { device_id, rate_strategy, fixed_rate, mode } => {
             config.device_id = device_id.clone();
             config.strategy = rate_strategy;
             config.fixed_rate = fixed_rate;
+            config.mode = mode;
             emit(&Event::Configured { device_id });
         }
         Command::Load { path, start_sec, autoplay, token } => {
@@ -141,7 +157,7 @@ fn handle(cmd: Command, config: &mut Config, session: &mut Option<Session>) {
                 }
                 old.stop();
             }
-            match start_session(&path, &config.device_id, config.strategy, config.fixed_rate, start_sec, autoplay, token) {
+            match start_session(&path, &config.device_id, config.strategy, config.fixed_rate, config.mode, start_sec, autoplay, token) {
                 Ok(s) => {
                     emit(&Event::State { state: if autoplay { "playing" } else { "paused" } });
                     *session = Some(s);

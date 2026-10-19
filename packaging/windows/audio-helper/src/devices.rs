@@ -7,6 +7,9 @@ pub const PROBE_RATES: [u32; 9] = [44_100, 48_000, 88_200, 96_000, 176_400, 192_
 /// (container bits, valid bits) pairs, in the order the player prefers them for lossless output.
 pub const PROBE_LAYOUTS: [(u16, u16); 4] = [(32, 24), (24, 24), (32, 32), (16, 16)];
 
+/// Probed on top of the integer layouts: 32-bit IEEE float, which carries 24-bit audio exactly.
+const PROBE_FLOAT: (u16, u16) = (32, 32);
+
 pub fn list_devices() -> Result<Vec<DeviceInfo>, String> {
     let enumerator = DeviceEnumerator::new().map_err(|e| e.to_string())?;
     let default_id = enumerator
@@ -42,8 +45,11 @@ pub fn probe_device(device_id: &str) -> Result<Vec<FormatProbe>, String> {
         for (bits, valid) in PROBE_LAYOUTS {
             let wanted = WaveFormat::new(bits as usize, valid as usize, &SampleType::Int, rate as usize, 2, None);
             let exclusive = client.is_supported_exclusive_with_quirks(&wanted).is_ok();
-            formats.push(FormatProbe { rate, bits, valid_bits: valid, exclusive });
+            formats.push(FormatProbe { rate, bits, valid_bits: valid, exclusive, float: false });
         }
+        let wanted = WaveFormat::new(PROBE_FLOAT.0 as usize, PROBE_FLOAT.1 as usize, &SampleType::Float, rate as usize, 2, None);
+        let exclusive = client.is_supported_exclusive_with_quirks(&wanted).is_ok();
+        formats.push(FormatProbe { rate, bits: PROBE_FLOAT.0, valid_bits: PROBE_FLOAT.1, exclusive, float: true });
     }
     Ok(formats)
 }

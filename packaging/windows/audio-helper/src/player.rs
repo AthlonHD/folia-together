@@ -1,6 +1,6 @@
 // Playback session: a decoder thread fills a ring buffer, an event-driven WASAPI exclusive render thread drains it.
 use crate::devices::PROBE_RATES;
-use crate::protocol::{emit, emit_error, Chain, Event, RateStrategy};
+use crate::protocol::{emit, emit_error, Chain, Event, OutputMode, RateStrategy};
 use crate::resample::Resampler;
 use crate::source::Source;
 use std::collections::VecDeque;
@@ -26,15 +26,19 @@ const RAMP_STEP: f32 = 1.0 / 384.0;
 pub struct Layout {
     pub store_bits: u16,
     pub valid_bits: u16,
+    /// 32-bit IEEE float samples (the shared-mode engine format); `valid_bits` is then the 24 a float can carry exactly.
+    pub float: bool,
 }
 
 /// Layouts in the order the player prefers them; 24 valid bits left-justified in 32 first because that is what most drivers expose.
 fn layout_order(source_bits: u32) -> Vec<Layout> {
-    let l = |store_bits, valid_bits| Layout { store_bits, valid_bits };
+    let l = |store_bits, valid_bits| Layout { store_bits, valid_bits, float: false };
+    // 32-bit float last: it carries 24-bit audio exactly, and some virtual drivers only handle it properly.
+    let float = Layout { store_bits: 32, valid_bits: 24, float: true };
     if source_bits > 24 {
-        vec![l(32, 32), l(32, 24), l(24, 24)]
+        vec![l(32, 32), l(32, 24), l(24, 24), float]
     } else {
-        vec![l(32, 24), l(24, 24), l(32, 32), l(16, 16)]
+        vec![l(32, 24), l(24, 24), l(32, 32), l(16, 16), float]
     }
 }
 
@@ -123,6 +127,7 @@ pub fn start_session(
     device_id: &str,
     strategy: RateStrategy,
     fixed_rate: u32,
+    mode: OutputMode,
     start_sec: f64,
     autoplay: bool,
     token: u64,
@@ -139,7 +144,7 @@ pub fn start_session(
     let render = thread::Builder::new()
         .name("folia-render".into())
         .spawn(move || {
-            render_thread(device_id_owned, rates, layouts, tx, ready_rx);
+            render_thread(device_id_owned, mode, rates, layouts, tx, ready_rx);
         })
         .map_err(|e| ("open-failed".to_string(), e.to_string()))?;
 
@@ -183,7 +188,7 @@ pub fn start_session(
             output_rate: info.rate,
             output_bits: info.layout.store_bits,
             output_valid_bits: info.layout.valid_bits,
-            exclusive: true,
+            exclusive: mode == OutputMode::Exclusive,
             resampled,
             truncated,
             downmixed,
@@ -316,13 +321,17 @@ fn classify(error: &WasapiError) -> (String, String) {
 
 fn render_thread(
     device_id: String,
+    mode: OutputMode,
     rates: Vec<u32>,
     layouts: Vec<Layout>,
     result_tx: mpsc::Sender<Result<RenderInfo, (String, String)>>,
     shared_rx: mpsc::Receiver<Arc<Shared>>,
 ) {
     let _ = initialize_mta();
-    let opened = open_exclusive(&device_id, &rates, &layouts);
+    let opened = match mode {
+        OutputMode::Exclusive => open_exclusive(&device_id, &rates, &layouts),
+        OutputMode::Shared => open_shared(&device_id),
+    };
     let (client, render_client, event, rate, layout, device_name, buffer_frames) = match opened {
         Ok(v) => v,
         Err(e) => {
@@ -409,6 +418,11 @@ fn render_thread(
 
 /// Left-justified 32-bit sample -> the device layout, rounding (never truncating) when bits are dropped.
 pub(crate) fn pack_sample(sample: i32, layout: Layout, out: &mut [u8]) {
+    if layout.float {
+        // 24-bit values are exact in a float; bigger ones lose their lowest bits (reported as truncated).
+        out[..4].copy_from_slice(&((sample as f64 / 2_147_483_648.0) as f32).to_le_bytes());
+        return;
+    }
     let drop = 32 - layout.valid_bits as u32;
     let value: i64 = if drop == 0 {
         sample as i64
@@ -438,14 +452,18 @@ fn open_exclusive(device_id: &str, rates: &[u32], layouts: &[Layout]) -> Result<
     for &rate in rates {
         for &layout in layouts {
             let mut client = device.get_iaudioclient().map_err(|e| classify(&e))?;
-            let wanted = WaveFormat::new(
-                layout.store_bits as usize,
-                layout.valid_bits as usize,
-                &SampleType::Int,
-                rate as usize,
-                OUT_CHANNELS,
-                None,
-            );
+            let wanted = if layout.float {
+                WaveFormat::new(32, 32, &SampleType::Float, rate as usize, OUT_CHANNELS, None)
+            } else {
+                WaveFormat::new(
+                    layout.store_bits as usize,
+                    layout.valid_bits as usize,
+                    &SampleType::Int,
+                    rate as usize,
+                    OUT_CHANNELS,
+                    None,
+                )
+            };
             let Ok(format) = client.is_supported_exclusive_with_quirks(&wanted) else { continue };
             let (_, min_period) = client.get_device_period().map_err(|e| classify(&e))?;
             let period = client
@@ -483,13 +501,43 @@ fn open_exclusive(device_id: &str, rates: &[u32], layouts: &[Layout]) -> Result<
     Err(last.unwrap_or(("format-unsupported".into(), "the device accepts none of the formats this track needs".into())))
 }
 
+/// Shared mode: the endpoint's own mix format, written as is (no autoconvert), so the Windows engine has nothing to convert.
+fn open_shared(device_id: &str) -> Result<Opened, (String, String)> {
+    let enumerator = DeviceEnumerator::new().map_err(|e| classify(&e))?;
+    let device = if device_id.is_empty() {
+        enumerator.get_default_device(&Direction::Render)
+    } else {
+        enumerator.get_device(device_id)
+    }
+    .map_err(|e| ("device-missing".to_string(), e.to_string()))?;
+    let name = device.get_friendlyname().unwrap_or_default();
+    let mut client = device.get_iaudioclient().map_err(|e| classify(&e))?;
+    let format = client.get_mixformat().map_err(|e| classify(&e))?;
+    if format.get_nchannels() as usize != OUT_CHANNELS {
+        return Err(("format-unsupported".into(), format!("the endpoint mixes {} channels; only stereo is supported", format.get_nchannels())));
+    }
+    let layout = match format.get_subformat() {
+        Ok(SampleType::Float) if format.get_bitspersample() == 32 => Layout { store_bits: 32, valid_bits: 24, float: true },
+        Ok(SampleType::Int) => Layout { store_bits: format.get_bitspersample(), valid_bits: format.get_validbitspersample(), float: false },
+        _ => return Err(("format-unsupported".into(), "the endpoint's mix format is not one this player can write".into())),
+    };
+    let rate = format.get_samplespersec();
+    let (default_period, _) = client.get_device_period().map_err(|e| classify(&e))?;
+    let mode = StreamMode::EventsShared { autoconvert: false, buffer_duration_hns: default_period };
+    client.initialize_client(&format, &Direction::Render, &mode).map_err(|e| classify(&e))?;
+    let event = client.set_get_eventhandle().map_err(|e| classify(&e))?;
+    let render = client.get_audiorenderclient().map_err(|e| classify(&e))?;
+    let buffer_frames = client.get_buffer_size().unwrap_or(0);
+    Ok((client, render, event, rate, layout, name, buffer_frames))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn packed(sample: i32, store_bits: u16, valid_bits: u16) -> Vec<u8> {
         let mut out = vec![0u8; store_bits as usize / 8];
-        pack_sample(sample, Layout { store_bits, valid_bits }, &mut out);
+        pack_sample(sample, Layout { store_bits, valid_bits, float: false }, &mut out);
         out
     }
 

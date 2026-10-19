@@ -2,6 +2,9 @@
 
 export type PassthroughRateStrategy = 'native' | 'fixed';
 
+/** Exclusive bypasses the Windows mixer; shared goes through it at the endpoint's own format (for drivers that only pass shared streams on). */
+export type PassthroughOutputMode = 'exclusive' | 'shared';
+
 export interface PassthroughDevice {
     id: string;
     name: string;
@@ -16,6 +19,8 @@ export interface PassthroughFormatProbe {
     bits: number;
     validBits: number;
     exclusive: boolean;
+    /** 32-bit IEEE float samples rather than integers. */
+    float: boolean;
 }
 
 /** What the playback chain really is for the loaded track; the UI shows this, never a claim. */
@@ -60,7 +65,7 @@ export interface AudioHelperApi {
     getStatus: () => Promise<{ available: boolean; running: boolean }>;
     listDevices: () => Promise<{ ok: true; devices: PassthroughDevice[] } | { ok: false; error: string }>;
     probeDevice: (deviceId: string) => Promise<{ ok: true; formats: PassthroughFormatProbe[] } | { ok: false; error: string }>;
-    configure: (config: { deviceId: string; rateStrategy: PassthroughRateStrategy; fixedRate: number }) => Promise<boolean>;
+    configure: (config: { deviceId: string; rateStrategy: PassthroughRateStrategy; fixedRate: number; mode: PassthroughOutputMode }) => Promise<boolean>;
     load: (request: PassthroughLoadRequest) => Promise<{ ok: true } | { ok: false; error: string }>;
     play: () => Promise<boolean>;
     pause: () => Promise<boolean>;

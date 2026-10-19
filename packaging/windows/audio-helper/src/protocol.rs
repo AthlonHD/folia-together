@@ -15,6 +15,8 @@ pub enum Command {
         rate_strategy: RateStrategy,
         #[serde(default = "default_fixed_rate")]
         fixed_rate: u32,
+        #[serde(default)]
+        mode: OutputMode,
     },
     Load {
         path: String,
@@ -38,6 +40,15 @@ fn default_fixed_rate() -> u32 {
 
 fn yes() -> bool {
     true
+}
+
+/// Exclusive bypasses the Windows mixer; Shared goes through it at the endpoint's own format (for drivers that only pass shared streams on).
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum OutputMode {
+    #[default]
+    Exclusive,
+    Shared,
 }
 
 /// `Native` offers the source rate to the device first; `Fixed` always targets `fixed_rate`.
@@ -66,6 +77,7 @@ pub struct FormatProbe {
     pub bits: u16,
     pub valid_bits: u16,
     pub exclusive: bool,
+    pub float: bool,
 }
 
 /// What the playback chain actually is for the loaded track; the UI shows this instead of a claim.

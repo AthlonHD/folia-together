@@ -25,6 +25,7 @@ export const PASSTHROUGH: SettingsGroupDef = {
 export const PASSTHROUGH_OPTIONS = {
     enable: option(PASSTHROUGH, 'passthroughEnable', 'passthrough.enable', { electronOnly: true, available: () => runsOnWindows() }),
     device: option(PASSTHROUGH, 'passthroughDevice', 'passthrough.device', { electronOnly: true, available: () => runsOnWindows() }),
+    mode: option(PASSTHROUGH, 'passthroughMode', 'passthrough.mode', { electronOnly: true, available: () => runsOnWindows() }),
     rate: option(PASSTHROUGH, 'passthroughRate', 'passthrough.rate', { electronOnly: true, available: () => runsOnWindows() }),
     fixedRate: option(PASSTHROUGH, 'passthroughFixedRate', 'passthrough.fixedRate', { electronOnly: true, available: () => runsOnWindows() }),
     probe: option(PASSTHROUGH, 'passthroughProbe', 'passthrough.probe', { electronOnly: true, available: () => runsOnWindows() }),
@@ -33,18 +34,19 @@ export const PASSTHROUGH_OPTIONS = {
 
 const O = PASSTHROUGH_OPTIONS;
 
-/** Groups the accepted formats by bit depth: `24-bit: 44.1 / 48 / ... kHz`. */
-const summariseProbe = (formats: PassthroughFormatProbe[], line: (bits: number, rates: string) => string): string[] => {
-    const byBits = new Map<number, number[]>();
+/** Groups the accepted formats by sample type: `24-bit: 44.1 / 48 / ... kHz`, `32-bit float: ...`. */
+const summariseProbe = (formats: PassthroughFormatProbe[], line: (label: string, rates: string) => string): string[] => {
+    const byLabel = new Map<string, { sort: number; rates: number[] }>();
     for (const format of formats) {
         if (!format.exclusive) continue;
-        const rates = byBits.get(format.validBits) ?? [];
-        if (!rates.includes(format.rate)) rates.push(format.rate);
-        byBits.set(format.validBits, rates);
+        const label = format.float ? `${format.bits}-bit float` : `${format.validBits}-bit`;
+        const entry = byLabel.get(label) ?? { sort: format.float ? 1 : 2 + format.validBits, rates: [] };
+        if (!entry.rates.includes(format.rate)) entry.rates.push(format.rate);
+        byLabel.set(label, entry);
     }
-    return [...byBits.entries()]
-        .sort((a, b) => b[0] - a[0])
-        .map(([bits, rates]) => line(bits, rates.sort((a, b) => a - b).map(rate => rate / 1000).join(' / ')));
+    return [...byLabel.entries()]
+        .sort((a, b) => b[1].sort - a[1].sort)
+        .map(([label, entry]) => line(label, entry.rates.sort((a, b) => a - b).map(rate => rate / 1000).join(' / ')));
 };
 
 const PassthroughGroup: React.FC = () => {
@@ -54,6 +56,8 @@ const PassthroughGroup: React.FC = () => {
     const deviceId = usePassthroughSettingsStore(state => state.passthroughDeviceId);
     const strategy = usePassthroughSettingsStore(state => state.passthroughRateStrategy);
     const fixedRate = usePassthroughSettingsStore(state => state.passthroughFixedRate);
+    const mode = usePassthroughSettingsStore(state => state.passthroughMode);
+    const setMode = usePassthroughSettingsStore(state => state.handleSetPassthroughMode);
     const setEnabled = usePassthroughSettingsStore(state => state.handleTogglePassthrough);
     const setDevice = usePassthroughSettingsStore(state => state.handleSetPassthroughDevice);
     const setStrategy = usePassthroughSettingsStore(state => state.handleSetPassthroughRateStrategy);
@@ -105,7 +109,7 @@ const PassthroughGroup: React.FC = () => {
         setProbeError(null);
         const result = await api.probeDevice(targetDevice.id);
         if (result.ok) {
-            setProbeLines(summariseProbe(result.formats, (bits, rates) => t('passthrough.probeLine', { bits, rates })));
+            setProbeLines(summariseProbe(result.formats, (label, rates) => t('passthrough.probeLine', { label, rates })));
         } else {
             setProbeLines(null);
             setProbeError(result.error);
@@ -149,6 +153,17 @@ const PassthroughGroup: React.FC = () => {
                     <Button icon={RefreshCw} tip={t('passthrough.deviceRefresh')} onClick={() => void refreshDevices()} disabled={loading} />
                     <Select value={deviceId} options={deviceOptions} onChange={setDevice} onOpen={() => void refreshDevices()} />
                 </Row>
+                <Row option={O.mode} hint={t('passthrough.modeDesc')} note={t('passthrough.modeNote')}>
+                    <Segmented
+                        value={mode}
+                        options={[
+                            { value: 'exclusive', label: t('passthrough.modeExclusive') },
+                            { value: 'shared', label: t('passthrough.modeShared') },
+                        ]}
+                        onChange={setMode}
+                    />
+                </Row>
+                <Reveal when={mode === 'exclusive'}>
                 <Row option={O.rate} hint={t('passthrough.rateDesc')} note={t('passthrough.rateNote')}>
                     <Segmented
                         value={strategy}
@@ -167,6 +182,7 @@ const PassthroughGroup: React.FC = () => {
                             onChange={value => setFixedRate(Number(value))}
                         />
                     </Row>
+                </Reveal>
                 </Reveal>
                 <Row
                     option={O.probe}

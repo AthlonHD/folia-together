@@ -13,7 +13,7 @@ const khz = (hz: number): string => {
 export const describeChain = (chain: PassthroughChain): string => {
     const source = `${chain.codec.replace(/^pcm_/, 'PCM ').toUpperCase()} ${khz(chain.sourceRate)}k${chain.sourceBits ? `/${chain.sourceBits}` : ''}`;
     const output = `${khz(chain.outputRate)}k/${chain.outputValidBits}`;
-    return `${source} → ${chain.deviceName} ${output}${chain.exclusive ? ' · WASAPI exclusive' : ''}`;
+    return `${source} → ${chain.deviceName} ${output}${chain.exclusive ? ' · WASAPI exclusive' : ' · WASAPI shared'}`;
 };
 
 /** Which of the chain's departures from the source apply, as translation-key suffixes. */

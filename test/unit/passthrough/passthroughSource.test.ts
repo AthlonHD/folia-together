@@ -71,6 +71,10 @@ describe('describeChain', () => {
         expect(describeChain(chain())).toBe('FLAC 96k/24 → WDM2VST 96k/24 · WASAPI exclusive');
     });
 
+    it('says shared when the Windows mixer is in the path', () => {
+        expect(describeChain(chain({ exclusive: false }))).toBe('FLAC 96k/24 → WDM2VST 96k/24 · WASAPI shared');
+    });
+
     it('shows the resampled rate and a lossy source without a bit depth', () => {
         const text = describeChain(chain({ codec: 'mp3', sourceRate: 44100, sourceBits: 0, outputRate: 192000, resampled: true, bitPerfect: false }));
         expect(text).toBe('MP3 44.1k → WDM2VST 192k/24 · WASAPI exclusive');
