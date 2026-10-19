@@ -31,7 +31,9 @@ rem Everyone who wants to control this server (and the host page itself) needs i
 set "TOKEN_FILE=%USERPROFILE%\.folia-stage\token"
 if defined STAGE_TOKEN_FILE set "TOKEN_FILE=%STAGE_TOKEN_FILE%"
 
-rem The external api-enhanced folder is only used when API_DIR is set explicitly.
+rem The external api-enhanced folder is only used when API_DIR is set explicitly. API_DIR must not be set for any other purpose: the
+rem services started below inherit it, and stage-all.cjs takes it as "use the external api-enhanced folder" (the working directory
+rem of the Netease API window is kept in API_WORKDIR for that reason).
 if defined API_DIR (
     if not exist "%API_DIR%\app.js" (
         echo [ERROR] Netease API not found: "%API_DIR%\app.js"
@@ -43,9 +45,10 @@ if defined API_DIR (
 
 rem No spaces before && - they would become part of the variable values.
 if defined API_DIR (
+    set "API_WORKDIR=%API_DIR%"
     set "API_CMD=set ENABLE_GENERAL_UNBLOCK=false&& set PORT=4000&& node app.js"
 ) else (
-    set "API_DIR=%REPO%"
+    set "API_WORKDIR=%REPO%"
     set "API_CMD=set NETEASE_PORT=4000&& node scripts\start-netease-api.cjs"
 )
 set "WEB_CMD=npm run stage:serve"
@@ -80,7 +83,7 @@ for %%P in ("%ProgramFiles%\Google\Chrome\Application\chrome.exe" "%ProgramFiles
 )
 
 if defined DRY_RUN (
-    echo [API  ] in "%API_DIR%": "%API_CMD%"
+    echo [API  ] in "%API_WORKDIR%": "%API_CMD%"
     echo [Relay] in "%REPO%": npm run stage:relay
     echo [QQ   ] in "%REPO%": npm run stage:qq
     echo [KuGou] in "%REPO%": npm run stage:kugou
@@ -96,7 +99,7 @@ if defined DRY_RUN (
 )
 
 if defined SEPARATE (
-    start "Folia - Netease API (4000)" /D "%API_DIR%" cmd /k "%API_CMD%"
+    start "Folia - Netease API (4000)" /D "%API_WORKDIR%" cmd /k "%API_CMD%"
     start "Folia - Stage Relay (4100)" /D "%REPO%" cmd /k "npm run stage:relay"
     start "Folia - QQ Music API (4300)" /D "%REPO%" cmd /k "npm run stage:qq"
     start "Folia - KuGou API (4400)" /D "%REPO%" cmd /k "npm run stage:kugou"

@@ -60,6 +60,7 @@ scripts/*
 !scripts/start-passthrough.cmd
 !scripts/start-passthrough.ps1
 !scripts/serverUpdate.cjs
+!scripts/stageServices.cjs
 !scripts/start-netease-api.cjs
 !scripts/passthrough-tone-test.ps1
 docs/TODO.md
