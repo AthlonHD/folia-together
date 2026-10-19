@@ -107,3 +107,4 @@ __pycache__/
 dist-runtime/
 
 /passthrough-devices.txt
+/passthrough-tone.txt

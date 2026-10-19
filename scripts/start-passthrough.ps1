@@ -4,13 +4,25 @@
 #
 # On a machine without the repository, paste this into PowerShell or cmd (nothing else is needed):
 #   powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/AthlonHD/folia-together/stage-remote/scripts/start-passthrough.ps1 | iex"
-# Inside a clone it can also be run as scripts\start-passthrough.cmd [-BuildOnly] [-NoStart].
+# One-click tone test (installs/updates/builds, then plays test tones to the device and saves the result):
+#   powershell -NoProfile -ExecutionPolicy Bypass -Command "$env:FOLIA_PASSTHROUGH_MODE='tone'; irm https://raw.githubusercontent.com/AthlonHD/folia-together/stage-remote/scripts/start-passthrough.ps1 | iex"
+# Inside a clone it can also be run as scripts\start-passthrough.cmd [-BuildOnly] [-NoStart] [-ToneTest [-Device name] [-Rate 48000]].
 #   -BuildOnly  install tools, build the helper and list devices; no npm install, no app start
 #   -NoStart    do everything except starting the app
 param(
     [switch]$BuildOnly,
-    [switch]$NoStart
+    [switch]$NoStart,
+    [switch]$ToneTest,
+    [string]$Device = 'WDM2VST',
+    [int]$Rate = 48000
 )
+
+# Through `irm ... | iex` there are no parameters; the mode comes from environment variables instead:
+#   $env:FOLIA_PASSTHROUGH_MODE = 'tone'   and optionally   $env:FOLIA_PASSTHROUGH_DEVICE = 'name part'
+if ($env:FOLIA_PASSTHROUGH_MODE -eq 'tone') { $ToneTest = $true }
+if ($env:FOLIA_PASSTHROUGH_DEVICE) { $Device = $env:FOLIA_PASSTHROUGH_DEVICE }
+# The tone test needs the helper, not the app: no npm install, no Electron, no app start.
+if ($ToneTest) { $BuildOnly = $true }
 
 $ErrorActionPreference = 'Stop'
 $repoUrl = 'https://github.com/AthlonHD/folia-together.git'
@@ -179,6 +191,16 @@ try {
     Write-Host ""
     Write-Host "Saved to $devicesFile. To see which formats a device accepts in exclusive mode:"
     Write-Host '    build\folia-audio-helper.exe probe "DEVICE_ID"'
+
+    if ($ToneTest) {
+        Step "Tone test on '$Device' ($Rate Hz) - watch the level meter on the other side"
+        Write-Host '   Five 3-second 440 Hz tones play, one per format. Note which ones move the meter.'
+        Write-Host ''
+        $toneFile = Join-Path $root 'passthrough-tone.txt'
+        & 'build\folia-audio-helper.exe' tone $Device $Rate 3 | Tee-Object -FilePath $toneFile
+        Write-Host ''
+        Write-Host "Result saved to $toneFile. Tell Claude which numbered tones (1-5) moved the meter, and paste the text above." -ForegroundColor Green
+    }
 
     if (-not $BuildOnly -and -not $NoStart) {
         Step '[5/5] Starting the desktop app (needs port 3000 free - stop any other service on it first)'
