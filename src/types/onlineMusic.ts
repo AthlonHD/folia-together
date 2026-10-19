@@ -340,6 +340,8 @@ export interface OnlinePlaybackProvider {
      * one of them than it was asked for says so in the source's `quality`.
      */
     audioQualityLevels?: readonly AudioQualityPreference[];
+    /** 本 Fork:各档在音质选项里怎么叫(平台的真实规格,如码率);没写的档用通用名字。 */
+    audioQualityLabels?: Partial<Record<AudioQualityPreference, string>>;
     getAvailability?(song: SongResult): ProviderSongAvailability;
     getReplacement?(song: SongResult): Promise<ProviderSongReplacement | null>;
     /**

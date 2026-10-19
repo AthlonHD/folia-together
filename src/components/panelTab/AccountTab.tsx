@@ -127,7 +127,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
                     // The panel sits at the bottom of the window: a list that opens down covers the tab row.
                     preferAbove
                     value={litQuality}
-                    options={qualityOptions.map(option => ({ value: option.value, label: t(option.labelKey) }))}
+                    options={qualityOptions.map(option => ({ value: option.value, label: omni.getAudioQualityLabel(activeProviderId, option.value) ?? t(option.labelKey) }))}
                     // (The lit level is where the stored preference already stands on this provider: choosing it
                     // changes nothing here, and must not lower what is stored for the other providers.)
                     onChange={(quality) => { if (quality !== litQuality) onAudioQualityChange(quality); }}

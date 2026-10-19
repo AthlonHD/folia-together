@@ -835,6 +835,11 @@ export const omni = {
         return audioQualityLevelsOf(providerId);
     },
 
+    // 本 Fork:这一档在这个平台的音质选项里叫什么(平台的真实规格);没有则 undefined,用通用名字。
+    getAudioQualityLabel(providerId: OmniProviderId, level: AudioQualityPreference): string | undefined {
+        return getOnlineMusicProvider(providerId)?.playback?.audioQualityLabels?.[level];
+    },
+
     // The level `preference` means to a provider: the one the quality option lights, and the one
     // `getAudioSource` asks the provider for.
     resolveAudioQuality(providerId: OmniProviderId, preference: AudioQualityPreference): AudioQualityPreference {

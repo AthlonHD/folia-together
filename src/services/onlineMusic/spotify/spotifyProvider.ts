@@ -135,6 +135,7 @@ export const spotifyProvider: OnlineMusicProvider = {
         // Spotify's files are Ogg Vorbis at 160 and at 320 kbit/s and nothing above (`BITRATES` on
         // the desktop side): two levels, and a preference above `high` is asked for as `high`.
         audioQualityLevels: ['standard', 'high'],
+        audioQualityLabels: { standard: '160 kbit/s', high: '320 kbit/s' },
         // Spotify's own audio, for paying accounts only (Spotify's rule for every player that is not
         // its own): a free account is answered `subscription-required`. The URL is the desktop app's own.
         async getAudioSource(song, quality) {
