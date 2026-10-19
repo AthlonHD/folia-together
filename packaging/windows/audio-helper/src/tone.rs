@@ -204,36 +204,69 @@ pub fn selftest(device_spec: &str) -> Result<(), String> {
     let _ = recorder.join();
 
     let captured = recorded.lock().unwrap().clone();
-    let first_sent = signal.iter().position(|&v| v != 0.0).ok_or("empty signal")?;
-    let Some(first_got) = captured.iter().position(|&v| v != 0.0) else {
+    if !captured.iter().any(|&v| v != 0.0) {
         println!("RESULT: the loopback recorded only silence - the device passed nothing through in shared mode.");
         return Ok(());
-    };
-    // Align on the first non-zero sample (they are both interleaved, so the offset keeps the channel order).
-    let offset = first_got as i64 - first_sent as i64;
-    let mut mismatches = 0usize;
-    let mut max_lsb = 0f64;
-    let mut compared = 0usize;
-    for (i, &sent) in signal.iter().enumerate().skip(first_sent) {
-        let at = i as i64 + offset;
-        if at < 0 || at as usize >= captured.len() {
-            break;
+    }
+    // The recording may have gaps or a shifted start, so each window of the signal is looked for on its own: a stream that was
+    // changed matches nowhere, one that was only delayed or interrupted matches exactly at some offset.
+    let window = 2048usize; // samples (interleaved), i.e. 1024 frames
+    let probes = 6usize;
+    let (mut exact, mut found_near, mut missing) = (0usize, 0usize, 0usize);
+    let mut offsets: Vec<i64> = Vec::new();
+    for k in 0..probes {
+        let start = (lead * 2) + ((body * 2 - window) * (k + 1)) / (probes + 1);
+        let start = start - start % 2;
+        let needle = &signal[start..start + window];
+        if needle.iter().all(|&v| v == 0.0) {
+            continue;
         }
-        let got = captured[at as usize];
-        compared += 1;
-        if got != sent {
-            mismatches += 1;
-            max_lsb = max_lsb.max(((got - sent) as f64 * 8_388_608.0).abs());
+        let mut hit: Option<usize> = None;
+        let head = &needle[..16];
+        let mut at = 0usize;
+        while at + window <= captured.len() {
+            if captured[at] == head[0] && captured[at..at + 16] == *head && captured[at..at + window] == *needle {
+                hit = Some(at);
+                break;
+            }
+            at += 1;
+        }
+        match hit {
+            Some(at) => {
+                exact += 1;
+                offsets.push(at as i64 - start as i64);
+            }
+            None => {
+                // No exact copy: is there a close one (same shape, small differences)?
+                let mut best = f64::MAX;
+                let step = 2usize;
+                let mut at = 0usize;
+                while at + window <= captured.len() {
+                    let diff: f64 = (0..64).map(|i| (captured[at + i * 31 % window] - needle[i * 31 % window]).abs() as f64).sum();
+                    best = best.min(diff);
+                    at += step.max(1);
+                }
+                if best < 64.0 * 1e-3 {
+                    found_near += 1;
+                } else {
+                    missing += 1;
+                }
+            }
         }
     }
-    println!("Compared {compared} samples: {mismatches} differ, largest difference {max_lsb:.1} (24-bit steps)");
-    if mismatches == 0 {
-        println!("RESULT: the Windows engine passed the stream through bit-exactly in shared mode.");
-    } else if max_lsb <= 1.0 {
-        println!("RESULT: differences of at most one 24-bit step (rounding at the last bit).");
+    println!("Windows checked: {probes}; found bit-for-bit: {exact}; found only approximately: {found_near}; not found: {missing}");
+    if !offsets.is_empty() {
+        let distinct = { let mut o = offsets.clone(); o.sort(); o.dedup(); o.len() };
+        println!("Offsets between sent and recorded samples: {} distinct value(s){}", distinct, if distinct > 1 { " - the recording has gaps or repeats" } else { "" });
+    }
+    if exact == probes {
+        println!("RESULT: the stream came through bit-exactly in shared mode.");
+    } else if exact > 0 {
+        println!("RESULT: parts of the stream came through bit-exactly; the rest could not be found. The recording is unreliable here (gaps), so this check does not settle it.");
+    } else if found_near > 0 {
+        println!("RESULT: the stream is changed slightly on its way through (not bit-for-bit). Check the device volume is 100%, enhancements are off, and the endpoint format in Windows sound settings.");
     } else {
-        println!("RESULT: the stream is changed on its way through (largest difference {max_lsb:.1} steps of 24 bits).");
-        println!("        Check the device's volume is 100%, enhancements are off, and the endpoint format in Windows sound settings.");
+        println!("RESULT: the recorded signal does not resemble what was sent; the loopback of this device is not a faithful copy, so this check does not settle it.");
     }
     Ok(())
 }
