@@ -15,6 +15,10 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-19
+
+基于上游 **v0.7.21**。
+
 ### 新增
 
 - **服务端与桌面版共用同一个网易云后端**：服务端网易云 API 改跑仓库里的 `scripts/start-netease-api.cjs`（桌面版同一份代码与补丁），不再依赖仓库外的 `api-enhanced` 目录；`API_DIR` 仍可改用旧办法。
@@ -22,7 +26,18 @@
 - **本 Fork 自己的检测更新与更新**：设置 → 通用 → 本 Fork 更新，问发布页是否有比本构建新的安装包，下载、校验 SHA-256 后安装；启动时也会检查一次（可关）。
 - **每次推送自动出安装包**：推送到 `stage-remote` 后，GitHub Actions 构建 Windows 安装包并发布到 `together-latest` 滚动预发布页；安装版不再检查上游更新（`foliaReleaseChannel: internal`）。
 - **桌面版当遥控端**：设置里的「遥控服务器」填服务器地址和令牌，在独立窗口里打开服务器的遥控页；桌面版不开端口、不能被遥控，原来的「播放位置」选项在桌面版里不再出现。
-- **桌面版直通模式（Windows）**：独立的 WASAPI 独占播放器 `folia-audio-helper.exe` 出声，绕开系统混音器；可选输出设备与采样率策略，设置里可探测设备在独占模式下接受的格式，并显示当前链路（是否逐位一致 / 已重采样）。网页版与遥控页不受影响。详见 `docs/fork-features.md`。
+- **桌面版直通模式（Windows）**：独立的 WASAPI 播放器 `folia-audio-helper.exe` 出声，绕开浏览器的音频栈。输出模式可选「独占」（直接交给设备）或「共享（设备格式）」（给只转发共享流的虚拟声卡，如 WDM2VST）；采样率不同时由本程序用 rubato 的 8192 帧长滤波器重采样一次（带内平坦到距奈奎斯特约 100 Hz，22 kHz 纯音误差 -193 dBFS 以下）；所有来源都能直通（在线、本地、缓存、Navidrome，以及应用自己的音频地址：Spotify、YouTube Music、转码文件，后者只存临时文件、用完即删）；设置里可探测设备在独占模式下接受的格式、显示当前链路与输出电平；`folia-audio-helper` 另有 `devices`、`probe`、`tone`、`selftest`、`loopback`、`capture` 命令，`scripts/start-passthrough.cmd` 一键从零装好工具并编译启动。详见 `docs/fork-features.md` 第 8 节。
+
+### 变更
+
+- **QQ 音乐服务端的启动逻辑与桌面版合一**：`scripts/start-qq-api.cjs` 改用桌面版的 `startQqApi`（关掉自动打开浏览器与更新检查、等到监听成功才算启动、之后的套接字错误只记日志）；登录态的保存方式两边仍不同（有意）。
+- 桌面版页面不再显示「播放位置：控制服务器 / 本机播放」（桌面版页面的地址背后没有中继，那一项连不通）；遥控改走设置里的「遥控服务器」。
+- 文档：`docs/fork-features.md` 新增第 9.5 节「服务端与桌面版：哪些共用，哪些不共用」，并写明还没合进来的 Docker 与 Vercel 两条部署路径。
+
+### 升级提示
+
+- **桌面版安装包**：每次推送 `stage-remote` 都会在 GitHub 的 `together-latest` 发布页生成新的安装包；安装版不再检查上游更新（`foliaReleaseChannel: internal`），请用应用内「设置 → 通用 → 本 Fork 更新」。
+- **服务端**：网易云 API 默认改跑仓库里的（`scripts/start-netease-api.cjs`），重启 Stage 服务后生效；`API_DIR` 设了就仍用外部 `api-enhanced` 目录。想让服务端随推送自动更新，用 `start-stage.cmd --auto-update` 启动。
 
 ## [1.1.0] - 2026-10-19
 

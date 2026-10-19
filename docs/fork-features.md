@@ -106,9 +106,26 @@
 
 ---
 
-## 9.5 服务端与桌面版共用同一个网易云后端
+## 9.5 服务端与桌面版：哪些共用，哪些不共用
 
-服务端的网易云 API 不再用仓库外的 `api-enhanced` 目录，改跑 `scripts/start-netease-api.cjs`：它直接启动桌面版用的那个工作线程（`electron/netease/`，`@neteasecloudmusicapienhanced/api` 加应用自己的补丁：扫码登录的网络重试、请求超时、身份轮换、登录诊断），监听 `NETEASE_PORT`（默认 4000，只绑本机）。因此服务端和桌面版的网易云版本与行为一致，版本由仓库的 `package-lock.json` 管，`git pull` 就会跟上。QQ 音乐、酷狗原来就是仓库依赖里的同一个包。设置环境变量 `API_DIR` 仍可改用外部目录（旧办法）。
+目标是**一处改、两边都有**。界面和各平台的包是一份；服务端与桌面版只在「怎么托管」上不同。
+
+| 部分 | 服务端（网页版） | 桌面版 | 共用情况 |
+| --- | --- | --- | --- |
+| 界面 | `src/` | `src/` | **同一份** |
+| 各平台的包与版本 | 仓库依赖（`package-lock.json`） | 同一个依赖 | **同一份** |
+| 网易云 | `scripts/start-netease-api.cjs` | `electron/netease/` 工作线程 | **同一份代码与补丁**（服务端直接启动桌面版的工作线程；不再用仓库外的 `api-enhanced`，`API_DIR` 仍可改用旧办法） |
+| QQ 音乐 | `scripts/start-qq-api.cjs` | `electron/qq/` | **启动逻辑同一份**（`startQqApi`）；登录态保存方式不同（服务端文件加密，桌面版系统凭据），有意不同 |
+| 遥控接口 | `server/stage-relay` | 同一个 `electron/stageApi.cjs` | **同一份路由与状态逻辑** |
+| Spotify | `server/stage-relay/spotify.cjs` | `electron/spotify/` | 中继直接用桌面版的桥接代码 |
+| 酷狗 | `scripts/start-kugou-api.cjs`（库自带的 HTTP 服务 + 一处内存补丁） | `electron/kugou/kugouApiBridge.cjs`（进程内、白名单操作、加密会话） | **包同一个，调用方式不同，有意不合并**：桌面版不开端口、只放行白名单操作，服务端的库只绑本机、前面有中继 |
+| 版本与更新 | 从仓库 `git pull`（`start-stage.cmd --auto-update`） | 从同一个提交构建的安装包（应用内更新） | 同一个提交，见第 10 节 |
+
+只在一边的功能（有意）：桌面版有直通播放、遥控窗口、检测更新、本地文件与登录窗口、壁纸；网页版有中继、Host 页、手机遥控。
+
+还没有合进来的两条部署路径：`deploy/docker/`（自带的网易云、酷狗镜像与网关）和 Vercel 的 `api/` 函数，它们各有自己的后端，改后端行为时要单独看一眼。
+
+**改后端时的做法**：先看这张表。放在 `electron/` 里、不依赖 Electron 的模块（网易云、QQ 启动、遥控接口）服务端可以直接用，所以优先改那里；只在酷狗这类「有意不同」的地方才分别改。
 
 ## 10. 安装包自动发布
 
@@ -125,7 +142,7 @@
 
 ## 维护约定
 
-- **版本号**：Fork 有自己的版本号（根目录 `FORK_VERSION`，从 `1.0.0` 起，当前 `1.1.0`），与上游 `package.json` 的版本互不影响；规则与每个版本的变更见 [Fork 更新日志](../FORK_CHANGELOG.md)。
+- **版本号**：Fork 有自己的版本号（根目录 `FORK_VERSION`，从 `1.0.0` 起，当前 `1.2.0`），与上游 `package.json` 的版本互不影响；规则与每个版本的变更见 [Fork 更新日志](../FORK_CHANGELOG.md)。
 - **分支**：`stage-remote` 为 Fork 的主开发分支，所有改动先在这里提交与验证。
 - **同步上游**：`git fetch upstream`（`https://github.com/chthollyphile/folia-major.git`）后合并，冲突就地解决，随后跑 `npx tsc --noEmit -p .` 与 `npx vitest run -c vitest.config.ts`，并更新本文档。
 - **提交规范**：`feat(范围): …` / `fix(范围): …` / `chore(范围): …`，范围如 `stage-remote`、`library`、`layout`、`playback`、`ai`、`scripts`。

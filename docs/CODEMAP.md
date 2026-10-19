@@ -16,8 +16,8 @@
 | components | 1024+ |
 | test/dev | 1024+ |
 | library | 256+ |
+| services | 256+ |
 | backend/electron | 128+ |
-| services | 128+ |
 | utils | 128+ |
 | hooks | 64+ |
 | src (其他) | 64+ |
@@ -43,6 +43,7 @@
 | 64+ | `src/mods/folium/contract.ts` |
 | 64+ | `src/services/db.ts` |
 | 64+ | `src/services/onlineMusic/omni.ts` |
+| 64+ | `src/stores/useAppViewStore.ts` |
 | 64+ | `src/stores/usePlaybackStore.ts` |
 | 64+ | `src/stores/useStatusMessageStore.ts` |
 | 32+ | `dev/probes/definition.ts` |
@@ -61,7 +62,6 @@
 | 32+ | `src/services/onlineMusic/providerRegistry.ts` |
 | 32+ | `src/services/onlineMusic/songMetadata.ts` |
 | 32+ | `src/stores/motionSignals.ts` |
-| 32+ | `src/stores/useAppViewStore.ts` |
 | 32+ | `src/stores/useAudioSettingsStore.ts` |
 | 32+ | `src/stores/useOnlineProviderAccountStore.ts` |
 | 32+ | `src/stores/useThemeSettingsStore.ts` |
@@ -280,6 +280,7 @@
 
 - `src/library/suites/bravais/entry.ts`
 - `src/library/suites/grid/entry.ts`
+- `src/library/suites/phone/entry.ts`
 - `src/library/suites/tui/entry.ts`
 
 ### `test/unit/visualizer/tuningBundleTransport.test.ts`
@@ -306,7 +307,12 @@
 下面这些边的依赖方向本身就是错的：
 
 - `src/stores/useVisualizerSettingsStore.ts` → `src/components/visualizer/registry.tsx`  —— store 不应依赖组件
+- `src/utils/heartbeatAdvance.ts` → `src/stores/usePlayQueueContextStore.ts`  —— 纯变换不应依赖 UI 或状态
+- `src/utils/heartbeatAvailability.ts` → `src/stores/usePlayQueueContextStore.ts`  —— 纯变换不应依赖 UI 或状态
+- `src/utils/heartbeatAvailability.ts` → `src/stores/usePlaybackStore.ts`  —— 纯变换不应依赖 UI 或状态
 - `src/utils/lyrics/lyricMatchSources.ts` → `src/stores/useOnlineProviderAccountStore.ts`  —— 纯变换不应依赖 UI 或状态
+- `src/utils/shuffleNavigation.ts` → `src/stores/useAudioSettingsStore.ts`  —— 纯变换不应依赖 UI 或状态
+- `src/utils/shuffleNavigation.ts` → `src/stores/usePlayOrderStore.ts`  —— 纯变换不应依赖 UI 或状态
 
 ### 目录归属存疑
 
