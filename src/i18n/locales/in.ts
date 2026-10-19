@@ -1,6 +1,24 @@
 
 
 export default {
+  "stageRemote": {
+    "groupTitle": "Server jarak jauh",
+    "url": "Alamat server",
+    "urlHint": "Alamat server Stage, misalnya http://192.168.1.10:3000",
+    "token": "Token akses",
+    "tokenHint": "Token yang ditampilkan di halaman Host server",
+    "tokenSaved": "Tersimpan (tidak ditampilkan lagi demi keamanan); mengetik yang baru akan menggantinya",
+    "clearToken": "Hapus",
+    "tokenCleared": "Token dihapus",
+    "save": "Simpan",
+    "saved": "Tersimpan",
+    "open": "Buka pengendali jarak jauh",
+    "openHint": "Membuka halaman pengendali server di jendela tersendiri: cari, pilih lagu, lewati, kelola antrean; suara keluar dari server",
+    "emptyUrl": "Isi alamat server terlebih dahulu",
+    "invalidUrl": "Alamat tidak valid: harus diawali http:// atau https:// dan tidak boleh memuat nama pengguna atau kata sandi",
+    "notConfigured": "Alamat server jarak jauh belum diatur. Isi di Pengaturan > Pemutaran > Server jarak jauh",
+    "foot": "Aplikasi ini hanya menjadi pengendali: tidak membuka port dan tidak dapat dikendalikan perangkat lain. Token hanya disimpan di komputer ini, disegel dengan penyimpanan kredensial sistem."
+  },
   "passthrough": {
     "groupTitle": "Mode pass-through",
     "enable": "Aktifkan mode pass-through",
@@ -703,6 +721,7 @@ export default {
       "desktop-toggle-voice-input-pause": { "title": "Jeda input suara", "description": "Alihkan jeda pemutaran saat input suara aktif" },
       "desktop-toggle-prevent-display-sleep": { "title": "Cegah layar tidur saat pemutaran", "description": "Jaga layar tetap menyala selama musik diputar" },
       "desktop-toggle-passthrough": { "title": "Mode pass-through", "description": "Aktifkan atau matikan pemutaran pass-through WASAPI eksklusif" },
+      "desktop-open-stage-remote": { "title": "Buka pengendali jarak jauh", "description": "Buka pengendali server Stage di jendela tersendiri" },
       "settings-graphics": { "title": "Pengaturan grafis", "description": "Buka mode statis, batas frame rate, perbaikan glow Linux, dan pengurangan gerak" },
       "settings-mods": { "title": "Pengaturan mod", "description": "Buka sakelar sistem mod dan mod yang terpasang" },
       "settings-lab": { "title": "Antarmuka halaman pemutar", "description": "Lompat ke sakelar yang menyembunyikan atau menetapkan bagian halaman pemutar" },

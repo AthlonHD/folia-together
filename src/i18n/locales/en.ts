@@ -1,6 +1,24 @@
 
 
 export default {
+  "stageRemote": {
+    "groupTitle": "Remote server",
+    "url": "Server address",
+    "urlHint": "The address of the Stage server, for example http://192.168.1.10:3000",
+    "token": "Access token",
+    "tokenHint": "The token shown on the server's Host page",
+    "tokenSaved": "Saved (not shown again for safety); typing a new one replaces it",
+    "clearToken": "Clear",
+    "tokenCleared": "Token cleared",
+    "save": "Save",
+    "saved": "Saved",
+    "open": "Open remote controller",
+    "openHint": "Opens the server's controller page in a window of its own: search, pick songs, skip, manage the queue; the sound comes from the server",
+    "emptyUrl": "Enter the server address first",
+    "invalidUrl": "That address will not work: it needs to start with http:// or https:// and cannot contain a user name or password",
+    "notConfigured": "No remote server address is set yet. Enter it in Settings > Playback > Remote server",
+    "foot": "This app is only ever the controller: it opens no port and cannot be controlled by other devices. The token is kept on this computer only, sealed with the system credential store."
+  },
   "passthrough": {
     "groupTitle": "Pass-through mode",
     "enable": "Enable pass-through mode",
@@ -703,6 +721,7 @@ export default {
       "desktop-toggle-voice-input-pause": { "title": "Voice input pause", "description": "Toggle pausing playback during voice input" },
       "desktop-toggle-prevent-display-sleep": { "title": "Prevent display sleep during playback", "description": "Keep the display awake while music is playing" },
       "desktop-toggle-passthrough": { "title": "Pass-through mode", "description": "Toggle WASAPI exclusive pass-through playback" },
+      "desktop-open-stage-remote": { "title": "Open remote controller", "description": "Open the Stage server controller in its own window" },
       "settings-graphics": { "title": "Graphics settings", "description": "Open static mode, frame rate cap, Linux glow fix and reduced motion" },
       "settings-mods": { "title": "Mod settings", "description": "Open the mod system switch and the installed mods" },
       "settings-lab": { "title": "Player page interface", "description": "Jump to the switches that hide or pin parts of the player page" },

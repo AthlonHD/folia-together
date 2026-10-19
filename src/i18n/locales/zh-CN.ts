@@ -1,6 +1,24 @@
 
 
 export default {
+  "stageRemote": {
+    "groupTitle": "遥控服务器",
+    "url": "服务器地址",
+    "urlHint": "Stage 服务器的网址,例如 http://192.168.1.10:3000",
+    "token": "访问令牌",
+    "tokenHint": "服务器 Host 页上显示的令牌",
+    "tokenSaved": "已保存(出于安全不再显示);重新输入会替换",
+    "clearToken": "清除",
+    "tokenCleared": "已清除令牌",
+    "save": "保存",
+    "saved": "已保存",
+    "open": "打开遥控窗口",
+    "openHint": "在独立窗口里打开服务器的遥控页:搜歌、点歌、切歌、管队列,声音从服务器出",
+    "emptyUrl": "请先填写服务器地址",
+    "invalidUrl": "地址不对:需要 http:// 或 https:// 开头的网址,不能带用户名和密码",
+    "notConfigured": "还没有设置遥控服务器的地址,请先在「设置 → 播放控制 → 遥控服务器」里填写",
+    "foot": "本应用只当遥控端:不开放端口,也不能被别的设备遥控。令牌只保存在本机,并用系统凭据加密。"
+  },
   "passthrough": {
     "groupTitle": "直通模式",
     "enable": "启用直通模式",
@@ -703,6 +721,7 @@ export default {
       "desktop-toggle-voice-input-pause": { "title": "语音输入时暂停", "description": "切换语音输入时自动暂停播放" },
       "desktop-toggle-prevent-display-sleep": { "title": "播放时阻止休眠", "description": "播放音乐时保持显示器唤醒" },
       "desktop-toggle-passthrough": { "title": "直通模式", "description": "开关 WASAPI 独占直通播放" },
+      "desktop-open-stage-remote": { "title": "打开遥控窗口", "description": "在独立窗口里打开 Stage 服务器的遥控页" },
       "settings-graphics": { "title": "图形设置", "description": "打开静态模式、帧率限制、Linux 发光修复和降低动态效果" },
       "settings-mods": { "title": "模组设置", "description": "打开模组系统开关和已安装的模组" },
       "settings-lab": { "title": "播放页界面", "description": "跳到隐藏或常驻显示播放页部件的开关" },

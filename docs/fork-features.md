@@ -93,6 +93,17 @@
 - **构建**：`npm run build:audio-helper`（需要 Rust 和 MSVC 生成工具）把 `packaging/windows/audio-helper/` 编成 `build/folia-audio-helper.exe`，`npm run build:electron` 会自动带上并打进安装包的 `resources/`；开发时也可用环境变量 `FOLIA_AUDIO_HELPER_PATH` 指定路径。helper 另有两个命令行：`folia-audio-helper devices`、`folia-audio-helper probe <设备ID>`；`capture` 是开发自检用的录音命令。
 - **代码位置**：`packaging/windows/audio-helper/`（Rust）、`electron/audioHelper/`（主进程）、`src/components/app/passthrough/`（页面 hook）、`src/services/passthrough/`（类型与状态）、`src/stores/usePassthroughSettingsStore.ts`（设置，存储键 `passthrough_*`）。
 
+## 9. 桌面版当遥控端（遥控服务器）
+
+桌面版（安装包）自带全套后端、本机播放，**只当遥控端，不能被遥控**：它不开任何端口，也不带 Stage 中继。
+
+- 设置 → 播放控制 → **遥控服务器**：填服务器地址（如 `http://192.168.1.10:3000`）和 Host 页上的访问令牌，点「打开遥控窗口」。命令面板里也有「打开遥控窗口」。
+- 做法：在一个独立窗口里打开服务器自己的遥控页（带令牌的网址），所以遥控界面与手机、网页版完全一致，不重复实现；声音仍从服务器出。
+- 这个窗口没有 preload、开了沙箱和 `contextIsolation`，只允许停在服务器这个域名内、不能新开窗口，页面拿不到本应用的任何能力。
+- 令牌只存在主进程里，用系统凭据（Windows DPAPI）加密保存，设置页只知道「有没有保存」，不会再读回；没有系统凭据的 Linux 才以明文保留（和 AI 密钥一样的取舍）。
+- 桌面版里原来的「播放位置：控制服务器 / 本机播放」不再出现：桌面版页面的地址背后没有中继，那一项在桌面版里是连不通的。
+- 代码位置：`electron/stageRemote/`（主进程）、`src/components/modal/settings/pages/RemoteServerGroup.tsx`（设置）。
+
 ---
 
 ## 维护约定

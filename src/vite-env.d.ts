@@ -857,6 +857,13 @@ declare global {
       clearAudioCache: () => Promise<boolean>;
       /** Windows 直通模式的独立 WASAPI 独占播放器;其他平台没有这个对象。 */
       audioHelper?: import('./services/passthrough/types').AudioHelperApi;
+      /** 桌面版当遥控端:在独立窗口里打开服务器的遥控页。令牌只留在主进程,这里只知道有没有保存。 */
+      stageRemote?: {
+        getConfig: () => Promise<{ url: string; hasToken: boolean }>;
+        /** `token`:不传保持原有,'' 清除,其他文本替换。 */
+        saveConfig: (config: { url: string; token?: string }) => Promise<{ ok: true; url: string; hasToken: boolean } | { ok: false; error: string }>;
+        open: () => Promise<{ ok: true } | { ok: false; error: string }>;
+      };
       requestTranscodeFallback?: (request: import('./types/playbackRecovery').TranscodeFallbackRequest) => Promise<import('./types/playbackRecovery').TranscodeFallbackResult>;
       cancelTranscodeFallback?: (requestId: string) => Promise<boolean>;
       getCoverCache: (cacheKey: string) => Promise<ElectronAudioCacheEntry>;

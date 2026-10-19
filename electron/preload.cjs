@@ -129,6 +129,12 @@ contextBridge.exposeInMainWorld('electron', {
     getAudioCacheUsage: () => ipcRenderer.invoke('get-audio-cache-usage'),
     getAudioCacheStats: () => ipcRenderer.invoke('get-audio-cache-stats'),
     clearAudioCache: () => ipcRenderer.invoke('clear-audio-cache'),
+    // 遥控服务器:本应用当遥控端,在独立窗口打开服务器的遥控页(令牌只留在主进程)
+    stageRemote: {
+        getConfig: () => ipcRenderer.invoke('stage-remote-get-config'),
+        saveConfig: (config) => ipcRenderer.invoke('stage-remote-save-config', config),
+        open: () => ipcRenderer.invoke('stage-remote-open'),
+    },
     // 直通模式(Windows):独立的 WASAPI 独占播放器,见 electron/audioHelper/
     audioHelper: {
         getStatus: () => ipcRenderer.invoke('audio-helper:status'),

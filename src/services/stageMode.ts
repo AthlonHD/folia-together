@@ -23,9 +23,12 @@ const readParams = (): URLSearchParams | null => {
 
 export const isStageHostMode = (): boolean => readParams()?.get('host') === '1';
 
+/** 桌面版:页面的地址背后没有中继(它的遥控走设置里的「遥控服务器」,在独立窗口里打开服务器的遥控页)。 */
+const isDesktopApp = (): boolean => typeof window !== 'undefined' && Boolean((window as unknown as { electron?: unknown }).electron);
+
 /** 这个部署有没有中继可连:配置了 VITE_STAGE_RELAY=1,或网址里手动带了 ?stageremote=1。 */
 export const isStageRelayAvailable = (): boolean => (
-    import.meta.env.VITE_STAGE_RELAY === '1' || readParams()?.get('stageremote') === '1'
+    !isDesktopApp() && (import.meta.env.VITE_STAGE_RELAY === '1' || readParams()?.get('stageremote') === '1')
 );
 
 export const getStoredPlayTarget = (): PlayTarget => {
@@ -98,7 +101,7 @@ ingestTokenFromUrl();
 // 其余按保存的选择:只有带令牌的访问地址或在设置里选择并填写了令牌之后才是遥控,默认是本机播放。
 export const isStageRemoteMode = (): boolean => {
     const params = readParams();
-    if (!params) return false;
+    if (!params || isDesktopApp()) return false;
     if (params.get('host') === '1' || params.get('local') === '1') return false;
     if (params.get('stageremote') === '1') return true;
     if (import.meta.env.VITE_STAGE_RELAY !== '1') return false;

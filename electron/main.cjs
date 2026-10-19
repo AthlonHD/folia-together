@@ -61,6 +61,7 @@ const { createVideoExportFileWriter } = require('./videoExportFileWriter.cjs');
 const { finalizeVideoExportFile } = require('./videoExportMp4.cjs');
 const { createLyricApi } = require('./lyricApi.cjs');
 const { registerAudioHelperIpc } = require('./audioHelper/audioHelperIpc.cjs');
+const { createStageRemote } = require('./stageRemote/stageRemote.cjs');
 const { createLocalCoverAssetStore, getLocalCoverAssetDirectory } = require('./localCoverAssets.cjs');
 const {
   compareVersions,
@@ -6509,6 +6510,25 @@ ipcMain.handle('kugou-api-request', createSenderGuardedHandler({
   isTrusted: isFirstPartyWindowContents,
   handler: (_event, operation, params) => kugouApiBridge.request(operation, params),
 }));
+// 遥控服务器:本应用只当遥控端——在独立窗口里打开服务器的遥控页,自己不开端口、不能被遥控。
+const stageRemote = createStageRemote({ store, safeStorage, BrowserWindow, title: 'Folia - Remote' });
+ipcMain.handle('stage-remote-get-config', createSenderGuardedHandler({
+  channel: 'stage-remote-get-config',
+  isTrusted: isFirstPartyWindowContents,
+  onUntrusted: () => ({ url: '', hasToken: false }),
+  handler: () => stageRemote.getConfig(),
+}));
+ipcMain.handle('stage-remote-save-config', createSenderGuardedHandler({
+  channel: 'stage-remote-save-config',
+  isTrusted: isFirstPartyWindowContents,
+  handler: (_event, config) => stageRemote.saveConfig({ url: config?.url, token: typeof config?.token === 'string' ? config.token : undefined }),
+}));
+ipcMain.handle('stage-remote-open', createSenderGuardedHandler({
+  channel: 'stage-remote-open',
+  isTrusted: isFirstPartyWindowContents,
+  handler: () => stageRemote.open(),
+}));
+
 // 直通模式:Windows 上的 WASAPI 独占播放器(folia-audio-helper.exe),页面经 preload 的 audioHelper 接口使用。
 const audioHelperIpc = registerAudioHelperIpc({
   ipcMain,

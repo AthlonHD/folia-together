@@ -1,3 +1,5 @@
+import i18n from '../../../i18n/config';
+import { setStatusMessage } from '../../../stores/useStatusMessageStore';
 import { syncNow } from '../../../services/sync/syncCoordinator';
 import { isSyncConfigured } from '../../../services/sync/syncConfig';
 import { buildObsCustomCss } from '../../../services/obs/obsCustomCss';
@@ -338,6 +340,21 @@ export const settingsCommands: CommandPaletteCommand[] = [
         keywords: ['pass-through', 'passthrough', 'bit-perfect', 'wasapi', 'exclusive', 'lossless output', '直通模式', '独占', '无损直出', '原声大碟'],
         execute: (_input, context) => {
             context.settings.togglePassthrough();
+            return true;
+        },
+    },
+    {
+        id: 'desktop-open-stage-remote',
+        platform: ['electron'],
+        isAvailable: () => typeof window !== 'undefined' && Boolean(window.electron?.stageRemote),
+        group: 'settings',
+        title: 'Open remote controller',
+        description: 'Open the Stage server controller in its own window',
+        keywords: ['remote control', 'stage server', 'controller', 'phone remote', '遥控', '遥控服务器', '控制服务器'],
+        execute: () => {
+            void window.electron?.stageRemote?.open().then(result => {
+                if (!result.ok) setStatusMessage({ type: 'info', text: i18n.t('stageRemote.notConfigured') });
+            });
             return true;
         },
     },
