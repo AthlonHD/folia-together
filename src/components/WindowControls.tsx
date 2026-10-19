@@ -53,6 +53,10 @@ export default function WindowControls({
 
     const remoteControlVisible = revealed && !isMainWindowClickThroughEnabled;
     const standardControlsVisible = revealed && !isMainWindowClickThroughEnabled;
+    // At rest the window buttons stay as a faint hint instead of vanishing, so the top of the window does not look bare; the cursor
+    // arriving makes them full, and they can be clicked all along (they are window controls, where people expect them to be).
+    const idleHintVisible = !revealed && !isMainWindowClickThroughEnabled;
+    const buttonsReachable = standardControlsVisible || idleHintVisible;
     const remoteBtnClass = `flex items-center justify-center w-11 h-full transition-all duration-200 ${
         remoteControlVisible
             ? isDaylight
@@ -65,14 +69,18 @@ export default function WindowControls({
             ? isDaylight
                 ? 'pointer-events-auto opacity-85 translate-y-0 hover:opacity-100 hover:bg-black/[0.05]'
                 : 'pointer-events-auto opacity-75 translate-y-0 hover:opacity-100 hover:bg-white/10'
-            : 'pointer-events-none opacity-0 -translate-y-1'
+            : idleHintVisible
+                ? 'pointer-events-auto opacity-30 translate-y-0 hover:opacity-100 hover:bg-black/[0.05]'
+                : 'pointer-events-none opacity-0 -translate-y-1'
     }`;
     const closeBtnClass = `flex items-center justify-center w-11 h-full transition-all duration-200 ${
         standardControlsVisible
             ? isDaylight
                 ? 'pointer-events-auto opacity-85 translate-y-0 hover:opacity-100 hover:bg-red-500 hover:text-white'
                 : 'pointer-events-auto opacity-75 translate-y-0 hover:opacity-100 hover:bg-red-500 hover:text-white'
-            : 'pointer-events-none opacity-0 -translate-y-1'
+            : idleHintVisible
+                ? 'pointer-events-auto opacity-30 translate-y-0 hover:opacity-100 hover:bg-red-500 hover:text-white'
+                : 'pointer-events-none opacity-0 -translate-y-1'
     }`;
 
     return (
@@ -94,7 +102,7 @@ export default function WindowControls({
             {!hideFullscreenButton && (
                 <button
                     className={btnClass}
-                    tabIndex={standardControlsVisible ? 0 : -1}
+                    tabIndex={buttonsReachable ? 0 : -1}
                     title={t(isFullscreen ? 'ui.exitFullscreen' : 'ui.enterFullscreen')}
                     aria-label={t(isFullscreen ? 'ui.exitFullscreen' : 'ui.enterFullscreen')}
                     onClick={() => void electron.toggleFullscreenWindow()}
@@ -104,14 +112,14 @@ export default function WindowControls({
             )}
             <button
                 className={btnClass}
-                tabIndex={standardControlsVisible ? 0 : -1}
+                tabIndex={buttonsReachable ? 0 : -1}
                 onClick={() => electron.minimizeWindow()}
             >
                 <Minus size={16} />
             </button>
             <button
                 className={btnClass}
-                tabIndex={standardControlsVisible ? 0 : -1}
+                tabIndex={buttonsReachable ? 0 : -1}
                 title={t(usesNativeFullscreen
                     ? isExpanded ? 'ui.exitFullscreen' : 'ui.enterFullscreen'
                     : isExpanded ? 'ui.restoreWindow' : 'ui.maximizeWindow')}
@@ -133,7 +141,7 @@ export default function WindowControls({
             </button>
             <button
                 className={closeBtnClass}
-                tabIndex={standardControlsVisible ? 0 : -1}
+                tabIndex={buttonsReachable ? 0 : -1}
                 onClick={() => electron.closeWindow()}
             >
                 <X size={16} />

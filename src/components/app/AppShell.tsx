@@ -142,15 +142,17 @@ const AppShell: React.FC<AppShellProps> = ({
     const shouldApplyWindowRadius = useCustomWindowRadius && !isWindowMaximized && !isWindowFullscreen;
     const areTitlebarControlsVisible = isTitlebarRevealed || alwaysShowMainWindowTitlebar;
     const shouldRenderTitlebarBackdrop = !isPlayerView || (useCustomWindowRadius && !isMainWindowClickThroughEnabled);
-    const titlebarBackdropClassName = `absolute inset-0 backdrop-blur-sm ${
-        isDaylight
-            ? isPlayerView
+    // In the player the bar is a full-width glass strip. Elsewhere it is only the corner behind the window buttons: a full-width blur
+    // over the top of the page hid whatever is drawn there (a heading, the rail's title) every time the cursor came close.
+    const titlebarBackdropClassName = isPlayerView
+        ? `absolute inset-0 backdrop-blur-sm ${
+            isDaylight
                 ? 'bg-white/[0.18] border-b border-white/25 shadow-[0_8px_28px_rgba(0,0,0,0.06)]'
-                : 'bg-white/[0.12] border-b border-white/15'
-            : isPlayerView
-                ? 'bg-black/[0.18] border-b border-white/10 shadow-[0_8px_28px_rgba(0,0,0,0.20)]'
-                : ''
-    }`;
+                : 'bg-black/[0.18] border-b border-white/10 shadow-[0_8px_28px_rgba(0,0,0,0.20)]'
+        }`
+        : `absolute top-0 right-0 h-full rounded-bl-xl backdrop-blur-md ${
+            hasFullscreenTitlebarButton ? 'w-[272px]' : 'w-[228px]'
+        } ${isDaylight ? 'bg-white/45 border-b border-l border-black/[0.06]' : 'bg-black/35 border-b border-l border-white/10'}`;
 
     return (
         <div

@@ -392,7 +392,8 @@ export const useElectronPlaybackBridge = ({
             return;
         }
 
-        const revealThreshold = 56;
+        // The bar is 32px tall (AppShell): reveal it when the cursor is on it, not when it is merely near.
+        const revealThreshold = 32;
         const handleMouseMove = (event: MouseEvent) => {
             const nextVisible = event.clientY <= revealThreshold;
             setIsTitlebarRevealed(prev => (prev === nextVisible ? prev : nextVisible));
