@@ -98,7 +98,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           TAG=together-latest
           SUBJECT="$(git log -1 --pretty=%s)"
           PUBLISHED_AT="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
@@ -111,10 +111,16 @@ jobs:
             echo
             echo "安装包没有数字签名,Windows 会弹 SmartScreen,点「更多信息 → 仍要运行」。应用内「设置 → 通用 → 本 Fork 更新」可以检查并安装新版,也可以回到这里手动下载。"
           } > release-notes.md
+          # A failure is written out as an annotation: anyone can read it from the run page and the API without signing in.
+          NL=$'\n'
+          fail() { local msg="${1//$NL/%0A}"; echo "::error title=Publishing the release failed::${msg}"; exit 1; }
           gh release delete "${TAG}" --repo "${GITHUB_REPOSITORY}" --cleanup-tag --yes >/dev/null 2>&1 || true
-          gh release create "${TAG}" release/Folia-Together-*-Setup.exe release/Folia-Together-*-Setup.exe.sha256 \
+          OUT="$(gh release create "${TAG}" \
+            release/Folia-Together-*-Setup.exe \
+            release/Folia-Together-*-Setup.exe.sha256 \
             --repo "${GITHUB_REPOSITORY}" \
             --title "Folia Together - latest build" \
             --notes-file release-notes.md \
             --target "${GITHUB_SHA}" \
-            --prerelease
+            --prerelease 2>&1)" || fail "gh release create said: ${OUT}"
+          echo "${OUT}"
