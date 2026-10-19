@@ -119,8 +119,16 @@ const createRoutedFetch = ({ log, warn }) => {
     } catch {
       proxyUrl = normalizeProxyUrl(process.env.HTTPS_PROXY || process.env.HTTP_PROXY);
     }
+    // SPOTIFY_PROXY_URL: Spotify's own proxy, always used for Spotify (the probe below is skipped).
+    const forced = normalizeProxyUrl(process.env.SPOTIFY_PROXY_URL);
     let next;
-    if (await canConnect(PROBE_HOST, 443, PROBE_TIMEOUT_MS)) {
+    if (forced) {
+      const { hostname, port } = new URL(forced);
+      const listening = await canConnect(hostname, Number(port) || 80, 1000);
+      next = listening
+        ? { mode: 'proxy', proxyUrl: forced, reachable: true, reason: `SPOTIFY_PROXY_URL ${forced}` }
+        : { mode: 'direct', proxyUrl: null, reachable: false, reason: `SPOTIFY_PROXY_URL ${forced} is not listening` };
+    } else if (await canConnect(PROBE_HOST, 443, PROBE_TIMEOUT_MS)) {
       next = { mode: 'direct', proxyUrl: null, reachable: true, reason: 'direct connection works' };
     } else if (proxyUrl) {
       const { hostname, port } = new URL(proxyUrl);
