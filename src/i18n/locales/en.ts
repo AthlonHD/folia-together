@@ -4,7 +4,7 @@ export default {
   "passthrough": {
     "groupTitle": "Pass-through mode",
     "enable": "Enable pass-through mode",
-    "enableDesc": "A separate WASAPI exclusive-mode player makes the sound: no Windows mixer, no resampling, samples left untouched.",
+    "enableDesc": "A separate WASAPI player makes the sound, bypassing the browser's audio stack. Exclusive mode bypasses the Windows mixer; shared mode outputs in the device's own format. When the rate differs this app resamples once at high quality; samples are otherwise left untouched.",
     "enableNote": "While on, the equalizer, effects, mix transitions and the volume slider do not apply (set the volume downstream). Songs whose file cannot be obtained, such as Spotify and YouTube Music, fall back to normal playback. Each song is fetched to this computer in full before it plays, so the first play waits a little.",
     "device": "Output device",
     "deviceDefault": "System default device",

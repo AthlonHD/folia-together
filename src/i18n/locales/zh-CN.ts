@@ -4,7 +4,7 @@ export default {
   "passthrough": {
     "groupTitle": "直通模式",
     "enable": "启用直通模式",
-    "enableDesc": "由独立的 WASAPI 独占播放器出声,绕开 Windows 混音器,不重采样、不改动采样值。",
+    "enableDesc": "由独立的 WASAPI 播放器出声,不经过浏览器的音频栈。独占模式绕开 Windows 混音器;共享模式按设备自己的格式输出。采样率不同时由本程序高质量重采样一次,其余不改动采样值。",
     "enableNote": "开启后均衡器、音效、混音过渡和音量滑块不再生效(音量请在下游调节);Spotify、油管音乐等无法取到文件的歌曲会自动回到普通播放。每首歌先完整取到本机再播放,首次播放会稍有等待。",
     "device": "输出设备",
     "deviceDefault": "系统默认设备",

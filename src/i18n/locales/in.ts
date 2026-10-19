@@ -4,7 +4,7 @@ export default {
   "passthrough": {
     "groupTitle": "Mode pass-through",
     "enable": "Aktifkan mode pass-through",
-    "enableDesc": "Pemutar WASAPI mode eksklusif yang terpisah mengeluarkan suara: tanpa mixer Windows, tanpa resampling, sampel tidak diubah.",
+    "enableDesc": "Pemutar WASAPI terpisah mengeluarkan suara, tanpa melalui tumpukan audio browser. Mode eksklusif melewati mixer Windows; mode bersama mengeluarkan suara dalam format perangkat sendiri. Bila laju berbeda, aplikasi ini me-resample sekali dengan kualitas tinggi; sampel selebihnya tidak diubah.",
     "enableNote": "Saat aktif, equalizer, efek, transisi campuran, dan penggeser volume tidak berlaku (atur volume di perangkat hilir). Lagu yang berkasnya tidak bisa diambil, seperti Spotify dan YouTube Music, kembali ke pemutaran biasa. Setiap lagu diambil penuh ke komputer ini sebelum diputar, jadi pemutaran pertama menunggu sebentar.",
     "device": "Perangkat keluaran",
     "deviceDefault": "Perangkat default sistem",
