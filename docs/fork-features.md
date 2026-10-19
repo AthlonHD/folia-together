@@ -106,6 +106,14 @@
 
 ---
 
+## 10. 安装包自动发布
+
+每次推送到 `stage-remote`，GitHub Actions（`.github/workflows/together-installer.yml`）都会在 `windows-latest` 上构建一个新的 Windows 安装包（含直通播放器、分析模型），发布到名为 **together-latest** 的滚动预发布页，文件名 `Folia-Together-v<Fork 版本>-<提交>-Setup.exe`；同时留一份 14 天的工作流产物。发布页始终只有最新的那一个。
+
+- 安装包没有数字签名（Windows 会弹 SmartScreen）。
+- **不带自动更新**：`package.json` 的 `foliaReleaseChannel` 是 `internal`。否则安装版会去检查上游 `chthollyphile/folia-major` 的发布并提示更新成上游版本，Fork 的功能就没了。新版请回发布页下载。
+- 连续推送会排队，不会中途打断发布。
+
 ## 维护约定
 
 - **版本号**：Fork 有自己的版本号（根目录 `FORK_VERSION`，从 `1.0.0` 起，当前 `1.1.0`），与上游 `package.json` 的版本互不影响；规则与每个版本的变更见 [Fork 更新日志](../FORK_CHANGELOG.md)。
@@ -113,4 +121,5 @@
 - **同步上游**：`git fetch upstream`（`https://github.com/chthollyphile/folia-major.git`）后合并，冲突就地解决，随后跑 `npx tsc --noEmit -p .` 与 `npx vitest run -c vitest.config.ts`，并更新本文档。
 - **提交规范**：`feat(范围): …` / `fix(范围): …` / `chore(范围): …`，范围如 `stage-remote`、`library`、`layout`、`playback`、`ai`、`scripts`。
 - **设置存储**：新增设置项的 localStorage 键记录在 `test/unit/stores/storeContract.test.ts` 的快照里，新增或改名时需要更新快照。
+- **推送即出包**：每次推送 `stage-remote` 都会自动生成新的安装包发布（见上一节）；推送后要到 Actions 里确认这次构建成功，失败了要修。
 - **不提交**：`.env.local`、令牌文件（`~/.folia-stage/token`）、任何账号 Cookie 与 API Key。

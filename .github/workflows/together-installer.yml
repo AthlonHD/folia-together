@@ -1,0 +1,116 @@
+name: Together Installer
+
+# 每次推送到 stage-remote,都在 GitHub 上生成一个新版的 Windows 安装包(滚动发布 together-latest,始终是最新的那一个)。
+# 安装包没有数字签名,也不带自动更新(package.json 的 foliaReleaseChannel 是 internal):要新版就到这个发布页下载。
+
+on:
+  push:
+    branches: [stage-remote]
+  workflow_dispatch:
+
+# 连着推送时排队、不中途打断:发布那一步先删后建,被打断会让发布页空一阵。
+concurrency:
+  group: together-installer
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    name: Build the Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo builds of the Windows helpers
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            packaging/windows/wallpaper-helper
+            packaging/windows/audio-helper
+
+      - name: Build wallpaper helper
+        run: npm run build:wallpaper-helper
+
+      - name: Build pass-through audio helper
+        run: npm run build:audio-helper
+
+      - name: Build web app for Electron
+        env:
+          ELECTRON: 'true'
+        run: npm run build
+
+      # The analysis models' runtime is built from the pinned MNN source in build/beforePack.cjs; cached because it is minutes of compile.
+      - name: Cache MNN runtime build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/.mnn-src
+            build/mnn
+          key: mnn-${{ runner.os }}-${{ hashFiles('build/buildMnnRuntime.mjs', 'native/folia-mnn/**') }}
+
+      - name: Package Electron app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npx electron-builder --win nsis --x64 --publish never
+
+      - name: Name the installer after the Fork version and the commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < FORK_VERSION)"
+          SHORT="${GITHUB_SHA::7}"
+          mv release/Folia-Setup-*.exe "release/Folia-Together-v${VERSION}-${SHORT}-Setup.exe"
+          ls -la release/*.exe
+
+      - name: Keep the installer as a workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: Folia-Together-installer
+          path: release/Folia-Together-*-Setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish the rolling release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=together-latest
+          SUBJECT="$(git log -1 --pretty=%s)"
+          PUBLISHED_AT="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          {
+            echo "最新一次推送到 ${GITHUB_REF_NAME} 生成的 Windows 安装包(每次推送都会替换成新的)。"
+            echo
+            echo "提交:${SUBJECT}"
+            echo "来源:https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+            echo "生成时间:${PUBLISHED_AT}"
+            echo
+            echo "安装包没有数字签名,Windows 会弹 SmartScreen,点「更多信息 → 仍要运行」。不带自动更新:要新版请回到这里重新下载。"
+          } > release-notes.md
+          gh release delete "${TAG}" --repo "${GITHUB_REPOSITORY}" --cleanup-tag --yes >/dev/null 2>&1 || true
+          gh release create "${TAG}" release/Folia-Together-*-Setup.exe \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "Folia Together - latest build" \
+            --notes-file release-notes.md \
+            --target "${GITHUB_SHA}" \
+            --prerelease
