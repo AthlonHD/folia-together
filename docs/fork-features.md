@@ -142,7 +142,7 @@
 
 ## 维护约定
 
-- **版本号**：Fork 有自己的版本号（根目录 `FORK_VERSION`，从 `1.0.0` 起，当前 `1.2.0`），与上游 `package.json` 的版本互不影响；规则与每个版本的变更见 [Fork 更新日志](../FORK_CHANGELOG.md)。
+- **版本号**：Fork 有自己的版本号（根目录 `FORK_VERSION`，从 `1.0.0` 起，当前 `1.2.1`），与上游 `package.json` 的版本互不影响；规则与每个版本的变更见 [Fork 更新日志](../FORK_CHANGELOG.md)。
 - **分支**：`stage-remote` 为 Fork 的主开发分支，所有改动先在这里提交与验证。
 - **同步上游**：`git fetch upstream`（`https://github.com/chthollyphile/folia-major.git`）后合并，冲突就地解决，随后跑 `npx tsc --noEmit -p .` 与 `npx vitest run -c vitest.config.ts`，并更新本文档。
 - **提交规范**：`feat(范围): …` / `fix(范围): …` / `chore(范围): …`，范围如 `stage-remote`、`library`、`layout`、`playback`、`ai`、`scripts`。
