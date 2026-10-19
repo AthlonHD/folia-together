@@ -24,6 +24,8 @@ export default {
     "probeFailed": "检测失败:{{error}}",
     "probeLine": "{{bits}}-bit:{{rates}} kHz",
     "chain": "当前链路",
+    "level": "输出电平",
+    "levelSilent": "静音",
     "chainIdle": "没有正在直通的歌曲",
     "chainBitPerfect": "逐位一致",
     "chainResampled": "已重采样",

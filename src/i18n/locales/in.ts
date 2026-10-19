@@ -24,6 +24,8 @@ export default {
     "probeFailed": "Pengujian gagal: {{error}}",
     "probeLine": "{{bits}}-bit: {{rates}} kHz",
     "chain": "Rantai saat ini",
+    "level": "Level keluaran",
+    "levelSilent": "senyap",
     "chainIdle": "Tidak ada yang diputar lewat pass-through",
     "chainBitPerfect": "Identik bit",
     "chainResampled": "Di-resample",

@@ -4,6 +4,7 @@ mod devices;
 mod player;
 mod protocol;
 mod resample;
+mod tone;
 mod source;
 
 use player::{start_session, Session};
@@ -25,6 +26,15 @@ fn main() {
             None => eprintln!("usage: folia-audio-helper probe <deviceId>"),
         },
         Some("serve") => serve(),
+        // Diagnostic: tone <device id or name part> [rate=48000] [seconds=3]
+        Some("tone") if args.len() >= 3 => {
+            let rate = args.get(3).and_then(|v| v.parse().ok()).unwrap_or(48_000);
+            let seconds = args.get(4).and_then(|v| v.parse().ok()).unwrap_or(3.0);
+            if let Err(e) = tone::sweep(&args[2], rate, seconds) {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
         // Developer check of the render path: capture <endpoint name part> <rate> <valid bits> <store bits> <seconds> <out.raw>
         Some("capture") if args.len() >= 8 => {
             let parse = |i: usize| args[i].parse::<f64>().unwrap_or(0.0);
@@ -33,7 +43,7 @@ fn main() {
                 std::process::exit(1);
             }
         }
-        _ => eprintln!("usage: folia-audio-helper <devices | probe <deviceId> | serve>"),
+        _ => eprintln!("usage: folia-audio-helper <devices | probe <deviceId> | tone <device> [rate] [seconds] | serve>"),
     }
 }
 
@@ -93,7 +103,7 @@ fn serve() {
                     emit(&Event::State { state: "stopped" });
                 }
             } else if last_position.elapsed() >= POSITION_INTERVAL && !s.shared.paused.load(Ordering::Relaxed) {
-                emit(&Event::Position { sec: s.position_sec(), duration_sec: s.duration_sec, token: s.token });
+                emit(&Event::Position { sec: s.position_sec(), duration_sec: s.duration_sec, token: s.token, peak_db: s.take_peak_db() });
                 last_position = Instant::now();
             }
         }

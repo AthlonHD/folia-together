@@ -23,10 +23,13 @@ interface PassthroughStatusState {
     /** The helper confirmed it holds the sound of the current track. */
     engaged: boolean;
     chain: PassthroughChain | null;
+    /** Peak level of what was last handed to the device, in dBFS (-120 = silence). */
+    levelDb: number | null;
     fallbackReason: PassthroughFallbackReason | null;
     setSilenceWebOutput: (silence: boolean) => void;
     setEngaged: (engaged: boolean) => void;
     setChain: (chain: PassthroughChain | null) => void;
+    setLevelDb: (levelDb: number | null) => void;
     setFallbackReason: (reason: PassthroughFallbackReason | null) => void;
 }
 
@@ -34,10 +37,12 @@ export const usePassthroughStatusStore = create<PassthroughStatusState>((set) =>
     silenceWebOutput: false,
     engaged: false,
     chain: null,
+    levelDb: null,
     fallbackReason: null,
     setSilenceWebOutput: (silenceWebOutput) => set({ silenceWebOutput }),
     setEngaged: (engaged) => set({ engaged }),
     setChain: (chain) => set({ chain }),
+    setLevelDb: (levelDb) => set({ levelDb }),
     setFallbackReason: (fallbackReason) => set({ fallbackReason }),
 }));
 

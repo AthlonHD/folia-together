@@ -96,7 +96,7 @@ pub enum Event {
     Configured { device_id: String },
     Chain { token: u64, chain: Chain },
     State { state: &'static str },
-    Position { sec: f64, duration_sec: f64, token: u64 },
+    Position { sec: f64, duration_sec: f64, token: u64, peak_db: f64 },
     Ended { token: u64 },
     Error { code: String, message: String },
 }

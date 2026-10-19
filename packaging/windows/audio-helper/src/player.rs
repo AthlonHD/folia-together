@@ -62,6 +62,8 @@ pub struct Shared {
     seek_req: Mutex<Option<f64>>,
     out_rate: u32,
     latency_frames: AtomicU64,
+    /// Largest absolute sample handed to the device since it was last read (full scale = 2^31).
+    peak: AtomicU64,
     ring_cap: usize,
 }
 
@@ -90,6 +92,12 @@ impl Session {
     /// True once the whole file is decoded and only the tail still has to be played.
     pub fn is_finishing(&self) -> bool {
         self.shared.decode_done.load(Ordering::SeqCst) && !self.shared.paused.load(Ordering::SeqCst)
+    }
+
+    /// Peak level in dBFS of what was written to the device since the last call; -120 for silence.
+    pub fn take_peak_db(&self) -> f64 {
+        let peak = self.shared.peak.swap(0, Ordering::Relaxed);
+        if peak == 0 { -120.0 } else { (20.0 * (peak as f64 / 2_147_483_648.0).log10()).max(-120.0) }
     }
 
     pub fn seek(&self, sec: f64) {
@@ -156,6 +164,7 @@ pub fn start_session(
         seek_req: Mutex::new(if start_sec > 0.0 { Some(start_sec) } else { None }),
         out_rate: info.rate,
         latency_frames: AtomicU64::new(0),
+        peak: AtomicU64::new(0),
         ring_cap: info.rate as usize * OUT_CHANNELS * RING_SECONDS,
     });
     let _ = ready_tx.send(shared.clone());
@@ -339,6 +348,7 @@ fn render_thread(
             let mut ring = shared.ring.lock().unwrap();
             let available = ring.len() / OUT_CHANNELS;
             let mut done = 0usize;
+            let mut peak = 0u64;
             while done < frames && done < available {
                 if gain != target {
                     gain = if target > gain { (gain + RAMP_STEP).min(1.0) } else { (gain - RAMP_STEP).max(0.0) };
@@ -349,6 +359,7 @@ fn render_thread(
                 for channel in 0..OUT_CHANNELS {
                     let raw = ring.pop_front().unwrap_or(0);
                     let sample = if gain >= 1.0 { raw } else { (raw as f64 * gain as f64) as i32 };
+                    peak = peak.max(sample.unsigned_abs() as u64);
                     pack_sample(sample, layout, &mut bytes[done * block + channel * sample_bytes..]);
                 }
                 done += 1;
@@ -356,6 +367,7 @@ fn render_thread(
             // Ran dry while playing (a seek, a slow disk): restart from silence once data returns instead of jumping in at full level.
             if done > 0 {
                 delivered = true;
+                shared.peak.fetch_max(peak, Ordering::Relaxed);
             }
             if want_play && done < frames && delivered {
                 gain = 0.0;
@@ -396,7 +408,7 @@ fn render_thread(
 }
 
 /// Left-justified 32-bit sample -> the device layout, rounding (never truncating) when bits are dropped.
-fn pack_sample(sample: i32, layout: Layout, out: &mut [u8]) {
+pub(crate) fn pack_sample(sample: i32, layout: Layout, out: &mut [u8]) {
     let drop = 32 - layout.valid_bits as u32;
     let value: i64 = if drop == 0 {
         sample as i64

@@ -59,6 +59,7 @@ const PassthroughGroup: React.FC = () => {
     const setStrategy = usePassthroughSettingsStore(state => state.handleSetPassthroughRateStrategy);
     const setFixedRate = usePassthroughSettingsStore(state => state.handleSetPassthroughFixedRate);
     const chain = usePassthroughStatusStore(state => state.chain);
+    const levelDb = usePassthroughStatusStore(state => state.levelDb);
     const engaged = usePassthroughStatusStore(state => state.engaged);
     const fallbackReason = usePassthroughStatusStore(state => state.fallbackReason);
 
@@ -129,6 +130,7 @@ const PassthroughGroup: React.FC = () => {
             {chain.bitPerfect
                 ? t('passthrough.chainBitPerfect')
                 : chainDepartures(chain).map(key => t(`passthrough.chain${key}`)).join(' / ')}
+            {levelDb !== null && ` · ${t('passthrough.level')} ${levelDb <= -120 ? t('passthrough.levelSilent') : `${levelDb.toFixed(1)} dBFS`}`}
         </>
         : fallbackReason
             ? t(`passthrough.fallback.${fallbackReason}`)

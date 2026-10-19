@@ -41,11 +41,14 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
     const ownSeekRef = useRef(false);
     const reportedReasonRef = useRef<string | null>(null);
 
-    const { setSilenceWebOutput, setEngaged, setChain, setFallbackReason } = usePassthroughStatusStore.getState();
+    const { setSilenceWebOutput, setEngaged, setChain, setFallbackReason, setLevelDb } = usePassthroughStatusStore.getState();
+    // The level is shown about twice a second, not at the helper's ten reports a second.
+    const levelTickRef = useRef(0);
 
     const stand = (reason: ReturnType<typeof toFallbackReason> | null) => {
         setEngaged(false);
         setChain(null);
+        setLevelDb(null);
         setSilenceWebOutput(false);
         setFallbackReason(reason);
         if (reason && reportedReasonRef.current !== reason) {
@@ -86,6 +89,7 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
                     break;
                 }
                 case 'position': {
+                    if (event.token === tokenRef.current && ++levelTickRef.current % 5 === 0) setLevelDb(event.peakDb);
                     if (event.token !== tokenRef.current || !element || element.seeking) return;
                     if (Math.abs(element.currentTime - event.sec) > DRIFT_TOLERANCE_SEC) {
                         ownSeekRef.current = true;

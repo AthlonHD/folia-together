@@ -40,7 +40,7 @@ export type PassthroughHelperEvent =
     | { event: 'ready'; version: string }
     | { event: 'chain'; token: number; chain: PassthroughChain }
     | { event: 'state'; state: 'playing' | 'paused' | 'stopped' }
-    | { event: 'position'; sec: number; durationSec: number; token: number }
+    | { event: 'position'; sec: number; durationSec: number; token: number; peakDb: number }
     | { event: 'ended'; token: number }
     | { event: 'error'; code: string; message: string }
     | { event: 'exit'; code: number | null; signal: string | null };

@@ -24,6 +24,8 @@ export default {
     "probeFailed": "Test failed: {{error}}",
     "probeLine": "{{bits}}-bit: {{rates}} kHz",
     "chain": "Current chain",
+    "level": "Output level",
+    "levelSilent": "silent",
     "chainIdle": "Nothing is playing through pass-through",
     "chainBitPerfect": "Bit-exact",
     "chainResampled": "Resampled",
