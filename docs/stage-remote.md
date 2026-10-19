@@ -79,7 +79,7 @@ Host 上登录的网易云、QQ 音乐、酷狗账号，遥控端可以直接借
 **限制与排查**
 - librespot 直连 Spotify，**不走 HTTP 代理**；API 请求会在直连不通时自动走系统代理。如果你的网络只有「系统代理」没有 TUN / 全局直连，能浏览但播放会失败——开 TUN，或让服务器直连 Spotify。
 - Spotify 可能随时改接口，导致浏览或播放失效；这是第三方实现，不受官方支持，也不符合 Spotify 的使用条款，仅限自用。
-- 没有磁盘缓存（桌面版有）；没有 Intel Mac 之外的平台差异需要处理，服务器是 Windows x64 时如果 librespot 没装上，播放会报「Spotify playback is not available on this system」。
+- 没有磁盘缓存（桌面版有）。服务器上如果 librespot 没装上，播放会报「Spotify playback is not available on this system」，先确认 `node_modules/@lox-audioserver/node-librespot` 存在（`npm install` 会装；Windows x64 有预编译包）。
 - 登录失败或授权页回调不到：确认服务器的 5588 端口没被别的程序占用；日志在中继的黑框里（`[Spotify] …`）。
 - 同一个令牌的访问者共用这一个 Spotify 账号，请只把令牌给信任的人。
 
