@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const { createStageApi } = require('../../electron/stageApi.cjs');
+const { createSpotifyRelay } = require('./spotify.cjs');
 
 const PORT = Number(process.env.STAGE_PORT) || 4100;
 const LISTEN_HOST = process.env.LISTEN_HOST || '0.0.0.0';
@@ -287,12 +288,12 @@ const handleKugouProxy = async (req, res, requestUrl) => {
   return true;
 };
 
-// /stage/player/*(遥控)与 /stage/local/*(Host 的曲库、封面、歌词)必须带令牌;/stage/auth/check 供页面验证令牌。
+// /stage/player/*(遥控)、/stage/local/*(Host 的曲库、封面、歌词)与 /stage/spotify/*(Spotify)必须带令牌;/stage/auth/check 供页面验证令牌。
 // /stage/health 不涉及任何内容,保持公开。
 const handleStageAuth = async (req, res, requestUrl) => {
   const { pathname } = requestUrl;
   const isCheck = pathname === '/stage/auth/check';
-  if (!isCheck && !pathname.startsWith('/stage/player/') && !pathname.startsWith('/stage/local/')) return false;
+  if (!isCheck && !pathname.startsWith('/stage/player/') && !pathname.startsWith('/stage/local/') && !pathname.startsWith('/stage/spotify/')) return false;
   if (req.method === 'OPTIONS') return false;
 
   const limited = isAuthRateLimited();
@@ -306,6 +307,37 @@ const handleStageAuth = async (req, res, requestUrl) => {
   }
   if (!limited) noteFailedAuth();
   sendJson(res, limited ? 429 : 401, { error: limited ? 'Too many failed attempts, try again in a minute.' : 'A valid stage token is required.' });
+  return true;
+};
+
+// ---- Spotify(网页版):桌面版的 Spotify 桥在中继里运行,账号存在服务器本机,带令牌的访问者共用它 ----
+// 懒创建:不用 Spotify 的部署不会加载它(也不会去碰可选的 librespot 原生模块)。
+let spotifyRelay = null;
+const getSpotifyRelay = () => {
+  spotifyRelay ??= createSpotifyRelay();
+  return spotifyRelay;
+};
+const handleSpotify = async (req, res, requestUrl) => {
+  const { pathname } = requestUrl;
+  if (!pathname.startsWith('/stage/spotify/')) return false;
+  if (req.method === 'OPTIONS') return false;
+  try {
+    if (pathname === '/stage/spotify/api') {
+      if (req.method !== 'POST') {
+        sendJson(res, 405, { ok: false, error: { code: 'unsupported', message: 'POST only' } });
+        return true;
+      }
+      await getSpotifyRelay().handleApi(req, res, sendJson);
+      return true;
+    }
+    if ((req.method === 'GET' || req.method === 'HEAD') && await getSpotifyRelay().handleAudio(req, res, requestUrl)) return true;
+  } catch (error) {
+    console.warn('[Relay] Spotify request failed:', error?.message || error);
+    if (!res.headersSent) sendJson(res, 502, { ok: false, error: { code: 'unavailable', message: 'Spotify is not available on this server' } });
+    else res.destroy();
+    return true;
+  }
+  sendJson(res, 404, { ok: false, error: { code: 'unsupported', message: 'Unknown Spotify route' } });
   return true;
 };
 
@@ -495,6 +527,7 @@ stageApi = createStageApi({
     || (await handleNeteaseProxy(req, res, requestUrl))
     || (await handleQqProxy(req, res, requestUrl))
     || (await handleKugouProxy(req, res, requestUrl))
+    || (await handleSpotify(req, res, requestUrl))
     || (await handleHostLocalLibrary(req, res, requestUrl))
   ),
 });

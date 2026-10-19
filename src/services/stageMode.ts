@@ -12,7 +12,7 @@ export type PlayTarget = 'remote' | 'local';
 export const SHARED_ACCOUNT_MARKER = 'shared-with-stage-host';
 
 /** 遥控模式下 Host 能点播的在线音源(账号列表、搜索来源、点歌都以它为准);新增音源要同时让 Host 能凭 { providerId, mediaId } 取详情并播放。 */
-export const REMOTE_PLAYABLE_PROVIDER_IDS: ReadonlySet<string> = new Set(['netease', 'qq', 'kugou']);
+export const REMOTE_PLAYABLE_PROVIDER_IDS: ReadonlySet<string> = new Set(['netease', 'qq', 'kugou', 'spotify']);
 
 const PLAY_TARGET_KEY = 'folia_play_target';
 

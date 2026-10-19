@@ -13,6 +13,13 @@
 - 每次发布：改 `FORK_VERSION`，在本文件最上面加一节（日期、基于的上游版本、分类列出变更），提交信息 `release(together): vX.Y.Z`，打标签 `together-vX.Y.Z`。
 - 合并上游**不单独升 Fork 版本号**，只在下一次 Fork 发布的条目里写明「基于上游 vA.B.C」。
 
+## [Unreleased]
+
+### 新增
+
+- **Spotify 网页版**：桌面版的 Spotify 桥在 Stage 中继里运行，Host 页与遥控页可登录、浏览、搜索、播放（需 Spotify 会员，登录在服务器上做一次）；遥控协议放行 Spotify 音源。详见 [Stage Remote 使用文档](docs/stage-remote.md#spotify网页版)。
+- **合并上游 v0.7.21**（见 `docs/fork-features.md`）。
+
 ## [1.0.0] - 2026-10-15
 
 基于上游 **v0.7.19** 之后的提交。这是第一个有版本号的 Fork 版本，汇总此前全部 Fork 工作（逐条见 [Fork 功能与修复清单](docs/fork-features.md)）。
