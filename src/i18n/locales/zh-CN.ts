@@ -912,6 +912,8 @@ export default {
     "pause": "暂停",
     "close": "关闭",
     "phoneMore": "更多",
+    "audioQualityActual": "实际在播:{{actual}}",
+    "audioQualityDowngraded": "比你选的音质低:实际 {{actual}}(所选 {{requested}})",
     "volume": "音量",
     "automix": "智能过渡",
     "equalizerTitle": "音频效果器",

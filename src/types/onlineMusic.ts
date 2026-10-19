@@ -99,6 +99,19 @@ export interface ProviderAudioSource {
      * playback and the media cache ask.
      */
     preview?: boolean;
+    /**
+     * 本 Fork:平台实际给出的音质(而不是请求的那档),用来在播放条上如实显示。只填平台自己答出来的部分;
+     * 平台不说就不填,界面也就不显示(不拿"请求的档位"冒充实际)。
+     */
+    delivered?: ProviderDeliveredAudio;
+}
+
+export interface ProviderDeliveredAudio {
+    /** 实际给到的档位,与 AudioQualityPreference 同一套词汇。 */
+    level?: AudioQualityPreference;
+    bitrateKbps?: number;
+    /** 编码,如 'FLAC'、'MP3'、'Ogg Vorbis'、'Opus'。 */
+    codec?: string;
 }
 
 export type ProviderSongAvailabilityState = 'playable' | 'unavailable' | 'unknown';

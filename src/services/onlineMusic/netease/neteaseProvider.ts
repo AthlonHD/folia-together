@@ -7,6 +7,7 @@ import type {
     OnlineMusicProvider,
     ProviderCollection,
     ProviderLyricsResult,
+    ProviderDeliveredAudio,
     ProviderSongAvailability,
     ProviderSongReplacement,
     ProviderArtistSummary,
@@ -35,6 +36,22 @@ export const toNeteaseId = (id: MediaId): number => {
     const numericId = Number(id);
     if (!Number.isFinite(numericId)) throw new Error(`Invalid NetEase id: ${String(id)}`);
     return numericId;
+};
+
+// 本 Fork:网易云在响应里写明实际给的档位(level)、码率(br)和编码(type);没写的部分退回请求时的那一档。
+const NETEASE_LEVEL_TO_PREFERENCE: Record<string, AudioQualityPreference> = {
+    standard: 'standard', higher: 'high', exhigh: 'high', lossless: 'lossless', hires: 'hires',
+    jyeffect: 'ultra', sky: 'ultra', dolby: 'ultra', jymaster: 'ultra',
+};
+const neteaseDeliveredOf = (raw: { level?: unknown; br?: unknown; type?: unknown } | undefined, requestedLevel: string): ProviderDeliveredAudio => {
+    const levelName = typeof raw?.level === 'string' && raw.level ? raw.level : requestedLevel;
+    const br = toFiniteNumber(raw?.br);
+    const codec = typeof raw?.type === 'string' && raw.type ? raw.type.toUpperCase() : undefined;
+    return {
+        level: NETEASE_LEVEL_TO_PREFERENCE[levelName],
+        ...(br && br > 0 ? { bitrateKbps: Math.round(br / 1000) } : {}),
+        ...(codec ? { codec } : {}),
+    };
 };
 
 const mapQuality = (quality: AudioQualityPreference): string => {
@@ -371,6 +388,7 @@ export const neteaseProvider: OnlineMusicProvider = {
                     url: String(rawUrl).replace(/^http:/, 'https:'),
                     fetchedAt: Date.now(),
                     quality,
+                    delivered: neteaseDeliveredOf(raw, level),
                     ...(preview ? { preview } : {}),
                     ...(trackGain === undefined ? {} : { replayGain: { trackGain } }),
                 };

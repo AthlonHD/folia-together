@@ -912,6 +912,8 @@ export default {
     "pause": "Jeda",
     "close": "Tutup",
     "phoneMore": "Lainnya",
+    "audioQualityActual": "Sedang diputar: {{actual}}",
+    "audioQualityDowngraded": "Lebih rendah dari kualitas pilihan: diputar {{actual}} (dipilih {{requested}})",
     "volume": "Volume",
     "automix": "Transisi pintar",
     "equalizerTitle": "Efek audio",

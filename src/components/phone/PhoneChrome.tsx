@@ -3,6 +3,7 @@ import { motion, useTransform } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronLeft, Pause, Play, SlidersHorizontal, SkipForward, X } from 'lucide-react';
 import ProgressBar from '../ProgressBar';
+import AudioQualityBadge from '../shared/AudioQualityBadge';
 import { resolvePlayerControlSlot, type PlayerControlSlotContext } from '../floating-player/playerControlSlotActions';
 import type FloatingPlayerControls from '../FloatingPlayerControls';
 import { PlayerState } from '../../types';
@@ -218,6 +219,7 @@ const PhoneChrome: React.FC<PhoneChromeProps> = ({ controls, onBack }) => {
                                 <div className="min-w-0 flex-1">
                                     <div className="truncate text-sm font-semibold" style={{ color: primaryColor }}>{currentSong.name}</div>
                                     {artist && <div className="truncate text-xs" style={{ color: secondaryColor }}>{artist}</div>}
+                                    <AudioQualityBadge color={secondaryColor} className="mt-0.5" />
                                 </div>
                                 <button
                                     type="button"

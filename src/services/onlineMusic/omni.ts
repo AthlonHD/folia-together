@@ -39,6 +39,7 @@ import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAcc
 import { getPlaybackSourceRef } from '../../utils/appPlaybackGuards';
 import { toSafePlaybackUrl } from '../../utils/appPlaybackHelpers';
 import { saveSongReplayGain } from './resourceCache';
+import { noteDeliveredAudio } from './deliveredAudio';
 import {
     getOnlineMusicProvider,
     getOnlineMusicProviderForSong,
@@ -858,6 +859,8 @@ export const omni = {
         // may be the one that happens to see it. See getCachedSongReplayGain for what is lost
         // otherwise: the URL is never fetched again once the bytes are cached.
         if (source?.replayGain) void saveSongReplayGain(song, source.replayGain);
+        // 本 Fork:平台实际给的音质记下来(连同用户选的那档),播放条据此如实显示。
+        if (source?.delivered) noteDeliveredAudio(song, quality, source.delivered);
         // The level asked for, not `source.quality`: a provider may serve a lower one, and a reader
         // of the media cache asks with the level the preference resolves to. Noted before the hook
         // below, so a URL an extension swaps in stays of an unknown level, and is not known to be a

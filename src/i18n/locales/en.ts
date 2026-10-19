@@ -912,6 +912,8 @@ export default {
     "pause": "Pause",
     "close": "Close",
     "phoneMore": "More",
+    "audioQualityActual": "Now playing: {{actual}}",
+    "audioQualityDowngraded": "Lower than the quality you chose: playing {{actual}} (chosen {{requested}})",
     "volume": "Volume",
     "automix": "Smart transition",
     "equalizerTitle": "Audio effects",

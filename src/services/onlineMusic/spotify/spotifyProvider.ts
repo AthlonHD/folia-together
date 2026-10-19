@@ -1,5 +1,5 @@
 import type { UnifiedSong } from '../../../types';
-import type { OnlineMusicProvider, ProviderUser, LoginState } from '../../../types/onlineMusic';
+import type { OnlineMusicProvider, ProviderDeliveredAudio, ProviderUser, LoginState } from '../../../types/onlineMusic';
 import { createProviderSongMetadata } from '../../../utils/songMetadata';
 import { parseLyricsByFormat } from '../../../utils/lyrics/parserCore';
 import { formatLrcTimestamp } from '../../../utils/lyrics/lrcTimestamp';
@@ -60,6 +60,15 @@ let activeLogin: SpotifyWireLoginStart | null = null;
 // The desktop side asks for pages in the app's language; an album or artist read before the
 // language changed is named in the previous one.
 i18n.on('languageChanged', clearSpotifyCatalogCache);
+
+// Spotify 答的文件格式,如 OGG_VORBIS_320 / OGG_VORBIS_160 / MP3_256:码率与编码都在里面。
+const spotifyDeliveredOf = (format: string): ProviderDeliveredAudio | undefined => {
+    const match = /^(OGG_VORBIS|MP3|AAC\w*|FLAC)_(\d+)/.exec(String(format));
+    if (!match) return undefined;
+    const bitrateKbps = Number(match[2]);
+    const codec = match[1] === 'OGG_VORBIS' ? 'Ogg Vorbis' : match[1].replace(/_.*/, '');
+    return { codec, bitrateKbps, level: bitrateKbps >= 256 ? 'high' : 'standard' };
+};
 
 export const spotifyProvider: OnlineMusicProvider = {
     id: 'spotify', displayName: 'Spotify', shortName: 'Spotify',
@@ -133,7 +142,7 @@ export const spotifyProvider: OnlineMusicProvider = {
             const startedAt = Date.now();
             const audio = await requestSpotify<SpotifyWireAudio>('audio', { id, quality });
             console.log(`[Spotify] Audio for "${song.name}" (${id}) is ready as ${audio.format} after ${Date.now() - startedAt}ms`);
-            return { url: audio.url, fetchedAt: Date.now(), quality };
+            return { url: audio.url, fetchedAt: Date.now(), quality, delivered: spotifyDeliveredOf(audio.format) };
         },
         // Spotify's files stay out of the media cache. The desktop side keeps them on disk as
         // Spotify sends them, encrypted and without their key, under the media cache's size limit.

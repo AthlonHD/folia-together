@@ -98,7 +98,13 @@ export const ytmProvider: OnlineMusicProvider = {
             const served = audio.level ?? quality;
             const format = audio.itag ? ` (itag ${audio.itag}, ${Math.round((audio.bitrate ?? 0) / 1000)} kbit/s)` : '';
             console.log(`[Ytm] Audio for "${song.name}" (${id}) at ${quality}${served === quality ? '' : ` (served at ${served})`} is ready by the ${audio.route} route${format} after ${Date.now() - startedAt}ms`);
-            return { url: audio.url, fetchedAt: Date.now(), quality: served };
+            // itag 的编码:251/250/249 是 Opus,140/141 是 AAC;其他不猜。
+            const codec = audio.itag && [249, 250, 251].includes(audio.itag) ? 'Opus' : audio.itag && [139, 140, 141].includes(audio.itag) ? 'AAC' : undefined;
+            const bitrateKbps = audio.bitrate ? Math.round(audio.bitrate / 1000) : undefined;
+            return {
+                url: audio.url, fetchedAt: Date.now(), quality: served,
+                ...(codec || bitrateKbps ? { delivered: { level: served, ...(codec ? { codec } : {}), ...(bitrateKbps ? { bitrateKbps } : {}) } } : {}),
+            };
         },
     },
     lyrics: {

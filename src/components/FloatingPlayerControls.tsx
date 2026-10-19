@@ -1,3 +1,4 @@
+import AudioQualityBadge from './shared/AudioQualityBadge';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -530,6 +531,7 @@ const ExpandedView: React.FC<ExpandedViewProps> = ({
                         {currentSong?.name || noTrackText}
                     </div>
                 )}
+                <div className="mt-0.5 flex justify-center"><AudioQualityBadge color={primaryColor} /></div>
             </div>
 
             {/* Row 3: Loop Button, Play Button, Lyrics Button */}
