@@ -26,3 +26,14 @@ describe('the quality that is actually playing', () => {
         expect(describeDeliveredAudio({ level: 'high', codec: 'Ogg Vorbis', bitrateKbps: 320 })).toBe('Ogg Vorbis · 320k');
     });
 });
+
+describe('each platform lists the levels it really has', () => {
+    it('offers NetEase its two tiers above Hi-Res, and asks the API for them by their own names', async () => {
+        const { omni } = await import('@/services/onlineMusic/omni');
+        expect(omni.getAudioQualityLevels('netease')).toContain('master');
+        expect(omni.getAudioQualityLabel('netease', 'high')).toBe('320k');
+        expect(omni.getAudioQualityLevels('qq')).toEqual(['standard', 'high', 'lossless']);
+        expect(omni.resolveAudioQuality('qq', 'hires')).toBe('lossless');
+        expect(omni.resolveAudioQuality('netease', 'master')).toBe('master');
+    });
+});

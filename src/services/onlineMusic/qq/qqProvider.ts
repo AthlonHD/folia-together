@@ -64,6 +64,17 @@ const QQ_QUALITY_FALLBACKS: Record<
         { apiQuality: '320', resolvedQuality: 'high' },
         { apiQuality: '128', resolvedQuality: 'standard' },
     ],
+    // 本 Fork:QQ 只列 standard / high / lossless 三档,下面两档不会被问到;只为类型。
+    spatial: [
+        { apiQuality: 'flac', resolvedQuality: 'lossless' },
+        { apiQuality: '320', resolvedQuality: 'high' },
+        { apiQuality: '128', resolvedQuality: 'standard' },
+    ],
+    master: [
+        { apiQuality: 'flac', resolvedQuality: 'lossless' },
+        { apiQuality: '320', resolvedQuality: 'high' },
+        { apiQuality: '128', resolvedQuality: 'standard' },
+    ],
 };
 
 const getQqSongMid = (song: SongResult): string => {
@@ -1037,7 +1048,13 @@ export const qqProvider: OnlineMusicProvider = {
         return songmid ? `https://y.qq.com/n/ryqq/songDetail/${encodeURIComponent(songmid)}` : null;
     },
     search: { searchSongs: searchQqSongs },
-    playback: { getSongDetail: getQqSongDetail, getAudioSource },
+    playback: {
+        // 本 Fork:QQ 的后端只有 128 / 320 / flac 三档,没有 Hi-Res:选了更高的就是 FLAC。
+        audioQualityLevels: ['standard', 'high', 'lossless'],
+        audioQualityLabels: { standard: '128k', high: '320k', lossless: 'FLAC' },
+        getSongDetail: getQqSongDetail,
+        getAudioSource,
+    },
     lyrics: { getLyrics },
     auth: {
         getLoginTexts: () => ({

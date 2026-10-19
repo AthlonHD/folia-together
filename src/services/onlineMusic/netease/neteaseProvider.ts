@@ -41,7 +41,7 @@ export const toNeteaseId = (id: MediaId): number => {
 // 本 Fork:网易云在响应里写明实际给的档位(level)、码率(br)和编码(type);没写的部分退回请求时的那一档。
 const NETEASE_LEVEL_TO_PREFERENCE: Record<string, AudioQualityPreference> = {
     standard: 'standard', higher: 'high', exhigh: 'high', lossless: 'lossless', hires: 'hires',
-    jyeffect: 'ultra', sky: 'ultra', dolby: 'ultra', jymaster: 'ultra',
+    jyeffect: 'spatial', vivid: 'spatial', sky: 'spatial', dolby: 'spatial', jymaster: 'master',
 };
 const neteaseDeliveredOf = (raw: { level?: unknown; br?: unknown; type?: unknown } | undefined, requestedLevel: string): ProviderDeliveredAudio => {
     const levelName = typeof raw?.level === 'string' && raw.level ? raw.level : requestedLevel;
@@ -57,6 +57,9 @@ const neteaseDeliveredOf = (raw: { level?: unknown; br?: unknown; type?: unknown
 const mapQuality = (quality: AudioQualityPreference): string => {
     if (quality === 'standard') return 'standard';
     if (quality === 'high') return 'exhigh';
+    // 本 Fork:高清臻音 / 超清母带在网易云接口里叫 jyeffect / jymaster。
+    if (quality === 'spatial') return 'jyeffect';
+    if (quality === 'master') return 'jymaster';
     return quality;
 };
 
@@ -66,6 +69,8 @@ const mapQuality = (quality: AudioQualityPreference): string => {
  * "高"和"标准"只请求一次(上游的约定:不做客户端音质回退,失败按原因如实报告)。
  */
 const QUALITY_FALLBACK_LADDER: Record<AudioQualityPreference, string[]> = {
+    master: ['jymaster', 'jyeffect', 'hires', 'lossless', 'exhigh', 'standard'],
+    spatial: ['jyeffect', 'hires', 'lossless', 'exhigh', 'standard'],
     hires: ['hires', 'lossless', 'exhigh', 'standard'],
     lossless: ['lossless', 'exhigh', 'standard'],
     ultra: ['exhigh'],
@@ -80,7 +85,7 @@ const QUALITY_FALLBACK_LADDER: Record<AudioQualityPreference, string[]> = {
 const mapScrobbleQuality = (quality?: AudioQualityPreference): { level: string; bitrate: number } => {
     if (quality === 'standard') return { level: 'standard', bitrate: 128 };
     if (quality === 'lossless') return { level: 'lossless', bitrate: 999 };
-    if (quality === 'hires') return { level: 'hires', bitrate: 1999 };
+    if (quality === 'hires' || quality === 'spatial' || quality === 'master') return { level: 'hires', bitrate: 1999 };
     return { level: 'exhigh', bitrate: 320 };
 };
 
@@ -349,6 +354,10 @@ export const neteaseProvider: OnlineMusicProvider = {
         },
     },
     playback: {
+        // 本 Fork:网易云真有的档位(接口 level:standard / exhigh / lossless / hires / jyeffect / jymaster);
+        // 杜比全景声 / 沉浸环绕声是多声道格式,浏览器放不了,不列。标注是各档的实际规格。
+        audioQualityLevels: ['standard', 'high', 'lossless', 'hires', 'spatial', 'master'],
+        audioQualityLabels: { standard: '128k', high: '320k', lossless: 'FLAC', hires: '24bit/192kHz', master: '24bit/192kHz' },
         async getSongDetail(id) {
             const response = await neteaseApi.getSongDetail(toNeteaseId(id));
             const raw = response?.songs?.[0];

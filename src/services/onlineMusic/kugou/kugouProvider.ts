@@ -664,7 +664,7 @@ const normalizeKugouSearchSongs = (rawItems: any[]): UnifiedSong[] => {
 };
 
 const qualityValue = (quality: AudioQualityPreference): string => ({
-    standard: '128', high: '320', ultra: '320', lossless: 'flac', hires: 'high',
+    standard: '128', high: '320', ultra: '320', lossless: 'flac', hires: 'high', spatial: 'high', master: 'high',
 })[quality];
 
 const QUALITY_FALLBACKS: Record<AudioQualityPreference, AudioQualityPreference[]> = {
@@ -674,6 +674,9 @@ const QUALITY_FALLBACKS: Record<AudioQualityPreference, AudioQualityPreference[]
     ultra: ['high', 'standard'],
     lossless: ['lossless', 'high', 'standard'],
     hires: ['hires', 'lossless', 'high', 'standard'],
+    // 本 Fork:酷狗不列这两档,不会被问到;只为类型。
+    spatial: ['hires', 'lossless', 'high', 'standard'],
+    master: ['hires', 'lossless', 'high', 'standard'],
 };
 
 const qualityFallbacks = (quality: AudioQualityPreference): AudioQualityPreference[] => QUALITY_FALLBACKS[quality];
@@ -1048,6 +1051,9 @@ export const kugouProvider: OnlineMusicProvider = {
         },
     },
     playback: {
+        // 本 Fork:酷狗的四档(接口 128 / 320 / flac / high),标注各档的实际规格。
+        audioQualityLevels: ['standard', 'high', 'lossless', 'hires'],
+        audioQualityLabels: { standard: '128k', high: '320k', lossless: 'FLAC' },
         async getSongDetail(id) {
             const response = await requestKugou('audio', { hash: String(id) });
             const item = listOf(response)[0] ?? dataOf(response);

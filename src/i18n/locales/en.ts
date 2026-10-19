@@ -1227,6 +1227,8 @@ export default {
     "qualityUltra": "Ultra High",
     "qualityLossless": "Lossless",
     "qualityHires": "Hi-Res",
+    "qualitySpatial": "Spatial HD",
+    "qualityMaster": "Master",
     "vipOnly": "VIP Only"
   },
   "playlist": {

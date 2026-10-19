@@ -1227,6 +1227,8 @@ export default {
     "qualityUltra": "超高",
     "qualityLossless": "无损",
     "qualityHires": "Hi-Res",
+    "qualitySpatial": "高清臻音",
+    "qualityMaster": "超清母带",
     "vipOnly": "VIP 专属"
   },
   "playlist": {

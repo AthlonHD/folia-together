@@ -82,6 +82,7 @@ export const ytmProvider: OnlineMusicProvider = {
         // level (`pickAudioFormat` in electron/ytm/ytmApiBridge.cjs). 'ultra' (about 256 kbit/s)
         // is offered to a Premium member only: it is listed while the signed-in account has Premium
         // and for nobody else (ytmAccount.ts).
+        audioQualityLabels: { standard: '≈64k Opus', high: '≈160k Opus', ultra: '≈256k AAC' },
         get audioQualityLevels() {
             return ytmHasPremium() ? ['standard', 'high', 'ultra'] as const : ['standard', 'high'] as const;
         },

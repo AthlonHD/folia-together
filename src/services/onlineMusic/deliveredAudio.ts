@@ -41,7 +41,7 @@ export const useDeliveredAudio = (song: SongResult | null | undefined): Delivere
     useSyncExternalStore(subscribe, () => getDeliveredAudio(song))
 );
 
-const RANK: Record<AudioQualityPreference, number> = { standard: 0, high: 1, ultra: 2, lossless: 3, hires: 4 };
+const RANK: Record<AudioQualityPreference, number> = { standard: 0, high: 1, ultra: 2, lossless: 3, hires: 4, spatial: 5, master: 6 };
 
 /** 实际给的档位比用户选的低(平台给不出、或这一档是会员档)。档位不明时不下结论。 */
 export const isDowngraded = (entry: DeliveredAudioEntry): boolean => (
@@ -50,7 +50,7 @@ export const isDowngraded = (entry: DeliveredAudioEntry): boolean => (
 
 /** 如 "Hi-Res · FLAC"、"无损 FLAC"、"MP3 320k"。 */
 export const describeDeliveredAudio = (entry: ProviderDeliveredAudio): string => {
-    const tier = entry.level === 'hires' ? 'Hi-Res' : entry.level === 'lossless' ? 'Lossless' : '';
+    const tier = entry.level === 'master' ? 'Master' : entry.level === 'spatial' ? 'Spatial' : entry.level === 'hires' ? 'Hi-Res' : entry.level === 'lossless' ? 'Lossless' : '';
     const lossyRate = !tier && entry.bitrateKbps ? `${entry.bitrateKbps}k` : '';
     return [tier, entry.codec, lossyRate].filter(Boolean).join(' · ') || (entry.level ?? '');
 };

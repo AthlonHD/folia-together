@@ -6,10 +6,11 @@ export type MediaId = string | number;
 export type OnlineProviderId = 'netease' | (string & {});
 // The provider that is active where none was chosen, or where the one chosen is not there.
 export const DEFAULT_ONLINE_PROVIDER_ID: OnlineProviderId = 'netease';
-// Lowest first as `omni` orders them: standard, high, ultra, lossless, hires. 'ultra' is a level
+// Lowest first as `omni` orders them: standard, high, ultra, lossless, hires, spatial, master ('spatial' and 'master' are
+// 本 Fork 的两档更高的音质,只有列出它们的平台才会被问到). 'ultra' is a level
 // only for a provider that lists it (YouTube Music, for a Premium member); everywhere else a stored
 // 'ultra' stands for 'high'.
-export type AudioQualityPreference = 'standard' | 'high' | 'ultra' | 'lossless' | 'hires';
+export type AudioQualityPreference = 'standard' | 'high' | 'ultra' | 'lossless' | 'hires' | 'spatial' | 'master';
 export type ProviderCatalogEntityKind = 'album' | 'artist' | 'playlist';
 
 export interface ProviderCatalogRef {

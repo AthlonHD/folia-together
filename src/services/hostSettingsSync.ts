@@ -38,7 +38,7 @@ const isFiniteNumber = (value: unknown): value is number => typeof value === 'nu
 const ENTRIES: Record<string, HostSettingEntry> = {
     audioQuality: {
         read: () => audio().audioQuality,
-        validate: value => value === 'standard' || value === 'high' || value === 'lossless' || value === 'hires',
+        validate: value => value === 'standard' || value === 'high' || value === 'ultra' || value === 'lossless' || value === 'hires' || value === 'spatial' || value === 'master',
         hostApply: value => audio().setAudioQuality(value),
         mirrorApply: value => useAudioSettingsStore.setState({ audioQuality: value }),
     },

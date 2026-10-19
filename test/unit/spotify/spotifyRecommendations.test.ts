@@ -149,8 +149,8 @@ describe('quality levels', () => {
         expect(asked('audio')[0][1]).toEqual({ id: id('a'), quality: 'high' });
     });
 
-    it('leaves a provider that lists no levels with all four', () => {
-        expect(omni.getAudioQualityLevels('netease')).toEqual(['standard', 'high', 'lossless', 'hires']);
+    it('lists the levels NetEase really has, two above Hi-Res included', () => {
+        expect(omni.getAudioQualityLevels('netease')).toEqual(['standard', 'high', 'lossless', 'hires', 'spatial', 'master']);
         expect(omni.resolveAudioQuality('netease', 'hires')).toBe('hires');
     });
 });

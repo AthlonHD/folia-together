@@ -1227,6 +1227,8 @@ export default {
     "qualityUltra": "Ultra Tinggi",
     "qualityLossless": "Lossless",
     "qualityHires": "Hi-Res",
+    "qualitySpatial": "Spatial HD",
+    "qualityMaster": "Master",
     "vipOnly": "Hanya VIP"
   },
   "playlist": {
