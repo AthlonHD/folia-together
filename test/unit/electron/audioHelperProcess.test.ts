@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const { createAudioHelperProcess } = require('../../../electron/audioHelper/helperProcess.cjs') as typeof import('../../../electron/audioHelper/helperProcess.cjs');
-const { stageSource } = require('../../../electron/audioHelper/stageSource.cjs') as typeof import('../../../electron/audioHelper/stageSource.cjs');
+const { stageSource, beginStage, HEAD_START_BYTES } = require('../../../electron/audioHelper/stageSource.cjs') as typeof import('../../../electron/audioHelper/stageSource.cjs');
 
 const directories: string[] = [];
 const scratch = () => {
@@ -67,6 +67,84 @@ describe('stageSource', () => {
             await stageSource({ directory, source: { kind: 'bytes', bytes: new Uint8Array([i, i + 1]).buffer } });
         }
         expect(readdirSync(directory).length).toBeLessThanOrEqual(6);
+    });
+});
+
+describe('beginStage', () => {
+    // A download whose body is released in pieces the test controls.
+    const slowResponse = (total: number, first: number) => {
+        let release!: () => void;
+        const rest = new Promise<void>((resolve) => { release = resolve; });
+        const body = new ReadableStream<Uint8Array>({
+            async start(controller) {
+                controller.enqueue(new Uint8Array(first).fill(1));
+                await rest;
+                controller.enqueue(new Uint8Array(total - first).fill(2));
+                controller.close();
+            },
+        });
+        return { release, response: new Response(body, { headers: { 'content-length': String(total) } }) };
+    };
+
+    it('hands the song over once the first part is on disk, before the rest has arrived', async () => {
+        const directory = scratch();
+        const total = HEAD_START_BYTES * 3;
+        const { release, response } = slowResponse(total, HEAD_START_BYTES);
+        const staged = await beginStage({ directory, source: { kind: 'url', url: 'https://example.com/a.flac' }, fetchImpl: (async () => response) as typeof fetch });
+        expect(staged.growing).toBe(true);
+        expect(staged.totalBytes).toBe(total);
+        expect(staged.path.endsWith('.part')).toBe(true);
+        expect(existsSync(staged.path)).toBe(true);
+        release();
+        const finalPath = await staged.done;
+        expect(finalPath.endsWith('.part')).toBe(false);
+        expect(readFileSync(finalPath).length).toBe(total);
+        expect(existsSync(staged.path)).toBe(false);
+    });
+
+    it('hands over the finished file when everything fits in the head start', async () => {
+        const staged = await beginStage({
+            directory: scratch(),
+            source: { kind: 'url', url: 'https://example.com/small.flac' },
+            fetchImpl: (async () => new Response(new Uint8Array(1000), { headers: { 'content-length': '1000' } })) as typeof fetch,
+        });
+        expect(staged.growing).toBe(false);
+        expect(readFileSync(staged.path).length).toBe(1000);
+    });
+
+    it('waits for the whole file when its size is not announced', async () => {
+        const staged = await beginStage({
+            directory: scratch(),
+            source: { kind: 'url', url: 'https://example.com/unknown.flac' },
+            fetchImpl: (async () => new Response(new Uint8Array(5000))) as typeof fetch,
+        });
+        expect(staged.growing).toBe(false);
+        expect(readFileSync(staged.path).length).toBe(5000);
+    });
+
+    it('stops a download that is no longer wanted and leaves no partial file', async () => {
+        const directory = scratch();
+        const controller = new AbortController();
+        const total = HEAD_START_BYTES * 3;
+        const staged = await beginStage({
+            directory,
+            source: { kind: 'url', url: 'https://example.com/gone.flac' },
+            fetchImpl: (async (_url: unknown, init?: RequestInit) => {
+                // Like a real fetch: aborting errors the body that is being read.
+                const body = new ReadableStream<Uint8Array>({
+                    start(stream) {
+                        stream.enqueue(new Uint8Array(HEAD_START_BYTES).fill(1));
+                        init?.signal?.addEventListener('abort', () => stream.error(new Error('aborted')));
+                    },
+                });
+                return new Response(body, { headers: { 'content-length': String(total) } });
+            }) as typeof fetch,
+            signal: controller.signal,
+        });
+        expect(staged.growing).toBe(true);
+        controller.abort();
+        await expect(staged.done).rejects.toThrow();
+        expect(readdirSync(directory).filter((name) => name.endsWith('.part'))).toEqual([]);
     });
 });
 

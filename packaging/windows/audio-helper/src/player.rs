@@ -57,7 +57,7 @@ fn rate_candidates(target: u32) -> Vec<u32> {
 pub struct Shared {
     ring: Mutex<VecDeque<i32>>,
     space: Condvar,
-    stop: AtomicBool,
+    stop: Arc<AtomicBool>,
     pub paused: AtomicBool,
     decode_done: AtomicBool,
     pub ended: AtomicBool,
@@ -131,8 +131,11 @@ pub fn start_session(
     start_sec: f64,
     autoplay: bool,
     token: u64,
+    growing_total: Option<u64>,
 ) -> Result<Session, (String, String)> {
-    let source = Source::open(path).map_err(|e| ("decode-failed".to_string(), e))?;
+    // Set when the session ends: it also ends a read that is waiting for the download.
+    let stop_flag = Arc::new(AtomicBool::new(false));
+    let source = Source::open(path, growing_total, stop_flag.clone()).map_err(|e| ("decode-failed".to_string(), e))?;
     let target = if strategy == RateStrategy::Fixed { fixed_rate } else { source.info.rate };
     let layouts = layout_order(source.info.bits);
     let rates = rate_candidates(target);
@@ -160,7 +163,7 @@ pub fn start_session(
     let shared = Arc::new(Shared {
         ring: Mutex::new(VecDeque::new()),
         space: Condvar::new(),
-        stop: AtomicBool::new(false),
+        stop: stop_flag,
         paused: AtomicBool::new(!autoplay),
         decode_done: AtomicBool::new(false),
         ended: AtomicBool::new(false),

@@ -26,6 +26,9 @@ pub enum Command {
         autoplay: bool,
         #[serde(default)]
         token: u64,
+        /// The file is still being written; this is the size it will have (the song starts playing before the download ends).
+        #[serde(default)]
+        total_bytes: Option<u64>,
     },
     Play,
     Pause,

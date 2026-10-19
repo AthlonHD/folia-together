@@ -5,6 +5,10 @@
 // into a file path the helper can open. Staged files live in one directory and the oldest are removed, so pass-through never grows the
 // disk without bound. Audio that arrives through the app's own schemes (decrypted or transcoded by the app) is staged as an ephemeral
 // `eph-` file: it is removed as soon as the next track is staged and when the app starts or quits, never kept as a cache.
+//
+// A song that has to be downloaded is handed over as soon as its first part is on disk (`beginStage` resolves then), while the rest keeps
+// arriving into a `.part` file: the helper reads that file as it grows (see GrowingFile in the helper), so the song starts in a fraction
+// of a second instead of after the whole download. `done` settles when the file is complete and has been renamed to its final name.
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -13,6 +17,8 @@ const { fileURLToPath } = require('url');
 
 const KEEP_STAGED_FILES = 6;
 const EPHEMERAL_PREFIX = 'eph-';
+/** How much of a download must be on disk before the song is handed to the helper (it needs the header and the first frames). */
+const HEAD_START_BYTES = 512 * 1024;
 
 const hashOf = (text) => crypto.createHash('sha1').update(text).digest('hex').slice(0, 24);
 
@@ -50,22 +56,63 @@ const writeAtomically = async (finalPath, writeInto) => {
     await fs.promises.rename(partPath, finalPath);
 };
 
-const download = async (fetchImpl, url, target) => {
-    const response = await fetchImpl(url);
+/**
+ * Starts downloading `url` into `target`. Resolves, as `ready`, once enough is on disk to start playing (or the whole file, if it is
+ * smaller), with the path to read from (`target.part` while it is coming in) and the size the file will have. `done` settles at the end.
+ * Without a known size nothing can be played before the end, so the file is simply downloaded whole and `ready` follows `done`.
+ */
+const startDownload = async (fetchImpl, url, target, signal) => {
+    const response = await fetchImpl(url, signal ? { signal } : undefined);
     if (!response.ok || !response.body) throw new Error(`download failed: HTTP ${response.status}`);
-    await writeAtomically(target, async (part) => {
-        const out = fs.createWriteStream(part);
+    const total = Number(response.headers.get('content-length')) || 0;
+    const partPath = `${target}.part`;
+    const out = fs.createWriteStream(partPath);
+    const threshold = total ? Math.min(total, HEAD_START_BYTES) : Infinity;
+
+    let flushed = 0;
+    let signalReady;
+    let failReady;
+    const ready = new Promise((resolve, reject) => {
+        signalReady = resolve;
+        failReady = reject;
+    });
+
+    const done = (async () => {
         const reader = response.body.getReader();
         try {
             for (;;) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                if (!out.write(value)) await new Promise((resolve) => out.once('drain', resolve));
+                const { done: finished, value } = await reader.read();
+                if (finished) break;
+                await new Promise((resolve, reject) => {
+                    out.write(value, (error) => (error ? reject(error) : resolve()));
+                });
+                flushed += value.length;
+                if (flushed >= threshold) signalReady();
             }
-        } finally {
             await new Promise((resolve) => out.end(resolve));
+            await fs.promises.rename(partPath, target);
+            signalReady();
+            return target;
+        } catch (error) {
+            out.destroy();
+            await fs.promises.unlink(partPath).catch(() => {});
+            failReady(error);
+            throw error;
+        } finally {
+            reader.releaseLock?.();
         }
-    });
+    })();
+    // A failure nobody awaits (the caller moved on) must not become an unhandled rejection.
+    done.catch(() => {});
+    ready.catch(() => {});
+
+    await ready;
+    // Everything arrived within the head start (or the size is unknown, and `ready` only came at the end): hand over the finished file.
+    if (!total || flushed >= total) {
+        const finalPath = await done;
+        return { path: finalPath, totalBytes: total, growing: false, done };
+    }
+    return { path: partPath, totalBytes: total, growing: true, done };
 };
 
 /**
@@ -74,11 +121,14 @@ const download = async (fetchImpl, url, target) => {
  *   source: { kind: 'url', url: string } | { kind: 'bytes', bytes: ArrayBuffer | Uint8Array, ext?: string },
  *   fetchImpl?: typeof fetch,          // fetch that understands the app's own schemes (Electron's net.fetch); plain fetch otherwise
  *   customSchemes?: string[],          // schemes (without the colon) answered by the app itself
+ *   signal?: AbortSignal,              // ends a download that is no longer wanted (the song was replaced)
  * }} options
- * @returns {Promise<string>} absolute path of a readable file
+ * @returns {Promise<{ path: string, growing: boolean, totalBytes: number, done: Promise<string> }>}
+ *   `path` is readable now; when `growing`, it is a file still being written, `totalBytes` its final size, and `done` settles when complete.
  */
-async function stageSource({ directory, source, fetchImpl = fetch, customSchemes = [] }) {
+async function beginStage({ directory, source, fetchImpl = fetch, customSchemes = [], signal }) {
     await fs.promises.mkdir(directory, { recursive: true });
+    const complete = (file) => ({ path: file, growing: false, totalBytes: 0, done: Promise.resolve(file) });
 
     if (source.kind === 'bytes') {
         const buffer = Buffer.from(source.bytes);
@@ -88,29 +138,34 @@ async function stageSource({ directory, source, fetchImpl = fetch, customSchemes
         if (!fs.existsSync(target)) await writeAtomically(target, (part) => fs.promises.writeFile(part, buffer));
         await prune(directory, name);
         await cleanEphemeral(directory);
-        return target;
+        return complete(target);
     }
 
     if (source.kind === 'url') {
         const url = new URL(source.url);
-        if (url.protocol === 'file:') return fileURLToPath(url);
+        if (url.protocol === 'file:') return complete(fileURLToPath(url));
 
         if (url.protocol === 'http:' || url.protocol === 'https:') {
             const name = hashOf(source.url);
             const target = path.join(directory, name);
-            if (!fs.existsSync(target)) await download(fetchImpl, source.url, target);
+            if (fs.existsSync(target)) {
+                await prune(directory, name);
+                await cleanEphemeral(directory);
+                return complete(target);
+            }
+            const started = await startDownload(fetchImpl, source.url, target, signal);
             await prune(directory, name);
             await cleanEphemeral(directory);
-            return target;
+            return started;
         }
 
         if (customSchemes.includes(url.protocol.replace(/:$/, ''))) {
             // Addresses of the app's own schemes are one-off (they carry a key issued for this play), and what they answer was decrypted
             // or converted by the app: kept only for as long as this track needs it.
             const target = path.join(directory, `${EPHEMERAL_PREFIX}${hashOf(`${source.url}:${Date.now()}`)}`);
-            await download(fetchImpl, source.url, target);
-            await cleanEphemeral(directory, target);
-            return target;
+            const started = await startDownload(fetchImpl, source.url, target, signal);
+            await cleanEphemeral(directory, started.path);
+            return started;
         }
 
         throw new Error(`unsupported source scheme: ${url.protocol}`);
@@ -119,4 +174,10 @@ async function stageSource({ directory, source, fetchImpl = fetch, customSchemes
     throw new Error('unknown source kind');
 }
 
-module.exports = { stageSource, cleanEphemeral, EPHEMERAL_PREFIX };
+/** The whole file, once it is complete: what the staging was before it could start early. */
+async function stageSource(options) {
+    const staged = await beginStage(options);
+    return staged.done;
+}
+
+module.exports = { beginStage, stageSource, cleanEphemeral, EPHEMERAL_PREFIX, HEAD_START_BYTES };

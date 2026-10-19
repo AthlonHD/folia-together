@@ -145,7 +145,7 @@ fn handle(cmd: Command, config: &mut Config, session: &mut Option<Session>) {
             config.mode = mode;
             emit(&Event::Configured { device_id });
         }
-        Command::Load { path, start_sec, autoplay, token } => {
+        Command::Load { path, start_sec, autoplay, token, total_bytes } => {
             // Release the device before reopening it: an exclusive endpoint cannot be opened twice.
             if let Some(old) = session.take() {
                 // The page moves to the next track the moment its own clock ends; let the last buffers of this one finish first.
@@ -157,7 +157,7 @@ fn handle(cmd: Command, config: &mut Config, session: &mut Option<Session>) {
                 }
                 old.stop();
             }
-            match start_session(&path, &config.device_id, config.strategy, config.fixed_rate, config.mode, start_sec, autoplay, token) {
+            match start_session(&path, &config.device_id, config.strategy, config.fixed_rate, config.mode, start_sec, autoplay, token, total_bytes) {
                 Ok(s) => {
                     emit(&Event::State { state: if autoplay { "playing" } else { "paused" } });
                     *session = Some(s);

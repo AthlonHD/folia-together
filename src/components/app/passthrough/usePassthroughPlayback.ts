@@ -41,6 +41,8 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
     // Set around our own element.currentTime writes so the 'seeking' they cause is not sent back to the helper.
     const ownSeekRef = useRef(false);
     const reportedReasonRef = useRef<string | null>(null);
+    // The song ran to its end on its own: the helper is still playing out its last buffers, and the next song must not cut them off.
+    const endedNaturallyRef = useRef(false);
     // When the page last told the helper to move: its position reports from just before it took effect are old news and must not pull the page back.
     const lastMoveAtRef = useRef(0);
 
@@ -139,6 +141,10 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
 
         const token = ++tokenRef.current;
         let cancelled = false;
+        // Another song was asked for (a skip): the old one must stop sounding now, not when the new one has been fetched. A song that ended
+        // by itself is left to finish its tail; the helper replaces it when the next one loads.
+        if (!endedNaturallyRef.current) void api.stop();
+        endedNaturallyRef.current = false;
         // Route the element through the audio graph first, then silence it: the other order lets the first moments out of the speakers.
         setupAudioAnalyzer();
         setSilenceWebOutput(true);
@@ -175,6 +181,7 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
 
         const onPlay = () => void api.play();
         // 'ended' also pauses the element; the helper must keep playing out its last buffers.
+        const onEnded = () => { endedNaturallyRef.current = true; };
         const onPause = () => { if (!element.ended) void api.pause(); };
         const onSeeking = () => {
             if (ownSeekRef.current) {
@@ -187,7 +194,9 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
         element.addEventListener('play', onPlay);
         element.addEventListener('pause', onPause);
         element.addEventListener('seeking', onSeeking);
+        element.addEventListener('ended', onEnded);
         return () => {
+            element.removeEventListener('ended', onEnded);
             element.removeEventListener('play', onPlay);
             element.removeEventListener('pause', onPause);
             element.removeEventListener('seeking', onSeeking);

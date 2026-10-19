@@ -1,13 +1,109 @@
-﻿// Decodes one audio file into left-justified 32-bit integers (16-bit -> <<16, 24-bit -> <<8), which is exact for every integer source up to 32 bits.
+// Decodes one audio file into left-justified 32-bit integers (16-bit -> <<16, 24-bit -> <<8), which is exact for every integer source up to 32 bits.
 use std::fs::File;
+use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions};
 use symphonia::core::errors::Error;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, FormatReader, SeekMode, SeekTo, TrackType};
-use symphonia::core::io::MediaSourceStream;
+use symphonia::core::io::{MediaSource, MediaSourceStream};
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::units::Time;
+
+/// How long a read waits for the download to move on before the song is given up on.
+const STALL_LIMIT: Duration = Duration::from_secs(30);
+
+/// A file another process is still writing (the download of the song). Reads wait for the bytes they need instead of seeing the end of
+/// the file early, so a song can start playing while it is still coming in. `total` is the size the finished file will have; a read of
+/// the bytes beyond what has arrived waits, until `cancel` is set (the song was replaced) or nothing has arrived for STALL_LIMIT.
+pub struct GrowingFile {
+    file: File,
+    total: u64,
+    pos: u64,
+    seen_len: u64,
+    last_growth: Instant,
+    cancel: Arc<AtomicBool>,
+    /// While the container is being recognised, the tail of the file that has not arrived reads as zeros instead of being waited
+    /// for: format detection looks for tags at the very end (ID3v1, APE), and waiting for those would mean waiting for the whole download.
+    probing: Arc<AtomicBool>,
+}
+
+const TAIL_BYTES: u64 = 256 * 1024;
+
+impl GrowingFile {
+    pub fn open(path: &str, total: u64, cancel: Arc<AtomicBool>, probing: Arc<AtomicBool>) -> io::Result<GrowingFile> {
+        let file = match File::open(path) {
+            Ok(file) => file,
+            // The download finished (and the file got its final name) between the page handing over the `.part` path and this open.
+            Err(e) if e.kind() == io::ErrorKind::NotFound && path.ends_with(".part") => File::open(&path[..path.len() - 5])?,
+            Err(e) => return Err(e),
+        };
+        Ok(GrowingFile { file, total, pos: 0, seen_len: 0, last_growth: Instant::now(), cancel, probing })
+    }
+}
+
+impl Read for GrowingFile {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if self.pos >= self.total || buf.is_empty() {
+            return Ok(0);
+        }
+        loop {
+            let available = self.file.metadata()?.len();
+            if available > self.seen_len {
+                self.seen_len = available;
+                self.last_growth = Instant::now();
+            }
+            if self.pos < available {
+                let want = ((available - self.pos) as usize).min(buf.len());
+                self.file.seek(SeekFrom::Start(self.pos))?;
+                let n = self.file.read(&mut buf[..want])?;
+                self.pos += n as u64;
+                return Ok(n);
+            }
+            if self.probing.load(Ordering::SeqCst) && self.pos >= self.total.saturating_sub(TAIL_BYTES) {
+                // Zeros: no tag signature in them, so the detection moves on; an end of file here would make some containers give up.
+                let n = ((self.total - self.pos) as usize).min(buf.len());
+                buf[..n].fill(0);
+                self.pos += n as u64;
+                return Ok(n);
+            }
+            if self.cancel.load(Ordering::SeqCst) {
+                return Err(io::Error::new(io::ErrorKind::Interrupted, "the song was replaced while it was downloading"));
+            }
+            if self.last_growth.elapsed() > STALL_LIMIT {
+                return Err(io::Error::new(io::ErrorKind::TimedOut, "the download stalled"));
+            }
+            std::thread::sleep(Duration::from_millis(15));
+        }
+    }
+}
+
+impl Seek for GrowingFile {
+    fn seek(&mut self, from: SeekFrom) -> io::Result<u64> {
+        let target = match from {
+            SeekFrom::Start(p) => p as i128,
+            SeekFrom::End(d) => self.total as i128 + d as i128,
+            SeekFrom::Current(d) => self.pos as i128 + d as i128,
+        };
+        if target < 0 {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "seek before the start"));
+        }
+        self.pos = target as u64;
+        Ok(self.pos)
+    }
+}
+
+impl MediaSource for GrowingFile {
+    fn is_seekable(&self) -> bool {
+        true
+    }
+    fn byte_len(&self) -> Option<u64> {
+        Some(self.total)
+    }
+}
 
 pub struct SourceInfo {
     pub rate: u32,
@@ -27,9 +123,28 @@ pub struct Source {
 }
 
 impl Source {
-    pub fn open(path: &str) -> Result<Source, String> {
-        let file = File::open(path).map_err(|e| format!("open {path}: {e}"))?;
-        let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    /// `growing`: the size the finished file will have, for a file that is still being written (see GrowingFile).
+    pub fn open(path: &str, growing: Option<u64>, cancel: Arc<AtomicBool>) -> Result<Source, String> {
+        // A file still being written is first recognised without its tail (most containers keep everything needed at the front, and the song
+        // can start at once). One that cannot be (an MP4 with its index at the end) is recognised again once the tail has arrived.
+        if growing.is_some() {
+            if let Ok(source) = Self::open_once(path, growing, cancel.clone(), true) {
+                return Ok(source);
+            }
+            if cancel.load(Ordering::SeqCst) {
+                return Err("the song was replaced while it was downloading".to_string());
+            }
+        }
+        Self::open_once(path, growing, cancel, false)
+    }
+
+    fn open_once(path: &str, growing: Option<u64>, cancel: Arc<AtomicBool>, tail_as_end: bool) -> Result<Source, String> {
+        let probing = Arc::new(AtomicBool::new(tail_as_end));
+        let source: Box<dyn MediaSource> = match growing {
+            Some(total) => Box::new(GrowingFile::open(path, total, cancel, probing.clone()).map_err(|e| format!("open {path}: {e}"))?),
+            None => Box::new(File::open(path).map_err(|e| format!("open {path}: {e}"))?),
+        };
+        let mss = MediaSourceStream::new(source, Default::default());
         let mut hint = Hint::new();
         if let Some(ext) = Path::new(path).extension().and_then(|e| e.to_str()) {
             hint.with_extension(ext);
@@ -37,6 +152,7 @@ impl Source {
         let format = symphonia::default::get_probe()
             .probe(&hint, mss, FormatOptions::default(), MetadataOptions::default())
             .map_err(|e| format!("unsupported container: {e}"))?;
+        probing.store(false, Ordering::SeqCst);
         let track = format.default_track(TrackType::Audio).ok_or("no audio track")?;
         let params = track
             .codec_params
@@ -108,5 +224,69 @@ impl Source {
             (Some(required), Some(actual)) => (required - actual).max(0.0),
             _ => 0.0,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn temp_path(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("folia-growing-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_file(&dir);
+        dir
+    }
+
+    #[test]
+    fn reads_wait_for_bytes_that_have_not_arrived_yet() {
+        let path = temp_path("wait");
+        std::fs::write(&path, [1u8, 2, 3, 4]).unwrap();
+        let mut reader = GrowingFile::open(path.to_str().unwrap(), 10, Arc::new(AtomicBool::new(false)), Arc::new(AtomicBool::new(false))).unwrap();
+        let writer_path = path.clone();
+        let writer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(120));
+            let mut f = std::fs::OpenOptions::new().append(true).open(writer_path).unwrap();
+            f.write_all(&[5, 6, 7, 8, 9, 10]).unwrap();
+        });
+        let mut all = Vec::new();
+        reader.read_to_end(&mut all).unwrap();
+        writer.join().unwrap();
+        assert_eq!(all, (1u8..=10).collect::<Vec<_>>());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn the_end_is_the_announced_size_and_seeks_are_relative_to_it() {
+        let path = temp_path("end");
+        std::fs::write(&path, [9u8; 8]).unwrap();
+        let mut reader = GrowingFile::open(path.to_str().unwrap(), 8, Arc::new(AtomicBool::new(false)), Arc::new(AtomicBool::new(false))).unwrap();
+        assert_eq!(reader.byte_len(), Some(8));
+        assert_eq!(reader.seek(SeekFrom::End(-2)).unwrap(), 6);
+        let mut tail = Vec::new();
+        reader.read_to_end(&mut tail).unwrap();
+        assert_eq!(tail.len(), 2);
+        assert!(reader.seek(SeekFrom::Current(-100)).is_err());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_replaced_song_ends_a_waiting_read() {
+        let path = temp_path("cancel");
+        std::fs::write(&path, [1u8]).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut reader = GrowingFile::open(path.to_str().unwrap(), 100, cancel.clone(), Arc::new(AtomicBool::new(false))).unwrap();
+        let mut one = [0u8; 1];
+        assert_eq!(reader.read(&mut one).unwrap(), 1);
+        let flag = cancel.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(80));
+            flag.store(true, Ordering::SeqCst);
+        });
+        let started = Instant::now();
+        let err = reader.read(&mut one).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::Interrupted);
+        assert!(started.elapsed() < Duration::from_secs(5));
+        let _ = std::fs::remove_file(path);
     }
 }
