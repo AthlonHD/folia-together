@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getBuildCommit } from '../../../app/togetherUpdate/buildCommit';
 import { Button, Group, Row, Status, TextField, option, type SettingsGroupDef } from '../kit';
 
 // src/components/modal/settings/pages/RemoteServerGroup.tsx
@@ -16,12 +17,14 @@ export const REMOTE_SERVER: SettingsGroupDef = {
 export const REMOTE_SERVER_OPTIONS = {
     url: option(REMOTE_SERVER, 'remoteServerUrl', 'stageRemote.url', { electronOnly: true }),
     token: option(REMOTE_SERVER, 'remoteServerToken', 'stageRemote.token', { electronOnly: true }),
+    serverVersion: option(REMOTE_SERVER, 'remoteServerVersion', 'stageRemote.serverVersion', { electronOnly: true }),
     open: option(REMOTE_SERVER, 'remoteServerOpen', 'stageRemote.open', { electronOnly: true }),
 };
 
 const O = REMOTE_SERVER_OPTIONS;
 
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
+type ServerVersion = { state: 'unknown' } | { state: 'known'; commit: string; forkVersion: string } | { state: 'failed' };
 
 const RemoteServerGroup: React.FC = () => {
     const { t } = useTranslation();
@@ -30,14 +33,22 @@ const RemoteServerGroup: React.FC = () => {
     const [token, setToken] = useState('');
     const [hasToken, setHasToken] = useState(false);
     const [notice, setNotice] = useState<Notice>(null);
+    const [serverVersion, setServerVersion] = useState<ServerVersion>({ state: 'unknown' });
+
+    const loadServerVersion = useCallback(async () => {
+        if (!api) return;
+        const result = await api.getServerVersion();
+        setServerVersion(result.ok ? { state: 'known', commit: result.commit, forkVersion: result.forkVersion } : { state: 'failed' });
+    }, [api]);
 
     useEffect(() => {
         if (!api) return;
         void api.getConfig().then(config => {
             setUrl(config.url);
             setHasToken(config.hasToken);
+            if (config.url) void loadServerVersion();
         });
-    }, [api]);
+    }, [api, loadServerVersion]);
 
     const save = useCallback(async (): Promise<boolean> => {
         if (!api) return false;
@@ -50,8 +61,9 @@ const RemoteServerGroup: React.FC = () => {
         setHasToken(result.hasToken);
         setToken('');
         setNotice({ tone: 'ok', text: t('stageRemote.saved') });
+        void loadServerVersion();
         return true;
-    }, [api, t, token, url]);
+    }, [api, loadServerVersion, t, token, url]);
 
     const openWindow = useCallback(async () => {
         if (!api) return;
@@ -81,6 +93,19 @@ const RemoteServerGroup: React.FC = () => {
                 <TextField value={token} onChange={setToken} type="password" placeholder={hasToken ? '••••••••' : ''} />
                 {hasToken && <Button onClick={() => void clearToken()}>{t('stageRemote.clearToken')}</Button>}
             </Row>
+            {url && (
+                <Row option={O.serverVersion} hint={t('stageRemote.serverVersionHint')}>
+                    {serverVersion.state === 'known' && (() => {
+                        const local = getBuildCommit();
+                        const same = serverVersion.commit !== '' && local !== 'dev' && serverVersion.commit === local.slice(0, serverVersion.commit.length);
+                        const label = `${serverVersion.forkVersion ? `v${serverVersion.forkVersion} · ` : ''}${serverVersion.commit || '?'}`;
+                        return <Status tone={same ? 'ok' : 'warn'}>{same ? t('stageRemote.versionSame', { version: label }) : t('stageRemote.versionDiffers', { server: label, client: local })}</Status>;
+                    })()}
+                    {serverVersion.state === 'failed' && <Status tone="error">{t('stageRemote.versionFailed')}</Status>}
+                    {serverVersion.state === 'unknown' && <Status>{t('stageRemote.versionChecking')}</Status>}
+                    <Button onClick={() => void loadServerVersion()}>{t('stageRemote.versionRefresh')}</Button>
+                </Row>
+            )}
             <Row
                 option={O.open}
                 hint={t('stageRemote.openHint')}

@@ -16,6 +16,21 @@ const NETEASE_PORT = Number(process.env.NETEASE_PORT) || 4000;
 const QQ_PORT = Number(process.env.QQ_PORT) || 4300;
 const KUGOU_PORT = Number(process.env.KUGOU_PORT) || 4400;
 const HOST_WS_PATH = '/stage/host/ws';
+
+// 这个服务端跑的是哪一版:启动时的提交和 Fork 版本号。桌面版的设置里拿它和自己的版本比较。不涉及任何内容,保持公开。
+const readServerVersion = () => {
+  const root = path.resolve(__dirname, '..', '..');
+  let commit = '';
+  try {
+    commit = require('child_process').execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim();
+  } catch { /* 没有 git 的部署就不报提交 */ }
+  let forkVersion = '';
+  try {
+    forkVersion = fs.readFileSync(path.join(root, 'FORK_VERSION'), 'utf8').trim();
+  } catch { /* ignore */ }
+  return { commit, forkVersion, startedAt: new Date().toISOString() };
+};
+const SERVER_VERSION = readServerVersion();
 // 只放行点歌/遥控所需路由,歌词注入、媒体上传、清状态等写入类路由一律 404
 const ALLOWED_ROUTES = [/^\/stage\/health$/, /^\/stage\/player\//];
 // 这三个 channel 对应桌面版主进程发给渲染进程的请求
@@ -313,6 +328,12 @@ const handleStageAuth = async (req, res, requestUrl) => {
   return true;
 };
 
+const handleServerVersion = async (req, res, requestUrl) => {
+  if (requestUrl.pathname !== '/stage/version' || req.method !== 'GET') return false;
+  sendJson(res, 200, SERVER_VERSION);
+  return true;
+};
+
 // ---- Spotify(网页版):桌面版的 Spotify 桥在中继里运行,账号存在服务器本机,带令牌的访问者共用它 ----
 // 懒创建:不用 Spotify 的部署不会加载它(也不会去碰可选的 librespot 原生模块)。
 let spotifyRelay = null;
@@ -529,7 +550,8 @@ stageApi = createStageApi({
   routeFilter: (pathname, method) => method === 'OPTIONS' || ALLOWED_ROUTES.some((re) => re.test(pathname)),
   extraUpgradeHandler: handleHostUpgrade,
   extraHttpHandler: async (req, res, requestUrl) => (
-    (await handleStageAuth(req, res, requestUrl))
+    (await handleServerVersion(req, res, requestUrl))
+    || (await handleStageAuth(req, res, requestUrl))
     || (await handleNeteaseProxy(req, res, requestUrl))
     || (await handleQqProxy(req, res, requestUrl))
     || (await handleKugouProxy(req, res, requestUrl))

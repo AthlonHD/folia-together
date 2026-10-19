@@ -873,6 +873,8 @@ declare global {
         /** `token`:不传保持原有,'' 清除,其他文本替换。 */
         saveConfig: (config: { url: string; token?: string }) => Promise<{ ok: true; url: string; hasToken: boolean } | { ok: false; error: string }>;
         open: () => Promise<{ ok: true } | { ok: false; error: string }>;
+        /** 服务端(中继)跑的是哪一版,用来和本应用比较。 */
+        getServerVersion: () => Promise<{ ok: true; commit: string; forkVersion: string } | { ok: false; error: string }>;
       };
       requestTranscodeFallback?: (request: import('./types/playbackRecovery').TranscodeFallbackRequest) => Promise<import('./types/playbackRecovery').TranscodeFallbackResult>;
       cancelTranscodeFallback?: (requestId: string) => Promise<boolean>;

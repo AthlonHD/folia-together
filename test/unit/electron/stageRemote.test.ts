@@ -23,9 +23,9 @@ const fakeSafeStorage = (available = true) => ({
     decryptString: (data: Buffer) => data.toString().replace(/^sealed:/, ''),
 });
 
-const make = (available = true) => {
+const make = (available = true, fetchImpl?: typeof fetch) => {
     const store = fakeStore();
-    const remote = createStageRemote({ store, safeStorage: fakeSafeStorage(available), BrowserWindow: class {} as never, title: 'x', warn: () => {} });
+    const remote = createStageRemote({ store, safeStorage: fakeSafeStorage(available), BrowserWindow: class {} as never, title: 'x', fetchImpl, warn: () => {} });
     return { store, remote };
 };
 
@@ -91,5 +91,29 @@ describe('createStageRemote', () => {
     it('will not open a window before an address is set', () => {
         const { remote } = make();
         expect(remote.open()).toEqual({ ok: false, error: 'not-configured' });
+    });
+
+    it('reads the server version from its public /stage/version', async () => {
+        const seen: string[] = [];
+        const fetchImpl = (async (input: string | URL | Request) => {
+            seen.push(String(input));
+            return new Response(JSON.stringify({ commit: 'abc1234', forkVersion: '1.1.0' }));
+        }) as typeof fetch;
+        const { remote } = make(true, fetchImpl);
+        expect(await remote.fetchServerVersion()).toEqual({ ok: false, error: 'not-configured' });
+        remote.saveConfig({ url: '192.168.1.5:3000' });
+        expect(await remote.fetchServerVersion()).toEqual({ ok: true, commit: 'abc1234', forkVersion: '1.1.0' });
+        expect(seen).toEqual(['http://192.168.1.5:3000/stage/version']);
+    });
+
+    it('reports an unreachable or older server instead of throwing', async () => {
+        const old = (async () => new Response('', { status: 404 })) as typeof fetch;
+        const down = (async () => { throw new Error('connect ECONNREFUSED'); }) as typeof fetch;
+        const a = make(true, old);
+        a.remote.saveConfig({ url: 'h:1' });
+        expect(await a.remote.fetchServerVersion()).toEqual({ ok: false, error: 'http-404' });
+        const b = make(true, down);
+        b.remote.saveConfig({ url: 'h:1' });
+        expect(await b.remote.fetchServerVersion()).toMatchObject({ ok: false });
     });
 });

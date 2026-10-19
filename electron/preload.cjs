@@ -143,6 +143,7 @@ contextBridge.exposeInMainWorld('electron', {
     stageRemote: {
         getConfig: () => ipcRenderer.invoke('stage-remote-get-config'),
         saveConfig: (config) => ipcRenderer.invoke('stage-remote-save-config', config),
+        getServerVersion: () => ipcRenderer.invoke('stage-remote-server-version'),
         open: () => ipcRenderer.invoke('stage-remote-open'),
     },
     // 直通模式(Windows):独立的 WASAPI 独占播放器,见 electron/audioHelper/

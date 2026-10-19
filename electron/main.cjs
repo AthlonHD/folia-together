@@ -6567,7 +6567,7 @@ ipcMain.handle('together-update-install', createSenderGuardedHandler({
 }));
 
 // 遥控服务器:本应用只当遥控端——在独立窗口里打开服务器的遥控页,自己不开端口、不能被遥控。
-const stageRemote = createStageRemote({ store, safeStorage, BrowserWindow, title: 'Folia - Remote' });
+const stageRemote = createStageRemote({ store, safeStorage, BrowserWindow, title: 'Folia - Remote', fetchImpl: (input, init) => electronNet.fetch(input, init) });
 ipcMain.handle('stage-remote-get-config', createSenderGuardedHandler({
   channel: 'stage-remote-get-config',
   isTrusted: isFirstPartyWindowContents,
@@ -6578,6 +6578,12 @@ ipcMain.handle('stage-remote-save-config', createSenderGuardedHandler({
   channel: 'stage-remote-save-config',
   isTrusted: isFirstPartyWindowContents,
   handler: (_event, config) => stageRemote.saveConfig({ url: config?.url, token: typeof config?.token === 'string' ? config.token : undefined }),
+}));
+ipcMain.handle('stage-remote-server-version', createSenderGuardedHandler({
+  channel: 'stage-remote-server-version',
+  isTrusted: isFirstPartyWindowContents,
+  onUntrusted: () => ({ ok: false, error: 'untrusted' }),
+  handler: () => stageRemote.fetchServerVersion(),
 }));
 ipcMain.handle('stage-remote-open', createSenderGuardedHandler({
   channel: 'stage-remote-open',

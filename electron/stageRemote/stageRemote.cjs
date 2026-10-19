@@ -42,10 +42,11 @@ function buildControllerUrl(origin, token) {
  *   safeStorage: { isEncryptionAvailable: () => boolean, encryptString: (text: string) => Buffer, decryptString: (data: Buffer) => string },
  *   BrowserWindow: typeof import('electron').BrowserWindow,
  *   title: string,
+ *   fetchImpl?: typeof fetch,
  *   warn?: (...args: unknown[]) => void,
  * }} options
  */
-function createStageRemote({ store, safeStorage, BrowserWindow, title, warn = console.warn }) {
+function createStageRemote({ store, safeStorage, BrowserWindow, title, fetchImpl = fetch, warn = console.warn }) {
     let remoteWindow = null;
 
     const readToken = () => {
@@ -144,11 +145,25 @@ function createStageRemote({ store, safeStorage, BrowserWindow, title, warn = co
         return { ok: true };
     };
 
+    /** Which build the server runs (its public /stage/version): lets the settings page say whether it matches this app. */
+    const fetchServerVersion = async () => {
+        const { url: origin } = getConfig();
+        if (!origin) return { ok: false, error: 'not-configured' };
+        try {
+            const response = await fetchImpl(`${origin}/stage/version`, { signal: AbortSignal.timeout(6000) });
+            if (!response.ok) return { ok: false, error: `http-${response.status}` };
+            const data = await response.json();
+            return { ok: true, commit: String(data.commit || ''), forkVersion: String(data.forkVersion || '') };
+        } catch (error) {
+            return { ok: false, error: error instanceof Error ? error.message : 'unreachable' };
+        }
+    };
+
     const close = () => {
         if (remoteWindow && !remoteWindow.isDestroyed()) remoteWindow.close();
     };
 
-    return { getConfig, saveConfig, open, close };
+    return { getConfig, saveConfig, open, close, fetchServerVersion };
 }
 
 module.exports = { createStageRemote, normalizeServerUrl, buildControllerUrl, URL_KEY, TOKEN_SEALED_KEY, TOKEN_PLAIN_KEY };

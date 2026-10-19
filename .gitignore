@@ -59,6 +59,7 @@ scripts/*
 !scripts/start-kugou-api.cjs
 !scripts/start-passthrough.cmd
 !scripts/start-passthrough.ps1
+!scripts/serverUpdate.cjs
 !scripts/passthrough-tone-test.ps1
 docs/TODO.md
 design/
