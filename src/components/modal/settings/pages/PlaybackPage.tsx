@@ -14,6 +14,7 @@ import { Button, Chips, Group, Reveal, Row, Segmented, Slider, Status, Toggle, o
 import PlayTargetGroup, { PLAY_TARGET_OPTIONS } from '../PlayTargetPanel';
 import { HEARTBEAT_INTERVAL_OPTIONS } from '../../../../utils/heartbeatPlan';
 import AudioOutputDeviceRow from './AudioOutputDeviceRow';
+import PassthroughGroup, { PASSTHROUGH_OPTIONS } from './PassthroughGroup';
 import { useSettingsPage } from './settingsPageContext';
 
 // src/components/modal/settings/pages/PlaybackPage.tsx
@@ -44,7 +45,7 @@ const O = {
     voiceInputPause: option(BEHAVIOR, 'voiceInputPause', 'options.voiceInputPause', { electronOnly: true, available: () => runsOnWindows() }),
 };
 
-export const OPTIONS: SettingsOptionDef[] = [...PLAY_TARGET_OPTIONS, ...Object.values(O)];
+export const OPTIONS: SettingsOptionDef[] = [...PLAY_TARGET_OPTIONS, ...Object.values(O), ...Object.values(PASSTHROUGH_OPTIONS)];
 
 /**
  * The pass an animation chip plays when it is switched on: a ten-second blend at 120 BPM, addressed
@@ -217,6 +218,9 @@ const PlaybackPage: React.FC = () => {
                     </Row>
                 )}
             </Group>
+
+            {/* 本 Fork:Windows 桌面版直通模式(WASAPI 独占),别处不画 */}
+            {isElectron && <PassthroughGroup />}
 
             <Group def={BEHAVIOR}>
                 <Row option={O.queueBehavior}>

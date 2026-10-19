@@ -60,6 +60,7 @@ const { createDisplaySleepBlocker } = require('./displaySleepBlocker.cjs');
 const { createVideoExportFileWriter } = require('./videoExportFileWriter.cjs');
 const { finalizeVideoExportFile } = require('./videoExportMp4.cjs');
 const { createLyricApi } = require('./lyricApi.cjs');
+const { registerAudioHelperIpc } = require('./audioHelper/audioHelperIpc.cjs');
 const { createLocalCoverAssetStore, getLocalCoverAssetDirectory } = require('./localCoverAssets.cjs');
 const {
   compareVersions,
@@ -5890,6 +5891,7 @@ app.on('before-quit', (event) => {
   isQuitHeldForYtmSignIn = false;
   transcodeService.dispose();
   videoExportFileWriter.disposeSync();
+  void audioHelperIpc.shutdown();
   isAppQuitting = true;
   clearPendingWindowPlaybackHandoffRequests();
   // A question about a window that stopped answering is taken down: the app is leaving.
@@ -6507,6 +6509,16 @@ ipcMain.handle('kugou-api-request', createSenderGuardedHandler({
   isTrusted: isFirstPartyWindowContents,
   handler: (_event, operation, params) => kugouApiBridge.request(operation, params),
 }));
+// 直通模式:Windows 上的 WASAPI 独占播放器(folia-audio-helper.exe),页面经 preload 的 audioHelper 接口使用。
+const audioHelperIpc = registerAudioHelperIpc({
+  ipcMain,
+  isTrusted: isFirstPartyWindowContents,
+  getWindow: () => mainWindow,
+  stageDirectory: path.join(app.getPath('userData'), 'passthrough-stage'),
+  resourcesPath: process.resourcesPath,
+  appPath: app.getAppPath(),
+});
+
 ipcMain.handle('bodian-api-request', (event, operation, params) => {
   if (!isTrustedMainWindowContents(event.sender)) {
     return { ok: false, error: { code: 'unavailable', message: 'Untrusted Bodian request' } };

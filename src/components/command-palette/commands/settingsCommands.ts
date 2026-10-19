@@ -328,6 +328,19 @@ export const settingsCommands: CommandPaletteCommand[] = [
             return true;
         },
     },
+    {
+        id: 'desktop-toggle-passthrough',
+        platform: ['win'],
+        isAvailable: () => typeof window !== 'undefined' && Boolean(window.electron?.audioHelper),
+        group: 'settings',
+        title: 'Pass-through mode',
+        description: 'Toggle WASAPI exclusive pass-through playback',
+        keywords: ['pass-through', 'passthrough', 'bit-perfect', 'wasapi', 'exclusive', 'lossless output', '直通模式', '独占', '无损直出', '原声大碟'],
+        execute: (_input, context) => {
+            context.settings.togglePassthrough();
+            return true;
+        },
+    },
     createSettingsCommand('settings-wallpaper-mode', 'Wallpaper mode settings', 'Open wallpaper mode settings', ['wallpaper mode', 'desktop wallpaper', 'lyrics wallpaper', '壁纸模式', '桌面壁纸', '歌词壁纸'], 'options', 'desktop', { platform: ['linux', 'win', 'mac'] }),
     {
         id: 'desktop-toggle-wallpaper-mode',

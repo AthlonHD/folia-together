@@ -72,6 +72,26 @@
 | `scripts/start-qq-api.cjs` / `start-kugou-api.cjs` | QQ / 酷狗后端启动 |
 | `npm run stage:relay` / `stage:serve` / `stage:start` / `stage:stop` | 对应的 npm 入口 |
 
+## 8. 桌面版直通模式（Windows）
+
+桌面版新增「直通模式」（设置 → 播放控制 → 直通模式）：曲目的声音不再走浏览器的音频栈（共享 WASAPI、系统混音器），而是交给独立的原生播放器 `folia-audio-helper.exe`，用 **WASAPI 独占模式**直接送到所选输出设备。网页版、遥控页、手机布局完全不受影响。
+
+- **链路**：主进程把歌曲取成本机文件（在线 URL 由主进程下载，blob 由页面读出字节）→ helper 用 Symphonia 解码成整数采样 → 设备接受的格式原样输出（16 / 24 / 32 位）。`<audio>` 元素继续在页面里静音运行，当作歌词、队列、可视化读取的传输时钟；以 helper 的位置为准，漂移超过 0.3 秒就把元素拉回。
+- **采样率策略**：「跟随音源」先按音源采样率打开设备，设备不接受才改用它支持的最接近的速率（整数倍优先）；「固定」始终用设置的采样率（如 192 kHz），音源不同时由本程序用 rubato 做**一次**高质量重采样，不让设备或系统去转。
+- **只做无损的位深转换**：16 位补零进 24 位、24 位原样；需要丢位时四舍五入，不截断。位深和声道数一旦被改动，会在链路状态里标出（已重采样 / 位深被截断 / 声道被混合），只有三项都不是才显示「逐位一致」。
+- **暂停、恢复、中断后有几毫秒的淡入淡出**避免爆音，其余时间采样值原样输出。
+- **开启后不生效的**：均衡器、音效、混音过渡（automix）、音量滑块（音量请在下游调节）。无法取成文件的歌曲（如 Spotify、YouTube Music）自动回到普通播放并提示原因。
+- **设备能力探测**：设置里的「检测设备能力」列出该设备在独占模式下接受的格式。**注意**：设备「接受」某个格式不等于它内部不转换——例如 VB-Cable 接受 96 kHz 独占，但内部按 48 kHz 运行并且只保留约 19 位精度。要确认你的虚拟声卡或 DAW 输入（如 Studio One 的 WDM2VST）是否透明，需要在它的另一端录下来与原文件逐样本比对。
+- **一键脚本**（`scripts/start-passthrough.ps1`，从零开始）：没有仓库的电脑上把下面这一行粘进 PowerShell 或 cmd 即可——缺 Git / Node 24 / Rust / Visual Studio Build Tools 就自动下载安装（安装包校验数字签名或官方 SHA-256，装 Build Tools 会弹一次 UAC），自动 clone 本仓库 `stage-remote` 到 `%USERPROFILE%olia-together`，再装依赖、下载 Electron、编译 helper、列出输出设备、启动桌面版。
+
+  ```
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/AthlonHD/folia-together/stage-remote/scripts/start-passthrough.ps1 | iex"
+  ```
+
+  已有仓库时也可直接 `scripts\start-passthrough.cmd`（会先 `git fetch` 并快进更新）；参数 `-BuildOnly` 只装工具、编译并列设备，`-NoStart` 不启动应用。
+- **构建**：`npm run build:audio-helper`（需要 Rust 和 MSVC 生成工具）把 `packaging/windows/audio-helper/` 编成 `build/folia-audio-helper.exe`，`npm run build:electron` 会自动带上并打进安装包的 `resources/`；开发时也可用环境变量 `FOLIA_AUDIO_HELPER_PATH` 指定路径。helper 另有两个命令行：`folia-audio-helper devices`、`folia-audio-helper probe <设备ID>`；`capture` 是开发自检用的录音命令。
+- **代码位置**：`packaging/windows/audio-helper/`（Rust）、`electron/audioHelper/`（主进程）、`src/components/app/passthrough/`（页面 hook）、`src/services/passthrough/`（类型与状态）、`src/stores/usePassthroughSettingsStore.ts`（设置，存储键 `passthrough_*`）。
+
 ---
 
 ## 维护约定

@@ -4,6 +4,7 @@ import type { ThemeGenerationSource } from '../../../services/themePreferences';
 import { useAudioSettingsStore } from '../../../stores/useAudioSettingsStore';
 import { useAutomixSettingsStore } from '../../../stores/useAutomixSettingsStore';
 import { useDesktopSettingsStore } from '../../../stores/useDesktopSettingsStore';
+import { usePassthroughSettingsStore } from '../../../stores/usePassthroughSettingsStore';
 import { useLocalLibrarySettingsStore } from '../../../stores/useLocalLibrarySettingsStore';
 import { isLocalLibraryAutoScanSupported } from '../../../services/localLibraryAutoScan';
 import { isPlaybackReportReady } from '../../../services/onlineMusic/playbackReportGate';
@@ -203,6 +204,10 @@ export const buildSettingsCommandContext = (
         togglePreventDisplaySleepDuringPlayback: () => desktop.handleTogglePreventDisplaySleepDuringPlayback(
             !useDesktopSettingsStore.getState().preventDisplaySleepDuringPlayback,
         ),
+        togglePassthrough: () => {
+            const passthrough = usePassthroughSettingsStore.getState();
+            passthrough.handleTogglePassthrough(!passthrough.passthroughEnabled);
+        },
         toggleWallpaperMode: () => desktop.handleToggleWallpaperMode(
             !useDesktopSettingsStore.getState().wallpaperMode,
         ),

@@ -129,6 +129,23 @@ contextBridge.exposeInMainWorld('electron', {
     getAudioCacheUsage: () => ipcRenderer.invoke('get-audio-cache-usage'),
     getAudioCacheStats: () => ipcRenderer.invoke('get-audio-cache-stats'),
     clearAudioCache: () => ipcRenderer.invoke('clear-audio-cache'),
+    // 直通模式(Windows):独立的 WASAPI 独占播放器,见 electron/audioHelper/
+    audioHelper: {
+        getStatus: () => ipcRenderer.invoke('audio-helper:status'),
+        listDevices: () => ipcRenderer.invoke('audio-helper:devices'),
+        probeDevice: (deviceId) => ipcRenderer.invoke('audio-helper:probe', deviceId),
+        configure: (config) => ipcRenderer.invoke('audio-helper:configure', config),
+        load: (request) => ipcRenderer.invoke('audio-helper:load', request),
+        play: () => ipcRenderer.invoke('audio-helper:play'),
+        pause: () => ipcRenderer.invoke('audio-helper:pause'),
+        seek: (sec) => ipcRenderer.invoke('audio-helper:seek', sec),
+        stop: () => ipcRenderer.invoke('audio-helper:stop'),
+        onEvent: (callback) => {
+            const listener = (_event, payload) => callback(payload);
+            ipcRenderer.on('audio-helper:event', listener);
+            return () => ipcRenderer.removeListener('audio-helper:event', listener);
+        },
+    },
     requestTranscodeFallback: (request) => ipcRenderer.invoke('transcode-fallback-request', request),
     cancelTranscodeFallback: (requestId) => ipcRenderer.invoke('transcode-fallback-cancel', requestId),
     getCoverCache: (cacheKey) => ipcRenderer.invoke('get-cover-cache', cacheKey),

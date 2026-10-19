@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { MutableRefObject, RefObject } from 'react';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
+import { usePassthroughStatusStore } from '../services/passthrough/passthroughStatusStore';
 import { setStatusMessage as setStatusMsg } from '../stores/useStatusMessageStore';
 
 // src/hooks/useAudioOutputDevice.ts
@@ -29,6 +30,8 @@ export const useAudioOutputDevice = ({
     const audioOutputDeviceId = useAudioSettingsStore(state => state.audioOutputDeviceId);
     const persistAudioOutputDeviceId = useAudioSettingsStore(state => state.handleSetAudioOutputDeviceId);
     const audioSrc = usePlaybackStore(state => state.audioSrc);
+    // While pass-through plays the track the web output renders into nothing; the chosen device comes back when it lets go.
+    const silenceWebOutput = usePassthroughStatusStore(state => state.silenceWebOutput);
 
     const applyAudioOutputDevice = useCallback(async (
         targetDeviceId: string,
@@ -42,6 +45,16 @@ export const useAudioOutputDevice = ({
             setSinkId?: (sinkId: string) => Promise<void>;
             sinkId?: string;
         }) | null;
+        if (usePassthroughStatusStore.getState().silenceWebOutput) {
+            try {
+                await (audioContext as (AudioContext & { setSinkId?: (sink: { type: 'none' }) => Promise<void> }) | null)
+                    ?.setSinkId?.({ type: 'none' });
+            } catch (error) {
+                console.warn('[PassthroughPlayback] could not silence the web audio output', error);
+            }
+            return true;
+        }
+
         const audioSinkTarget = gainNodeRef.current && audioContext?.setSinkId
             ? audioContext
             : audioElement;
@@ -150,7 +163,7 @@ export const useAudioOutputDevice = ({
             audioElement.removeEventListener('loadedmetadata', handleAudioDeviceRetry);
             audioElement.removeEventListener('canplay', handleAudioDeviceRetry);
         };
-    }, [applyAudioOutputDevice, audioOutputDeviceId, audioSrc]);
+    }, [applyAudioOutputDevice, audioOutputDeviceId, audioSrc, silenceWebOutput]);
 
     const handleAudioOutputDeviceChange = useCallback(async (deviceId: string) => (
         await applyAudioOutputDevice(deviceId, true)

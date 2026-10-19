@@ -325,6 +325,8 @@ export type CommandPaletteSettingsContext = {
     modSystemEnabled: boolean;
     toggleVoiceInputPause: () => void;
     togglePreventDisplaySleepDuringPlayback: () => void;
+    /** Windows desktop pass-through playback (WASAPI exclusive helper). */
+    togglePassthrough: () => void;
     toggleWallpaperMode: () => void;
     /** Close button hides the main window to the tray instead of quitting (main process owns it). */
     toggleCloseToTray: () => void;

@@ -101,6 +101,7 @@ import { useMediaSessionBridge } from './hooks/useMediaSessionBridge';
 import { usePlayerChromeAutoHide } from './hooks/usePlayerChromeAutoHide';
 import { useIdleCursorHide } from './hooks/useIdleCursorHide';
 import { usePlaybackAudioBridge } from './components/app/playback/bridges/usePlaybackAudioBridge';
+import { usePassthroughPlayback } from './components/app/passthrough/usePassthroughPlayback';
 import { useTranscodeFallback } from './hooks/useTranscodeFallback';
 import { useAutomixDecks, type AutomixDeckId } from './services/automix/useAutomixDecks';
 import { usePlaybackInteractionBridge } from './components/app/playback/bridges/usePlaybackInteractionBridge';
@@ -1354,6 +1355,9 @@ export default function App() {
         getTargetPlaybackVolume,
         getCoverUrl,
     });
+
+    // 桌面版直通模式:曲目的声音交给 WASAPI 独占播放器,<audio> 退为静音的传输时钟。
+    usePassthroughPlayback({ audioRef, setupAudioAnalyzer });
 
     const handleTranscodeFallback = useTranscodeFallback({
         audioSrc,

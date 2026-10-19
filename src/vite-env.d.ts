@@ -855,6 +855,8 @@ declare global {
       getAudioCacheUsage: () => Promise<number>;
       getAudioCacheStats: () => Promise<ElectronAudioCacheStats>;
       clearAudioCache: () => Promise<boolean>;
+      /** Windows 直通模式的独立 WASAPI 独占播放器;其他平台没有这个对象。 */
+      audioHelper?: import('./services/passthrough/types').AudioHelperApi;
       requestTranscodeFallback?: (request: import('./types/playbackRecovery').TranscodeFallbackRequest) => Promise<import('./types/playbackRecovery').TranscodeFallbackResult>;
       cancelTranscodeFallback?: (requestId: string) => Promise<boolean>;
       getCoverCache: (cacheKey: string) => Promise<ElectronAudioCacheEntry>;

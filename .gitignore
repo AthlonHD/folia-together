@@ -57,6 +57,8 @@ scripts/*
 !scripts/stop-stage.cmd
 !scripts/start-qq-api.cjs
 !scripts/start-kugou-api.cjs
+!scripts/start-passthrough.cmd
+!scripts/start-passthrough.ps1
 docs/TODO.md
 design/
 plan/
@@ -90,6 +92,9 @@ mods/*.zip
 # Built by packaging/windows/build-wallpaper-helper.mjs (Windows wallpaper mode helper).
 build/folia-wallpaper-helper.exe
 packaging/windows/wallpaper-helper/target/
+# Built by packaging/windows/build-audio-helper.mjs (Windows pass-through playback helper).
+build/folia-audio-helper.exe
+packaging/windows/audio-helper/target/
 
 # Local Rust Spout sender build artifacts.
 build/folia-spout-sender.exe
@@ -100,3 +105,5 @@ __pycache__/
 
 # Built by build/buildPythonRuntime.mjs - binary artifacts that live on the mirrors, not in git.
 dist-runtime/
+
+/passthrough-devices.txt

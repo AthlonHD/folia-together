@@ -128,6 +128,7 @@ exports[`command palette registry contract > keeps the registered command order 
   "settings-update-channel",
   "desktop-toggle-voice-input-pause",
   "desktop-toggle-prevent-display-sleep",
+  "desktop-toggle-passthrough",
   "settings-wallpaper-mode",
   "desktop-toggle-wallpaper-mode",
   "desktop-toggle-wallpaper-dock-autohide",
