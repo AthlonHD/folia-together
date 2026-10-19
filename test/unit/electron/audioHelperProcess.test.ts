@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -43,6 +43,22 @@ describe('stageSource', () => {
 
     it('refuses schemes the helper cannot read', async () => {
         await expect(stageSource({ directory: scratch(), source: { kind: 'url', url: 'ftp://example.com/a.flac' } })).rejects.toThrow(/unsupported/);
+    });
+
+    it('stages an address of the app own scheme as an ephemeral file and removes it once the next track is staged', async () => {
+        const directory = scratch();
+        const fakeFetch = async () => new Response(new Uint8Array([9, 8, 7]));
+        const first = await stageSource({ directory, source: { kind: 'url', url: 'folia-media://audio/1?k=a' }, fetchImpl: fakeFetch as typeof fetch, customSchemes: ['folia-media'] });
+        expect(path.basename(first).startsWith('eph-')).toBe(true);
+        expect([...readFileSync(first)]).toEqual([9, 8, 7]);
+        const second = await stageSource({ directory, source: { kind: 'bytes', bytes: new Uint8Array([1]).buffer } });
+        expect(existsSync(first)).toBe(false);
+        expect(existsSync(second)).toBe(true);
+    });
+
+    it('does not fetch a scheme the app did not declare', async () => {
+        const fakeFetch = async () => new Response(new Uint8Array([1]));
+        await expect(stageSource({ directory: scratch(), source: { kind: 'url', url: 'folia-other://x' }, fetchImpl: fakeFetch as typeof fetch, customSchemes: ['folia-media'] })).rejects.toThrow(/unsupported/);
     });
 
     it('keeps only the most recent staged files', async () => {

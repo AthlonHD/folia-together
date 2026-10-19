@@ -5,11 +5,11 @@ import type { PassthroughSource } from '../../../services/passthrough/types';
 
 export type PassthroughSourceKind = 'blob' | 'remote' | 'unsupported';
 
-/** Only addresses the main process (or a blob read) can turn into a file; custom schemes stay on the web player. */
+/** Addresses the main process (or a blob read) can turn into a file: web and file addresses, and the app's own `folia-*` audio schemes (the main process only serves the ones it knows). */
 export const classifyAudioSrc = (src: string | null | undefined): PassthroughSourceKind => {
     if (!src) return 'unsupported';
     if (src.startsWith('blob:')) return 'blob';
-    if (/^(https?|file):/i.test(src)) return 'remote';
+    if (/^(https?|file):/i.test(src) || /^folia-[a-z]+:/i.test(src)) return 'remote';
     return 'unsupported';
 };
 

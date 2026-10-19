@@ -6515,6 +6515,9 @@ const audioHelperIpc = registerAudioHelperIpc({
   isTrusted: isFirstPartyWindowContents,
   getWindow: () => mainWindow,
   stageDirectory: path.join(app.getPath('userData'), 'passthrough-stage'),
+  // 应用自己的音频地址(解密 / 转码后的流):由主进程的 net.fetch 取成临时文件,用完即删。
+  fetchImpl: (input, init) => electronNet.fetch(input, init),
+  customSchemes: [SPOTIFY_AUDIO_SCHEME, YTM_AUDIO_SCHEME, TRANSCODE_PROTOCOL_SCHEME],
   resourcesPath: process.resourcesPath,
   appPath: app.getAppPath(),
 });

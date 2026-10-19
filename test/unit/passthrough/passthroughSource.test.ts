@@ -34,9 +34,10 @@ describe('classifyAudioSrc', () => {
         expect(classifyAudioSrc('https://cdn.example.com/a.flac')).toBe('remote');
         expect(classifyAudioSrc('http://127.0.0.1:3000/a.mp3')).toBe('remote');
         expect(classifyAudioSrc('file:///C:/Music/a.flac')).toBe('remote');
+        expect(classifyAudioSrc('folia-media://audio/1?k=2')).toBe('remote');
     });
 
-    it('leaves custom schemes and nothing to the web player', () => {
+    it('leaves foreign schemes and nothing to the web player', () => {
         expect(classifyAudioSrc('spotify-audio://track/1')).toBe('unsupported');
         expect(classifyAudioSrc('')).toBe('unsupported');
         expect(classifyAudioSrc(null)).toBe('unsupported');

@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createAudioHelperProcess } = require('./helperProcess.cjs');
-const { stageSource } = require('./stageSource.cjs');
+const { stageSource, cleanEphemeral } = require('./stageSource.cjs');
 const { createSenderGuardedHandler } = require('../ipcAccessGuard.cjs');
 
 const EVENT_CHANNEL = 'audio-helper:event';
@@ -29,11 +29,16 @@ function resolveHelperExecutable({ resourcesPath, appPath }) {
  *   isTrusted: (event: import('electron').IpcMainInvokeEvent) => boolean,
  *   getWindow: () => import('electron').BrowserWindow | null,
  *   stageDirectory: string,
+ *   fetchImpl?: typeof fetch,
+ *   customSchemes?: string[],
  *   resourcesPath?: string,
  *   appPath?: string,
  * }} options
  */
-function registerAudioHelperIpc({ ipcMain, isTrusted, getWindow, stageDirectory, resourcesPath, appPath }) {
+function registerAudioHelperIpc({ ipcMain, isTrusted, getWindow, stageDirectory, fetchImpl, customSchemes = [], resourcesPath, appPath }) {
+    // Ephemeral files of an earlier run are not wanted: they are removed at start as well as at quit.
+    void cleanEphemeral(stageDirectory);
+
     const helper = createAudioHelperProcess({
         resolveExecutable: () => resolveHelperExecutable({ resourcesPath, appPath }),
         onEvent: (event) => {
@@ -80,7 +85,7 @@ function registerAudioHelperIpc({ ipcMain, isTrusted, getWindow, stageDirectory,
     guarded('audio-helper:load', async (_event, request) => {
         const serial = ++loadSerial;
         try {
-            const filePath = await stageSource({ directory: stageDirectory, source: request.source });
+            const filePath = await stageSource({ directory: stageDirectory, source: request.source, fetchImpl, customSchemes });
             // A newer load arrived while this one was downloading: the page has moved on, so this one is dropped unplayed.
             if (serial !== loadSerial) return { ok: false, error: 'superseded' };
             const sent = helper.send({
@@ -105,7 +110,12 @@ function registerAudioHelperIpc({ ipcMain, isTrusted, getWindow, stageDirectory,
         return helper.sendIfRunning({ cmd: 'stop' });
     });
 
-    return { shutdown: () => helper.stop() };
+    return {
+        shutdown: async () => {
+            await helper.stop();
+            await cleanEphemeral(stageDirectory);
+        },
+    };
 }
 
 module.exports = { registerAudioHelperIpc, resolveHelperExecutable };
