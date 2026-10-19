@@ -15,9 +15,13 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-19
+
+基于上游 **v0.7.21**。
+
 ### 新增
 
-- **Spotify 网页版**：桌面版的 Spotify 桥在 Stage 中继里运行。Host / 遥控页共用服务器上的一个账号（只有 Host 页能登录、登出）；本机播放的页面有自己的一份账号（授权后的网址粘贴回来完成登录，手机也行）；遥控协议放行 Spotify 音源（需 Spotify 会员）。详见 [Stage Remote 使用文档](docs/stage-remote.md#spotify网页版)。
+- **Spotify 网页版**：桌面版的 Spotify 桥在 Stage 中继里运行。Host / 遥控页共用服务器上的一个账号（只有 Host 页能登录、登出）；本机播放的页面有自己的一份账号（授权后的网址粘贴回来完成登录，手机也行）；遥控协议放行 Spotify 音源（需 Spotify 会员）；Spotify 请求的代理原则与 AI 一致（直连通就直连，不通才走代理）；可用 `SPOTIFY_LOCAL_PROFILES=0` 关闭本机页自己的账号。详见 [Stage Remote 使用文档](docs/stage-remote.md#spotify网页版)。
 - **实际音质显示**:播放条显示平台实际给的音质,比所选低时标 ↓ 提示降级(网易云 / Spotify / YouTube Music;详见 `docs/fork-features.md`)。
 - **各平台自己的音质档位**:音质下拉按平台列真实档位并标规格;网易云新增 高清臻音 / 超清母带(详见 `docs/fork-features.md`)。
 - **合并上游 v0.7.21**（见 `docs/fork-features.md`）。
