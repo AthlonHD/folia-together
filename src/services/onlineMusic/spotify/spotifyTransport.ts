@@ -1,5 +1,5 @@
 import { OnlineProviderError } from '../../../types/onlineMusic';
-import { getStageAuthHeaders, getStageToken, handleStageAuthFailure, isStageRelayAvailable, withStageTokenQuery } from '../../stageMode';
+import { getStageAuthHeaders, getStageToken, handleStageAuthFailure, isStageHostMode, isStageRelayAvailable, withStageTokenQuery } from '../../stageMode';
 import type { ProviderErrorCode } from '../../../types/onlineMusic';
 
 // src/services/onlineMusic/spotify/spotifyTransport.ts
@@ -44,8 +44,15 @@ export const getSpotifyTransportAvailability = () => (
         : { configured: false, reason: 'runtime-unavailable' } as const
 );
 
+// 服务器上的这一个 Spotify 账号由 Host 页管理:登录、取消登录与登出只在 Host 页(或桌面版)里做,
+// 别的页面(遥控页、带令牌的本机页)只能用它——否则任何一个拿到令牌的页面点一下「登出」,所有人就都下线了。
+const MANAGE_ONLY_ON_HOST: ReadonlySet<SpotifyOperation> = new Set(['login_start', 'login_check', 'login_cancel', 'login_open', 'logout']);
+
 // 问中继:与桌面 IPC 同一种结果。令牌被拒(401)按 Stage 的规矩处理。
 const requestViaRelay = async (operation: SpotifyOperation, params: SpotifyParams): Promise<SpotifyBridgeResult> => {
+    if (MANAGE_ONLY_ON_HOST.has(operation) && !isStageHostMode()) {
+        return { ok: false, error: { code: 'unsupported', message: 'Spotify is signed in on the server: sign in or out on the Host page' } };
+    }
     const response = await fetch('/stage/spotify/api', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getStageAuthHeaders() },
