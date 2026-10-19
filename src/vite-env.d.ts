@@ -857,6 +857,16 @@ declare global {
       clearAudioCache: () => Promise<boolean>;
       /** Windows 直通模式的独立 WASAPI 独占播放器;其他平台没有这个对象。 */
       audioHelper?: import('./services/passthrough/types').AudioHelperApi;
+      /** 本 Fork 自己的检测更新与更新:问 Fork 的滚动发布,比本构建新就下载、校验、运行安装包。 */
+      togetherUpdate?: {
+        check: (installedCommit: string) => Promise<{
+          status: 'up-to-date' | 'available' | 'none' | 'unknown';
+          error?: string;
+          release?: { name: string; commit: string; size: number; publishedAt: string | null };
+        }>;
+        install: () => Promise<{ ok: true } | { ok: false; error: string }>;
+        onProgress: (callback: (progress: { done: number; total: number }) => void) => () => void;
+      };
       /** 桌面版当遥控端:在独立窗口里打开服务器的遥控页。令牌只留在主进程,这里只知道有没有保存。 */
       stageRemote?: {
         getConfig: () => Promise<{ url: string; hasToken: boolean }>;

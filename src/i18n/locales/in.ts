@@ -1,6 +1,24 @@
 
 
 export default {
+  "togetherUpdate": {
+    "groupTitle": "Pembaruan Fork",
+    "version": "Versi saat ini",
+    "check": "Periksa pembaruan",
+    "checkHint": "Menanyakan halaman rilis GitHub Fork apakah ada penginstal yang lebih baru dari build ini",
+    "install": "Unduh dan pasang",
+    "autoCheck": "Periksa saat aplikasi dimulai",
+    "autoCheckHint": "Sekali, beberapa saat setelah setiap peluncuran. Build baru hanya diumumkan, tidak dipasang sendiri",
+    "checking": "Memeriksa…",
+    "upToDate": "Ini build terbaru",
+    "available": "Build baru tersedia: {{name}}",
+    "none": "Belum ada penginstal di halaman rilis",
+    "unknown": "Tidak dapat memeriksa pembaruan: {{error}}",
+    "devBuild": "Ini dijalankan dari pengembangan; tidak mengetahui commit-nya sendiri sehingga tidak ada yang dibandingkan",
+    "failed": "Pembaruan gagal: {{error}}",
+    "availableToast": "Build baru tersedia. Unduh di Pengaturan > Umum > Pembaruan Fork",
+    "foot": "Penginstal Fork tidak memakai kanal pembaruan upstream. Pembaruan mengunduh penginstal, memeriksa SHA-256-nya, lalu menutup aplikasi ini dan menjalankan penginstal."
+  },
   "stageRemote": {
     "groupTitle": "Server jarak jauh",
     "url": "Alamat server",

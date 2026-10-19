@@ -129,6 +129,16 @@ contextBridge.exposeInMainWorld('electron', {
     getAudioCacheUsage: () => ipcRenderer.invoke('get-audio-cache-usage'),
     getAudioCacheStats: () => ipcRenderer.invoke('get-audio-cache-stats'),
     clearAudioCache: () => ipcRenderer.invoke('clear-audio-cache'),
+    // 本 Fork 自己的检测更新与更新(问 Fork 的滚动发布,见 electron/togetherUpdate/)
+    togetherUpdate: {
+        check: (installedCommit) => ipcRenderer.invoke('together-update-check', installedCommit),
+        install: () => ipcRenderer.invoke('together-update-install'),
+        onProgress: (callback) => {
+            const listener = (_event, progress) => callback(progress);
+            ipcRenderer.on('together-update-progress', listener);
+            return () => ipcRenderer.removeListener('together-update-progress', listener);
+        },
+    },
     // 遥控服务器:本应用当遥控端,在独立窗口打开服务器的遥控页(令牌只留在主进程)
     stageRemote: {
         getConfig: () => ipcRenderer.invoke('stage-remote-get-config'),

@@ -1,6 +1,24 @@
 
 
 export default {
+  "togetherUpdate": {
+    "groupTitle": "Fork updates",
+    "version": "Current version",
+    "check": "Check for updates",
+    "checkHint": "Asks the fork's GitHub release page whether there is an installer newer than this build",
+    "install": "Download and install",
+    "autoCheck": "Check when the app starts",
+    "autoCheckHint": "Once, a little after each start. A newer build is only announced, never installed on its own",
+    "checking": "Checking…",
+    "upToDate": "This is the latest build",
+    "available": "A newer build is available: {{name}}",
+    "none": "There is no installer on the release page yet",
+    "unknown": "Could not check for updates: {{error}}",
+    "devBuild": "This is a development run; it does not know its own commit, so there is nothing to compare",
+    "failed": "The update failed: {{error}}",
+    "availableToast": "A newer build is available. Download it in Settings > General > Fork updates",
+    "foot": "The fork's installers do not use the upstream update channel. An update downloads the installer, checks its SHA-256, then quits this app and runs the installer."
+  },
   "stageRemote": {
     "groupTitle": "Remote server",
     "url": "Server address",

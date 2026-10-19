@@ -102,6 +102,7 @@ import { usePlayerChromeAutoHide } from './hooks/usePlayerChromeAutoHide';
 import { useIdleCursorHide } from './hooks/useIdleCursorHide';
 import { usePlaybackAudioBridge } from './components/app/playback/bridges/usePlaybackAudioBridge';
 import { usePassthroughPlayback } from './components/app/passthrough/usePassthroughPlayback';
+import { useTogetherUpdateCheck } from './components/app/togetherUpdate/useTogetherUpdateCheck';
 import { useTranscodeFallback } from './hooks/useTranscodeFallback';
 import { useAutomixDecks, type AutomixDeckId } from './services/automix/useAutomixDecks';
 import { usePlaybackInteractionBridge } from './components/app/playback/bridges/usePlaybackInteractionBridge';
@@ -1358,6 +1359,8 @@ export default function App() {
 
     // 桌面版直通模式:曲目的声音交给 WASAPI 独占播放器,<audio> 退为静音的传输时钟。
     usePassthroughPlayback({ audioRef, setupAudioAnalyzer });
+    // 本 Fork:启动后问 Fork 的发布页有没有新版(只提示,安装在设置里)
+    useTogetherUpdateCheck();
 
     const handleTranscodeFallback = useTranscodeFallback({
         audioSrc,

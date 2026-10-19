@@ -1,6 +1,24 @@
 
 
 export default {
+  "togetherUpdate": {
+    "groupTitle": "本 Fork 更新",
+    "version": "当前版本",
+    "check": "检查更新",
+    "checkHint": "问 Fork 的 GitHub 发布页有没有比这个版本新的安装包",
+    "install": "下载并安装",
+    "autoCheck": "启动时检查更新",
+    "autoCheckHint": "每次启动后过一会儿检查一次,有新版只提示,不会自动安装",
+    "checking": "正在检查…",
+    "upToDate": "已是最新版本",
+    "available": "有新版:{{name}}",
+    "none": "发布页上还没有安装包",
+    "unknown": "检查不了更新:{{error}}",
+    "devBuild": "这是开发运行的版本,不知道自己的提交,无法比较",
+    "failed": "更新失败:{{error}}",
+    "availableToast": "有新版本,可到「设置 → 通用 → 本 Fork 更新」下载安装",
+    "foot": "Fork 的安装包不使用上游的更新通道。更新时会下载安装包、校验 SHA-256,然后退出本应用并运行安装程序。"
+  },
   "stageRemote": {
     "groupTitle": "遥控服务器",
     "url": "服务器地址",

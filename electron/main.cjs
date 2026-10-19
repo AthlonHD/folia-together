@@ -62,6 +62,7 @@ const { finalizeVideoExportFile } = require('./videoExportMp4.cjs');
 const { createLyricApi } = require('./lyricApi.cjs');
 const { registerAudioHelperIpc } = require('./audioHelper/audioHelperIpc.cjs');
 const { createStageRemote } = require('./stageRemote/stageRemote.cjs');
+const { checkForUpdate: checkTogetherUpdate, downloadAndInstall: downloadTogetherUpdate } = require('./togetherUpdate/togetherUpdate.cjs');
 const { createLocalCoverAssetStore, getLocalCoverAssetDirectory } = require('./localCoverAssets.cjs');
 const {
   compareVersions,
@@ -6510,6 +6511,61 @@ ipcMain.handle('kugou-api-request', createSenderGuardedHandler({
   isTrusted: isFirstPartyWindowContents,
   handler: (_event, operation, params) => kugouApiBridge.request(operation, params),
 }));
+// 本 Fork 自己的检测更新与更新:问 Fork 的滚动发布 together-latest(见 .github/workflows/together-installer.yml),
+// 比本构建的 commit 新就下载安装包、校验 SHA-256、运行。页面只能"检查"和"安装上一次检查找到的那个"。
+let togetherFoundRelease = null;
+let togetherInstalling = false;
+ipcMain.handle('together-update-check', createSenderGuardedHandler({
+  channel: 'together-update-check',
+  isTrusted: isFirstPartyWindowContents,
+  onUntrusted: () => ({ status: 'unknown' }),
+  handler: async (_event, installedCommit) => {
+    try {
+      const result = await checkTogetherUpdate({ fetchImpl: (input, init) => electronNet.fetch(input, init), installedCommit: String(installedCommit || '') });
+      togetherFoundRelease = result.status === 'available' ? result.release : null;
+      return result;
+    } catch (error) {
+      console.warn('[TogetherUpdate] the check failed', error);
+      return { status: 'unknown', error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+}));
+ipcMain.handle('together-update-install', createSenderGuardedHandler({
+  channel: 'together-update-install',
+  isTrusted: isFirstPartyWindowContents,
+  handler: async () => {
+    if (!app.isPackaged || process.platform !== 'win32') return { ok: false, error: 'not-supported' };
+    if (!togetherFoundRelease) return { ok: false, error: 'nothing-to-install' };
+    if (togetherInstalling) return { ok: false, error: 'busy' };
+    togetherInstalling = true;
+    try {
+      let lastSent = 0;
+      await downloadTogetherUpdate({
+        release: togetherFoundRelease,
+        directory: path.join(app.getPath('temp'), 'folia-together-update'),
+        fetchImpl: (input, init) => electronNet.fetch(input, init),
+        onProgress: (done, total) => {
+          const now = Date.now();
+          if (now - lastSent < 150 && done !== total) return;
+          lastSent = now;
+          mainWindow?.webContents.send('together-update-progress', { done, total });
+        },
+        launch: (file) => {
+          // The installer runs on its own; this app steps aside so the installer can replace it.
+          spawn(file, [], { detached: true, stdio: 'ignore' }).unref();
+        },
+      });
+      setTimeout(() => app.quit(), 800);
+      return { ok: true };
+    } catch (error) {
+      console.warn('[TogetherUpdate] the update failed', error);
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      togetherInstalling = false;
+    }
+  },
+}));
+
 // 遥控服务器:本应用只当遥控端——在独立窗口里打开服务器的遥控页,自己不开端口、不能被遥控。
 const stageRemote = createStageRemote({ store, safeStorage, BrowserWindow, title: 'Folia - Remote' });
 ipcMain.handle('stage-remote-get-config', createSenderGuardedHandler({

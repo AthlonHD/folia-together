@@ -1,7 +1,7 @@
 name: Together Installer
 
 # 每次推送到 stage-remote,都在 GitHub 上生成一个新版的 Windows 安装包(滚动发布 together-latest,始终是最新的那一个)。
-# 安装包没有数字签名,也不带自动更新(package.json 的 foliaReleaseChannel 是 internal):要新版就到这个发布页下载。
+# 安装包没有数字签名。安装版不使用上游的更新通道(package.json 的 foliaReleaseChannel 是 internal),用自己的检测更新:问这个发布页,比本构建新就下载、校验 SHA-256、运行安装包。
 
 on:
   push:
@@ -79,13 +79,17 @@ jobs:
           VERSION="$(tr -d '[:space:]' < FORK_VERSION)"
           SHORT="${GITHUB_SHA::7}"
           mv release/Folia-Setup-*.exe "release/Folia-Together-v${VERSION}-${SHORT}-Setup.exe"
-          ls -la release/*.exe
+          # The installed app checks the download against this file before it runs the installer.
+          (cd release && sha256sum "Folia-Together-v${VERSION}-${SHORT}-Setup.exe" > "Folia-Together-v${VERSION}-${SHORT}-Setup.exe.sha256")
+          ls -la release/Folia-Together-*
 
       - name: Keep the installer as a workflow artifact
         uses: actions/upload-artifact@v6
         with:
           name: Folia-Together-installer
-          path: release/Folia-Together-*-Setup.exe
+          path: |
+            release/Folia-Together-*-Setup.exe
+            release/Folia-Together-*-Setup.exe.sha256
           if-no-files-found: error
           retention-days: 14
 
@@ -105,10 +109,10 @@ jobs:
             echo "来源:https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
             echo "生成时间:${PUBLISHED_AT}"
             echo
-            echo "安装包没有数字签名,Windows 会弹 SmartScreen,点「更多信息 → 仍要运行」。不带自动更新:要新版请回到这里重新下载。"
+            echo "安装包没有数字签名,Windows 会弹 SmartScreen,点「更多信息 → 仍要运行」。应用内「设置 → 通用 → 本 Fork 更新」可以检查并安装新版,也可以回到这里手动下载。"
           } > release-notes.md
           gh release delete "${TAG}" --repo "${GITHUB_REPOSITORY}" --cleanup-tag --yes >/dev/null 2>&1 || true
-          gh release create "${TAG}" release/Folia-Together-*-Setup.exe \
+          gh release create "${TAG}" release/Folia-Together-*-Setup.exe release/Folia-Together-*-Setup.exe.sha256 \
             --repo "${GITHUB_REPOSITORY}" \
             --title "Folia Together - latest build" \
             --notes-file release-notes.md \

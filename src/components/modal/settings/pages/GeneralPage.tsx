@@ -10,6 +10,7 @@ import { useSettingsModalStore } from '../../../../stores/useSettingsModalStore'
 import { Button, Group, Reveal, Row, Segmented, Select, Toggle, option, type SettingsGroupDef, type SettingsOptionDef } from '../kit';
 import LayoutModeSection, { LAYOUT_MODE_OPTIONS } from '../LayoutModeSection';
 import { FoundUpdateRow } from './FoundUpdateRow';
+import TogetherUpdateGroup, { TOGETHER_UPDATE_OPTIONS } from './TogetherUpdateGroup';
 import { useSettingsPage } from './settingsPageContext';
 
 // src/components/modal/settings/pages/GeneralPage.tsx
@@ -34,7 +35,7 @@ const O = {
     ponderTouchButton: option(PONDER, 'ponderTouchButton', 'options.ponderTouchButton'),
 };
 
-export const OPTIONS: SettingsOptionDef[] = [...Object.values(O), ...LAYOUT_MODE_OPTIONS];
+export const OPTIONS: SettingsOptionDef[] = [...Object.values(O), ...LAYOUT_MODE_OPTIONS, ...Object.values(TOGETHER_UPDATE_OPTIONS)];
 
 const GeneralPage: React.FC = () => {
     const { t, i18n } = useTranslation();
@@ -97,6 +98,9 @@ const GeneralPage: React.FC = () => {
 
             {/* 本 Fork:手机 / 电脑布局 */}
             <LayoutModeSection />
+
+            {/* 本 Fork:自己的检测更新与更新(问 Fork 的发布页) */}
+            {isElectron && <TogetherUpdateGroup />}
 
             {isElectron && (
                 <Group
