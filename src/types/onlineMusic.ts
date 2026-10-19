@@ -517,6 +517,9 @@ export interface OnlineAuthProvider {
     // 过期仍走同一套 key 流程。它在系统浏览器里打开登录的页面，地址由 provider 自己决定，调用方
     // 不传 URL。没有图片可看，UI 开始登录时就打开这个页面（Spotify）。
     openLoginPage?(key: string): Promise<void>;
+    // 在浏览器里确认的登录,而授权之后浏览器被送回的地址只有服务器能接住(网页版、登录不在服务器上做):provider 声明这一个,
+    // 登录窗口就给一个粘贴框,把授权后地址栏里的网址交给 `submit`。available 为 false 时不给。
+    pasteBackLoginAddress?: { available(): boolean; submit(address: string): Promise<void> };
     // 这一次登录的页面是不是 provider 在开始登录时自己打开的、之后也不能再打开一次（YouTube Music
     // 的浏览器登录：那个窗口关掉就是登录结束）。是的话 UI 不在开始时打开它，也不留“重新打开”的按钮。
     opensLoginPageItself?(key: string): boolean;

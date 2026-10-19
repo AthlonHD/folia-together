@@ -31,6 +31,7 @@ export const probeAccountController = (
         selectLoginMethod: async () => ({ status: 'no-session' }),
         retryLogin: async () => ({ status: 'no-session' }),
         openLoginPage: async () => ({ status: 'no-session' }),
+        pasteLoginAddress: async () => ({ status: 'no-session' }),
         closeLogin: () => ({ status: 'no-session' }),
         restartLocalService: async () => ({ status: 'no-session' }),
         buildLoginDiagnosticReport: async () => ({ status: 'no-session' }),

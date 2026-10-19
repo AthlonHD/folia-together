@@ -5,7 +5,7 @@ import { parseLyricsByFormat } from '../../../utils/lyrics/parserCore';
 import { formatLrcTimestamp } from '../../../utils/lyrics/lrcTimestamp';
 import i18n from '../../../i18n/config';
 import { cacheLimitBytes } from '../../audioCache';
-import { getSpotifyTransportAvailability, querySpotify, requestSpotify } from './spotifyTransport';
+import { completeSpotifyLogin, getSpotifyTransportAvailability, querySpotify, requestSpotify, spotifyLoginNeedsPasteBack } from './spotifyTransport';
 import type { SpotifyWireAudio, SpotifyWireLoginStart, SpotifyWireLyrics } from './spotifyTransport';
 import {
     normalizeSpotifyCollection, normalizeSpotifySong, normalizeSpotifyUser, present, requireSpotifySong, spotifySongOf, spotifyUri,
@@ -178,6 +178,8 @@ export const spotifyProvider: OnlineMusicProvider = {
             return activeLogin.key;
         },
         async openLoginPage(key) { await requestSpotify('login_open', { key }); },
+        // 网页版本机播放的页面:授权后的网址要粘贴回来(见 spotifyTransport)
+        pasteBackLoginAddress: { available: spotifyLoginNeedsPasteBack, submit: async address => { await completeSpotifyLogin(address); } },
         // A sign-in that went through may be another account's (a sign-in Spotify stopped accepting
         // is removed without a sign-out): the FM and the lists of the one before are forgotten.
         async checkLogin(key) {

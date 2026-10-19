@@ -10,6 +10,7 @@ import type {
     LibraryLoginCompletion,
     LibraryLoginDiagnosticResult,
     LibraryLoginPageResult,
+    LibraryLoginPasteResult,
     LibraryLoginPhase,
     LibraryLoginRequestResult,
     LibraryLoginSessionSnapshot,
@@ -129,6 +130,7 @@ const sameLoginSnapshot = (a: LibraryLoginSessionSnapshot, b: LibraryLoginSessio
     && a.inBrowser === b.inBrowser
     && a.codeImage === b.codeImage
     && a.canReopenLoginPage === b.canReopenLoginPage
+    && a.canPasteLoginAddress === b.canPasteLoginAddress
     && a.failure === b.failure
     && a.selfCheck === b.selfCheck
     && a.texts === b.texts
@@ -199,6 +201,7 @@ export const createProviderAccountController = (deps: LibraryAccountControllerDe
             inBrowser: login.inBrowser,
             codeImage,
             canReopenLoginPage,
+            canPasteLoginAddress: login.inBrowser && askSafely(() => auth.canPasteLoginAddress?.(login!.providerId) === true, false),
             failure,
             selfCheck,
             localService: resolveLocalServiceState(service ? askSafely(() => service.getStatus(), null) : null),
@@ -440,6 +443,19 @@ export const createProviderAccountController = (deps: LibraryAccountControllerDe
         return await session.openLoginPage() ? { status: 'opened' } : { status: 'failed' };
     };
 
+    // 本 Fork:授权后浏览器被送回的地址只有服务器接得住时,登录窗口把粘贴来的网址经这里交给 provider。
+    const pasteLoginAddress = async (address: string): Promise<LibraryLoginPasteResult> => {
+        if (disposed || !login) return { status: 'no-session' };
+        const current = deriveLogin(null)!;
+        if (!current.canPasteLoginAddress || !auth.pasteLoginAddress) return { status: 'rejected', reason: 'not-pastable' };
+        try {
+            await auth.pasteLoginAddress(login.providerId, address);
+            return { status: 'sent' };
+        } catch {
+            return { status: 'failed' };
+        }
+    };
+
     const closeLogin = (): LibraryLoginCloseResult => {
         if (disposed || !login) return { status: 'no-session' };
         const sessionId = login.id;
@@ -599,6 +615,7 @@ export const createProviderAccountController = (deps: LibraryAccountControllerDe
         selectLoginMethod,
         retryLogin,
         openLoginPage,
+        pasteLoginAddress,
         closeLogin,
         restartLocalService,
         buildLoginDiagnosticReport,

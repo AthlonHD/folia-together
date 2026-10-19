@@ -17,7 +17,7 @@
 
 ### 新增
 
-- **Spotify 网页版**：桌面版的 Spotify 桥在 Stage 中继里运行，Host 页与遥控页可登录、浏览、搜索、播放（需 Spotify 会员，登录在服务器上做一次）；遥控协议放行 Spotify 音源。详见 [Stage Remote 使用文档](docs/stage-remote.md#spotify网页版)。
+- **Spotify 网页版**：桌面版的 Spotify 桥在 Stage 中继里运行。Host / 遥控页共用服务器上的一个账号（只有 Host 页能登录、登出）；本机播放的页面有自己的一份账号（授权后的网址粘贴回来完成登录，手机也行）；遥控协议放行 Spotify 音源（需 Spotify 会员）。详见 [Stage Remote 使用文档](docs/stage-remote.md#spotify网页版)。
 - **合并上游 v0.7.21**（见 `docs/fork-features.md`）。
 
 ## [1.0.0] - 2026-10-15

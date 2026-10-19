@@ -546,6 +546,17 @@ export const omni = {
         return requireOnlineMusicProvider(providerId).auth?.opensLoginPageItself?.(key) === true;
     },
 
+    // 登录要不要给「粘贴授权后网址」这一步(见 ProviderAuth.pasteBackLoginAddress)。
+    canPasteLoginAddress(providerId: OmniProviderId): boolean {
+        return requireOnlineMusicProvider(providerId).auth?.pasteBackLoginAddress?.available() === true;
+    },
+
+    async pasteLoginAddress(providerId: OmniProviderId, address: string): Promise<void> {
+        const paste = requireOnlineMusicProvider(providerId).auth?.pasteBackLoginAddress;
+        if (!paste) return unsupported(providerId, 'login-address');
+        await paste.submit(address);
+    },
+
     async openLoginPage(providerId: OmniProviderId, key: string): Promise<void> {
         const auth = requireOnlineMusicProvider(providerId).auth;
         if (!auth?.openLoginPage) return unsupported(providerId, 'qr-login-page');

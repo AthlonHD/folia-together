@@ -190,21 +190,97 @@ const readBody = (req) => new Promise((resolve, reject) => {
   req.on('error', reject);
 });
 
+// A browser that plays on its own device keeps its own Spotify account here: a random secret it made and
+// keeps in its localStorage names the account. The server keeps only a hash of the secret, and seals the
+// tokens with a key derived from the secret, so the account opens only for the browser that holds it.
+const PROFILE_SECRET = /^[A-Za-z0-9_-]{32,64}$/;
+const SHARED = 'shared';
+const MAX_PROFILES_ON_DISK = 32;
+const MAX_LIVE_BRIDGES = 12;
+const PROFILE_CREATE_WINDOW_MS = 60_000;
+const PROFILE_CREATE_LIMIT = 6;
+// Where Spotify's consent page sends the browser back to; the sign-in listens there on the server.
+const LOGIN_LOOPBACK = /^http:\/\/127\.0\.0\.1:5588\/login\?/;
+
+const profileId = (secret) => crypto.createHash('sha256').update(`folia-spotify-profile:${secret}`).digest('hex').slice(0, 32);
+
+const createSecretSeal = (secret) => {
+  const key = crypto.hkdfSync('sha256', Buffer.from(secret), Buffer.from('folia-spotify-seal'), Buffer.from('v1'), 32);
+  const keyBuffer = Buffer.from(key);
+  return {
+    isEncryptionAvailable: () => true,
+    getSelectedStorageBackend: () => 'aes-256-gcm-profile-secret',
+    encryptString: (text) => {
+      const iv = crypto.randomBytes(12);
+      const cipher = crypto.createCipheriv('aes-256-gcm', keyBuffer, iv);
+      const sealed = Buffer.concat([cipher.update(String(text), 'utf8'), cipher.final()]);
+      return Buffer.concat([iv, cipher.getAuthTag(), sealed]);
+    },
+    decryptString: (buffer) => {
+      const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, buffer.subarray(0, 12));
+      decipher.setAuthTag(buffer.subarray(12, 28));
+      return Buffer.concat([decipher.update(buffer.subarray(28)), decipher.final()]).toString('utf8');
+    },
+  };
+};
+
 /**
- * `stateDir`: where the sign-in is kept (default ~/.folia-spotify).
+ * `stateDir`: where the sign-ins are kept (default ~/.folia-spotify).
+ * `localProfiles`: whether browsers that play on their own device may have an account of their own here
+ *   (default on; SPOTIFY_LOCAL_PROFILES=0 turns it off).
  * `deps`: test seams (`openSession` for the playback component, `fetch`, `openExternal`).
  */
-const createSpotifyRelay = ({ stateDir = process.env.SPOTIFY_STATE_DIR || path.join(os.homedir(), '.folia-spotify'), log = console.log, warn = console.warn, deps = {} } = {}) => {
-  const bridge = createSpotifyApiBridge({
-    store: createFileStore(path.join(stateDir, 'spotify-store.json')),
-    safeStorage: createKeyfileSeal(path.join(stateDir, 'spotify-secret')),
-    fetch: deps.fetch ?? createRoutedFetch({ log, warn }),
-    openExternal: deps.openExternal ?? openInServerBrowser,
-    language: () => 'zh-CN',
-    log,
-    warn,
-    ...(deps.openSession ? { openSession: deps.openSession } : {}),
-  });
+const createSpotifyRelay = ({
+  stateDir = process.env.SPOTIFY_STATE_DIR || path.join(os.homedir(), '.folia-spotify'),
+  localProfiles = process.env.SPOTIFY_LOCAL_PROFILES !== '0',
+  log = console.log,
+  warn = console.warn,
+  deps = {},
+} = {}) => {
+  const routedFetch = deps.fetch ?? createRoutedFetch({ log, warn });
+  const bridges = new Map();
+  const createdAt = [];
+
+  const profileDir = (id) => path.join(stateDir, 'profiles', id);
+
+  // The bridge of one account. The shared account opens its sign-in page in the server's own browser; a
+  // local profile is only told the address, and its page opens it where the person is.
+  const bridgeOf = (profile) => {
+    const id = profile.kind === 'shared' ? SHARED : profileId(profile.secret);
+    const existing = bridges.get(id);
+    if (existing) return existing;
+    if (profile.kind === 'local') {
+      if (!localProfiles) return null;
+      let known = false;
+      try { known = fs.existsSync(profileDir(id)); } catch { /* treated as new */ }
+      if (!known) {
+        // A new account: the number of them, and how fast they are made, are limited.
+        let onDisk = 0;
+        try { onDisk = fs.readdirSync(path.join(stateDir, 'profiles')).length; } catch { /* none yet */ }
+        const now = Date.now();
+        while (createdAt.length > 0 && now - createdAt[0] > PROFILE_CREATE_WINDOW_MS) createdAt.shift();
+        if (onDisk >= MAX_PROFILES_ON_DISK || createdAt.length >= PROFILE_CREATE_LIMIT) return null;
+        createdAt.push(now);
+      }
+      if (bridges.size >= MAX_LIVE_BRIDGES + 1) return null;
+    }
+    const entry = { loginUrl: '' };
+    entry.bridge = createSpotifyApiBridge({
+      store: createFileStore(profile.kind === 'shared' ? path.join(stateDir, 'spotify-store.json') : path.join(profileDir(id), 'spotify-store.json')),
+      safeStorage: profile.kind === 'shared' ? createKeyfileSeal(path.join(stateDir, 'spotify-secret')) : createSecretSeal(profile.secret),
+      fetch: routedFetch,
+      openExternal: async (url) => {
+        entry.loginUrl = url;
+        if (profile.kind === 'shared') await (deps.openExternal ?? openInServerBrowser)(url);
+      },
+      language: () => 'zh-CN',
+      log,
+      warn,
+      ...(deps.openSession ? { openSession: deps.openSession } : {}),
+    });
+    bridges.set(id, entry);
+    return entry;
+  };
 
   // The renderer is given paths of the relay instead of the desktop app's own scheme.
   const toRelayAudio = (data) => (
@@ -217,15 +293,45 @@ const createSpotifyRelay = ({ stateDir = process.env.SPOTIFY_STATE_DIR || path.j
       ? { ...params, url: params.url.replace(AUDIO_URL_PREFIX, AUDIO_SCHEME_PREFIX) }
       : params
   );
+  const unavailable = (message) => ({ ok: false, error: { code: 'unavailable', message } });
 
-  const request = async (operation, params = {}) => {
+  // Two things the desktop bridge does not have, for a page that is not on the server's own machine:
+  //   login_url      the consent page's address, to open where the person is (a local profile);
+  //   login_complete the address the browser was sent back to (http://127.0.0.1:5588/login?code=...), pasted
+  //                  by the person, handed to the sign-in that listens on the server. A browser on the
+  //                  server's own machine reaches the listener itself and needs neither.
+  const extraOperation = async (entry, operation, params) => {
+    if (operation === 'login_url') {
+      return entry.loginUrl ? { ok: true, data: { url: entry.loginUrl } } : unavailable('No sign-in page is waiting');
+    }
+    if (operation === 'login_complete') {
+      const address = typeof params.redirectUrl === 'string' ? params.redirectUrl.trim() : '';
+      if (!LOGIN_LOOPBACK.test(address)) return { ok: false, error: { code: 'invalid-response', message: 'That is not the address Spotify sent the browser back to' } };
+      try {
+        await fetch(address, { signal: AbortSignal.timeout(10_000) });
+        return { ok: true, data: true };
+      } catch {
+        return unavailable('The sign-in on the server is not waiting for an answer');
+      }
+    }
+    return null;
+  };
+
+  /** `profile`: `{ kind: 'shared' }` (the Host's account) or `{ kind: 'local', secret }`. */
+  const request = async (profile, operation, params = {}) => {
+    const entry = bridgeOf(profile);
+    if (!entry) return unavailable('This server does not keep a Spotify account for this browser');
     const safeParams = params && typeof params === 'object' && !Array.isArray(params) ? toSchemeAudio(params) : params;
-    const result = await bridge.request(operation, safeParams);
+    if (profile.kind === 'local') {
+      const extra = await extraOperation(entry, operation, safeParams);
+      if (extra) return extra;
+    }
+    const result = await entry.bridge.request(operation, safeParams);
     return result.ok && operation === 'audio' ? { ...result, data: toRelayAudio(result.data) } : result;
   };
 
   /** POST /stage/spotify/api  { operation, params } -> the bridge's result, as the desktop IPC returns it. */
-  const handleApi = async (req, res, sendJson) => {
+  const handleApi = async (req, res, sendJson, profile = { kind: 'shared' }) => {
     let body;
     try {
       body = JSON.parse(await readBody(req));
@@ -233,19 +339,25 @@ const createSpotifyRelay = ({ stateDir = process.env.SPOTIFY_STATE_DIR || path.j
       sendJson(res, 400, { ok: false, error: { code: 'invalid-response', message: 'Invalid Spotify request' } });
       return;
     }
-    sendJson(res, 200, await request(String(body?.operation ?? ''), body?.params ?? {}));
+    sendJson(res, 200, await request(profile, String(body?.operation ?? ''), body?.params ?? {}));
   };
 
-  /** GET /stage/spotify/audio/<trackId>?k=<key>[&token=..]: the decrypted audio, Range supported. */
-  const handleAudio = async (req, res, requestUrl) => {
+  /** GET /stage/spotify/audio/<trackId>?k=<key>[&token=..|&profile=..]: the decrypted audio, Range supported. */
+  const handleAudio = async (req, res, requestUrl, profile = { kind: 'shared' }) => {
     const match = AUDIO_PATH.exec(requestUrl.pathname);
     if (!match) return false;
+    const entry = bridgeOf(profile);
+    if (!entry) {
+      res.writeHead(503);
+      res.end();
+      return true;
+    }
     const key = requestUrl.searchParams.get('k') ?? '';
     const incoming = new Request(`${AUDIO_SCHEME_PREFIX}${match[1]}?k=${encodeURIComponent(key)}`, {
       method: req.method === 'HEAD' ? 'GET' : req.method,
       headers: req.headers.range ? { range: req.headers.range } : {},
     });
-    const response = await bridge.handleAudioRequest(incoming);
+    const response = await entry.bridge.handleAudioRequest(incoming);
     if (response.type === 'error') {
       res.destroy();
       return true;
@@ -265,7 +377,13 @@ const createSpotifyRelay = ({ stateDir = process.env.SPOTIFY_STATE_DIR || path.j
     return true;
   };
 
-  return { request, handleApi, handleAudio };
+  return { request, handleApi, handleAudio, localProfilesEnabled: localProfiles };
 };
 
-module.exports = { createSpotifyRelay, createKeyfileSeal, createFileStore };
+/** The profile a request names: its secret (header X-Spotify-Profile, or `profile` in the query for audio). */
+const profileSecretOf = (req, requestUrl) => {
+  const secret = String(req.headers['x-spotify-profile'] || requestUrl.searchParams.get('profile') || '');
+  return PROFILE_SECRET.test(secret) ? secret : '';
+};
+
+module.exports = { createSpotifyRelay, createKeyfileSeal, createFileStore, createSecretSeal, profileSecretOf, PROFILE_SECRET };

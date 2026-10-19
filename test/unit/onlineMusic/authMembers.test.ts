@@ -26,7 +26,7 @@ const AUTH_MEMBERS: Record<string, string[]> = {
     ],
     spotify: [
         'cancelLogin', 'checkLogin', 'describeLoginFailure', 'getLoginStatus', 'getLoginTexts', 'getLoginTtlMs', 'logout', 'openLoginPage',
-        'startLogin',
+        'pasteBackLoginAddress', 'startLogin',
     ],
     ytm: [
         'cancelLogin', 'checkLogin', 'describeLoginFailure', 'getLoginStatus', 'getLoginTexts', 'getLoginTtlMs', 'logout', 'openLoginPage',

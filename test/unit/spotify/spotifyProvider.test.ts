@@ -8,6 +8,8 @@ vi.mock('@/services/onlineMusic/spotify/spotifyTransport', () => ({
     requestSpotify: request,
     querySpotify: (name: string, variables: Record<string, unknown> = {}) => request('query', { name, variables }),
     getSpotifyTransportAvailability: () => ({ configured: true }),
+    completeSpotifyLogin: async () => undefined,
+    spotifyLoginNeedsPasteBack: () => false,
 }));
 import { omni } from '@/services/onlineMusic/omni';
 import { spotifyProvider } from '@/services/onlineMusic/spotify/spotifyProvider';

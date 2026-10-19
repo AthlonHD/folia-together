@@ -1,3 +1,4 @@
+import LoginAddressPasteBack from './LoginAddressPasteBack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LibraryLoginSessionSnapshot } from '../../../library/core/account/account.contract';
@@ -41,6 +42,8 @@ export type LoginScreenProps = {
     /** 用这种登录方式开始（任何时候都可以换）。 */
     onSelectMethod: (methodId: string) => void;
     onReopenBrowser: () => void;
+    /** 登录要把授权后的网址粘贴回来时(login.canPasteLoginAddress),把它交给登录。 */
+    onPasteAddress?: (address: string) => Promise<boolean>;
     /** 重启登录要靠的本地服务，起来之后把登录重新开始。 */
     onRestartService: () => void;
     onSwitch: () => void;
@@ -73,7 +76,7 @@ const useReached = (at: number): boolean => {
 };
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
-    isOpen, onClose, rows, activeProviderId, chosen, login, onChoose, onStart, onSelectMethod, onReopenBrowser, onRestartService, onSwitch, onSignOut,
+    isOpen, onClose, rows, activeProviderId, chosen, login, onChoose, onStart, onSelectMethod, onReopenBrowser, onPasteAddress, onRestartService, onSwitch, onSignOut,
     buildReport, origin, done = false, onDoneLeave = nothing, onDoneEnd = nothing,
 }) => {
     const { t } = useTranslation();
@@ -240,7 +243,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     steps={stepMarks(scene, inBrowser)}
                 />
             )}
-            below={details ? <Unfold open={detailsOpen}>{details}</Unfold> : undefined}
+            below={details ? <Unfold open={detailsOpen}>{details}</Unfold> : (
+                // 授权后的网址要粘贴回来的登录(provider 声明):等授权的时候给一个粘贴框
+                login?.canPasteLoginAddress && onPasteAddress && (scene === 'browser' || scene === 'browser-ready')
+                    ? <LoginAddressPasteBack onSubmit={onPasteAddress} />
+                    : undefined
+            )}
         />
         {shownDone && providerId && <LoginDoneFlight parts={doneParts} providerId={providerId} label={label} user={summary?.user ?? null} />}
         </>

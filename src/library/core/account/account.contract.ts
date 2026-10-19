@@ -114,6 +114,8 @@ export type LibraryLoginSessionSnapshot = {
     codeImage: string;
     /** 这一次登录的页面能不能由窗口再打开一次（provider 自己打开、关掉即结束的不能）。 */
     canReopenLoginPage: boolean;
+    /** 登录窗口要给一个粘贴框:授权后的网址要粘贴回来(provider 声明了 pasteBackLoginAddress 且此刻可用)。 */
+    canPasteLoginAddress?: boolean;
     /**
      * 这一次为什么没有成功：是哪一种情况、它的事实、发生的时刻（services/onlineMusic/login/loginFailureCase）。
      * 没有出事、重新开始之后、确认之后是 null。「浏览器没有打开」时登录还在等（phase 仍是 waiting），只有它有值。
@@ -240,6 +242,13 @@ export type LibraryLoginPageResult =
     | { status: 'no-session' }
     | { status: 'rejected'; reason: 'not-reopenable' };
 
+/** 粘贴回来的授权后网址交给 provider 的结果。 */
+export type LibraryLoginPasteResult =
+    | { status: 'sent' }
+    | { status: 'failed' }
+    | { status: 'no-session' }
+    | { status: 'rejected'; reason: 'not-pastable' };
+
 /**
  * 重启登录要靠的本地服务：起来了就把登录重新开始（resumed 带会话代次；这会儿登录自己走下去了就不再开始一次，
  * 代次不变）；没起来是 still-down。
@@ -293,6 +302,8 @@ export interface LibraryAccountController {
     retryLogin(): Promise<LibraryLoginRequestResult>;
     /** 在浏览器里确认的登录：让 provider 在系统浏览器里把登录的页面再打开一次。 */
     openLoginPage(): Promise<LibraryLoginPageResult>;
+    /** 把授权后浏览器被送回的网址(粘贴来的)交给 provider;只在 canPasteLoginAddress 时可用。 */
+    pasteLoginAddress(address: string): Promise<LibraryLoginPasteResult>;
     /** 停轮询、keyed 取消会话、清快照。 */
     closeLogin(): LibraryLoginCloseResult;
     /** 重启登录要靠的本地服务；起来了接着登录。 */
@@ -321,6 +332,8 @@ export type LibraryAccountAuthPort = {
     confirmsLoginInBrowser(providerId: OnlineProviderId): boolean;
     opensLoginPageItself(providerId: OnlineProviderId, key: string): boolean;
     openLoginPage(providerId: OnlineProviderId, key: string): Promise<void>;
+    canPasteLoginAddress?(providerId: OnlineProviderId): boolean;
+    pasteLoginAddress?(providerId: OnlineProviderId, address: string): Promise<void>;
     /** 声明了这一次登录的有效期才由前端计时；null 表示只认平台报的过期。 */
     getLoginTtlMs(providerId: OnlineProviderId): number | null;
     getLoginTexts(providerId: OnlineProviderId): LoginTexts | null;

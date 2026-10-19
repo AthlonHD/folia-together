@@ -10,15 +10,22 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // 账号存在服务器本机(文件 + 密钥文件封存),经 /stage/spotify/api 与 /stage/spotify/audio/<id> 提供给带令牌的页面。
 
 const require = createRequire(import.meta.url);
-const { createSpotifyRelay, createKeyfileSeal, createFileStore } = require('../../../server/stage-relay/spotify.cjs') as {
+const { createSpotifyRelay, createKeyfileSeal, createFileStore, createSecretSeal, profileSecretOf } = require('../../../server/stage-relay/spotify.cjs') as {
     createSpotifyRelay: (options: Record<string, unknown>) => {
-        request: (operation: string, params?: Record<string, unknown>) => Promise<{ ok: boolean; data?: unknown; error?: { code: string } }>;
+        request: (profile: { kind: 'shared' } | { kind: 'local'; secret: string }, operation: string, params?: Record<string, unknown>) => Promise<{ ok: boolean; data?: unknown; error?: { code: string } }>;
         handleApi: (req: unknown, res: unknown, sendJson: (res: unknown, status: number, payload: unknown) => void) => Promise<void>;
         handleAudio: (req: unknown, res: unknown, url: URL) => Promise<boolean>;
+        localProfilesEnabled: boolean;
     };
     createKeyfileSeal: (file: string) => { encryptString: (text: string) => Buffer; decryptString: (buffer: Buffer) => string; isEncryptionAvailable: () => boolean };
     createFileStore: (file: string) => { get: (key: string) => unknown; set: (key: string, value: unknown) => void; delete: (key: string) => void };
+    createSecretSeal: (secret: string) => { encryptString: (text: string) => Buffer; decryptString: (buffer: Buffer) => string };
+    profileSecretOf: (req: { headers: Record<string, string> }, url: URL) => string;
 };
+const SHARED = { kind: 'shared' } as const;
+const mine = (secret: string) => ({ kind: 'local', secret } as const);
+const secretA = 'a'.repeat(40);
+const secretB = 'b'.repeat(40);
 
 const dirs: string[] = [];
 const tempDir = () => {
@@ -63,19 +70,19 @@ describe('the account is kept on the server', () => {
 describe('the Spotify operations over the relay', () => {
     it('says nobody is signed in on a fresh server', async () => {
         const relay = relayIn(tempDir());
-        expect(await relay.request('login_status')).toEqual({ ok: true, data: null });
+        expect(await relay.request(SHARED, 'login_status')).toEqual({ ok: true, data: null });
     });
 
     it('refuses an operation the desktop bridge does not have', async () => {
         const relay = relayIn(tempDir());
-        const result = await relay.request('delete_everything');
+        const result = await relay.request(SHARED, 'delete_everything');
         expect(result.ok).toBe(false);
         expect(result.error?.code).toBe('unsupported');
     });
 
     it('asks for a sign-in before it hands out audio', async () => {
         const relay = relayIn(tempDir());
-        const result = await relay.request('audio', { id: 'a'.repeat(22), quality: 'high' });
+        const result = await relay.request(SHARED, 'audio', { id: 'a'.repeat(22), quality: 'high' });
         expect(result.ok).toBe(false);
         expect(result.error?.code).toBe('auth-required');
     });
@@ -98,5 +105,60 @@ describe('the Spotify operations over the relay', () => {
     it('serves audio only under /stage/spotify/audio/<track id>', async () => {
         const relay = relayIn(tempDir());
         expect(await relay.handleAudio({ method: 'GET', headers: {} }, {}, new URL('http://x/stage/spotify/other'))).toBe(false);
+    });
+});
+
+describe('a browser that plays on its own device has an account of its own', () => {
+    it('is sealed with a key made from its secret: another secret cannot open it', () => {
+        const sealed = createSecretSeal(secretA).encryptString('{"a":1}');
+        expect(createSecretSeal(secretA).decryptString(sealed)).toBe('{"a":1}');
+        expect(() => createSecretSeal(secretB).decryptString(sealed)).toThrow();
+    });
+
+    it('reads the profile from the header or the query, and only when it looks like a secret', () => {
+        const url = new URL('http://x/stage/spotify/api');
+        expect(profileSecretOf({ headers: { 'x-spotify-profile': secretA } }, url)).toBe(secretA);
+        expect(profileSecretOf({ headers: {} }, new URL(`http://x/a?profile=${secretB}`))).toBe(secretB);
+        expect(profileSecretOf({ headers: { 'x-spotify-profile': 'short' } }, url)).toBe('');
+        expect(profileSecretOf({ headers: {} }, url)).toBe('');
+    });
+
+    it('starts with nobody signed in, apart from the shared account', async () => {
+        const relay = relayIn(tempDir());
+        expect(await relay.request(mine(secretA), 'login_status')).toEqual({ ok: true, data: null });
+        expect(await relay.request(mine(secretB), 'login_status')).toEqual({ ok: true, data: null });
+    });
+
+    it('offers the consent address only after a sign-in has begun, and takes only the loopback address back', async () => {
+        const relay = relayIn(tempDir());
+        expect((await relay.request(mine(secretA), 'login_url')).ok).toBe(false);
+        const refused = await relay.request(mine(secretA), 'login_complete', { redirectUrl: 'https://evil.example/login?code=1' });
+        expect(refused.ok).toBe(false);
+        expect(refused.error?.code).toBe('invalid-response');
+    });
+
+    it('does not give the shared account the two extra operations', async () => {
+        const relay = relayIn(tempDir());
+        const result = await relay.request(SHARED, 'login_url');
+        expect(result.ok).toBe(false);
+        expect(result.error?.code).toBe('unsupported');
+    });
+
+    it('can be turned off, and then keeps no account for a browser', async () => {
+        const relay = createSpotifyRelay({ stateDir: tempDir(), localProfiles: false, ...quiet, deps: { fetch: vi.fn(), openExternal: vi.fn() } });
+        expect(relay.localProfilesEnabled).toBe(false);
+        const result = await relay.request(mine(secretA), 'login_status');
+        expect(result.ok).toBe(false);
+        expect(result.error?.code).toBe('unavailable');
+    });
+
+    it('limits how fast new accounts are made, while the ones already made keep working', async () => {
+        const relay = relayIn(tempDir());
+        const secrets = Array.from({ length: 8 }, (_, index) => String(index).repeat(40));
+        const results = [];
+        for (const secret of secrets) results.push((await relay.request(mine(secret), 'login_status')).ok);
+        expect(results.slice(0, 6)).toEqual(Array(6).fill(true));
+        expect(results.slice(6)).toEqual([false, false]);
+        expect((await relay.request(mine(secrets[0]), 'login_status')).ok).toBe(true);
     });
 });

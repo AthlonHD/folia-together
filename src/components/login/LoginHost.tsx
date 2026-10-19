@@ -114,6 +114,7 @@ const LoginHost: React.FC<LoginHostProps> = ({ account }) => {
             onStart={() => void account.retryLogin()}
             onSelectMethod={methodId => void account.selectLoginMethod(methodId)}
             onReopenBrowser={() => void account.openLoginPage()}
+            onPasteAddress={address => account.pasteLoginAddress(address).then(result => result.status === 'sent')}
             onRestartService={() => void account.restartLocalService()}
             onSwitch={host.switchToChosen}
             onSignOut={host.signOutChosen}

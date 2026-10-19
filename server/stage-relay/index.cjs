@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const { createStageApi } = require('../../electron/stageApi.cjs');
-const { createSpotifyRelay } = require('./spotify.cjs');
+const { createSpotifyRelay, profileSecretOf } = require('./spotify.cjs');
 
 const PORT = Number(process.env.STAGE_PORT) || 4100;
 const LISTEN_HOST = process.env.LISTEN_HOST || '0.0.0.0';
@@ -295,6 +295,9 @@ const handleStageAuth = async (req, res, requestUrl) => {
   const isCheck = pathname === '/stage/auth/check';
   if (!isCheck && !pathname.startsWith('/stage/player/') && !pathname.startsWith('/stage/local/') && !pathname.startsWith('/stage/spotify/')) return false;
   if (req.method === 'OPTIONS') return false;
+  // 本机播放的浏览器带着自己的 Spotify 账号标识(X-Spotify-Profile)来用它自己的那一份账号,不需要访问令牌;
+  // 其余的 Spotify 请求与 /stage/* 一样要令牌。
+  if (pathname.startsWith('/stage/spotify/') && getSpotifyRelay().localProfilesEnabled && profileSecretOf(req, requestUrl)) return false;
 
   const limited = isAuthRateLimited();
   const valid = !limited && sameSecret(readRequestToken(req, requestUrl));
@@ -321,16 +324,19 @@ const handleSpotify = async (req, res, requestUrl) => {
   const { pathname } = requestUrl;
   if (!pathname.startsWith('/stage/spotify/')) return false;
   if (req.method === 'OPTIONS') return false;
+  // 带自己账号标识的是本机播放的浏览器(它自己的账号);其余走过了令牌校验,用 Host 的共用账号。
+  const secret = getSpotifyRelay().localProfilesEnabled ? profileSecretOf(req, requestUrl) : '';
+  const profile = secret ? { kind: 'local', secret } : { kind: 'shared' };
   try {
     if (pathname === '/stage/spotify/api') {
       if (req.method !== 'POST') {
         sendJson(res, 405, { ok: false, error: { code: 'unsupported', message: 'POST only' } });
         return true;
       }
-      await getSpotifyRelay().handleApi(req, res, sendJson);
+      await getSpotifyRelay().handleApi(req, res, sendJson, profile);
       return true;
     }
-    if ((req.method === 'GET' || req.method === 'HEAD') && await getSpotifyRelay().handleAudio(req, res, requestUrl)) return true;
+    if ((req.method === 'GET' || req.method === 'HEAD') && await getSpotifyRelay().handleAudio(req, res, requestUrl, profile)) return true;
   } catch (error) {
     console.warn('[Relay] Spotify request failed:', error?.message || error);
     if (!res.headersSent) sendJson(res, 502, { ok: false, error: { code: 'unavailable', message: 'Spotify is not available on this server' } });
