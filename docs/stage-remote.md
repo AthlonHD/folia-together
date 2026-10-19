@@ -90,7 +90,6 @@ Host 上登录的网易云、QQ 音乐、酷狗账号，遥控端可以直接借
 - 本机播放的页面不需要访问令牌，所以**任何能访问中继的人都能在服务器上建一个自己的 Spotify 账号**。服务器上限 32 个账号、每分钟最多新建 6 个；不想开放就设环境变量 `SPOTIFY_LOCAL_PROFILES=0`，此时本机页用不了 Spotify。部署在公网时请把站点放在访问控制（如 Cloudflare Access）之后。
 - 共用账号的访问者共用你的会员，令牌只给信任的人。
 - librespot 直连 Spotify，**不走 HTTP 代理**；API 请求会在直连不通时自动走系统代理。如果你的网络只有「系统代理」没有 TUN / 全局直连，能浏览但播放会失败——开 TUN，或让服务器直连 Spotify。
-- **让 Spotify 走代理**：Spotify 的请求发生在**服务器**上，浏览器（比如你访问 music.athlonhd.net 的那一端）完全不参与，所以浏览器直连不受影响。默认「直连通就直连，不通才走系统代理」；想强制走代理，给中继设环境变量 `SPOTIFY_PROXY_URL=http://127.0.0.1:7890`（改成你的代理地址）后重启，只对 Spotify 生效，网易云 / QQ / 酷狗不受影响。这只覆盖 API 请求，播放的音频流（librespot）仍不走代理，要走代理需开 TUN。
 - Spotify 可能随时改接口，导致浏览或播放失效；这是第三方实现，不受官方支持，也不符合 Spotify 的使用条款，仅限自用。
 - 没有磁盘缓存（桌面版有）。服务器上如果 librespot 没装上，播放会报「Spotify playback is not available on this system」，先确认 `node_modules/@lox-audioserver/node-librespot` 存在。
 - 登录失败或回调不到：确认服务器的 5588 端口没被别的程序占用；日志在中继的黑框里（`[Spotify] …`）。
