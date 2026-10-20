@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SongResult } from '@/types';
 import { clearPrefetchRuntime, prefetchNearbySongs } from '@/services/prefetchService';
+import { clearPlaybackRepresentationsForTests, registerPlaybackRepresentation } from '@/services/playbackRecovery/representationRegistry';
 import { useAudioSettingsStore } from '@/stores/useAudioSettingsStore';
 import { useAutomixSettingsStore } from '@/stores/useAutomixSettingsStore';
 import { usePlaybackStore } from '@/stores/usePlaybackStore';
@@ -42,7 +43,19 @@ const local = (id: string, name: string): SongResult => ({
     isLocal: true,
     localRef: { songId: id },
     sourceRef: { kind: 'local', mediaId: id },
+    playbackSourceRevision: `rev-${id}`,
 } as unknown as SongResult);
+
+/** A transcode of the local song `id` registering, made from the file as of `revision`. */
+const transcodeOf = (id: string, revision = `rev-${id}`) => registerPlaybackRepresentation({
+    songKey: `local:${id}`,
+    sourceRevision: revision,
+    representationId: `transcode:${id}`,
+    kind: 'transcoded',
+    url: `folia-transcode://${id}`,
+    mimeType: 'audio/flac',
+    timelineOffsetSec: 0,
+});
 
 const navidrome = (id: string, name: string): SongResult => ({
     ...base(id, name),
@@ -65,6 +78,7 @@ describe('prefetchNearbySongs on a library queue', () => {
 
     afterEach(() => {
         clearPrefetchRuntime();
+        clearPlaybackRepresentationsForTests();
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
         useAutomixSettingsStore.setState({ automixEnabled: false, transitionMode: 'automix' });
@@ -115,5 +129,39 @@ describe('prefetchNearbySongs on a library queue', () => {
         const queue = [local('a', 'Alpha'), local('b', 'Bravo')];
 
         expect(await run(queue[0], queue)).toEqual([]);
+    });
+
+    // The request made at the track change went out under the original's key; a transcode registering
+    // later moves the analysis to its own key, and only this asks about it before the track leaves.
+    it('analyses the current track again when its transcode registers', async () => {
+        const queue = [local('a', 'Alpha'), local('b', 'Bravo'), local('c', 'Charlie')];
+        await run(queue[0], queue);
+        ensureTrackProfile.mockClear();
+
+        transcodeOf('a');
+
+        expect(ensureTrackProfile.mock.calls.map(([{ song, audioUrl }]) => [song.name, audioUrl])).toEqual([['Alpha', null]]);
+    });
+
+    it('leaves a transcode of a track out of scope, or of another revision of its file, alone', async () => {
+        const queue = [local('a', 'Alpha'), local('b', 'Bravo'), local('c', 'Charlie')];
+        await run(queue[0], queue);
+        ensureTrackProfile.mockClear();
+
+        transcodeOf('c');
+        transcodeOf('b', 'rev-older');
+
+        expect(ensureTrackProfile).not.toHaveBeenCalled();
+    });
+
+    it('forgets the scope when the prefetch runtime is cleared', async () => {
+        const queue = [local('a', 'Alpha'), local('b', 'Bravo')];
+        await run(queue[0], queue);
+        ensureTrackProfile.mockClear();
+
+        clearPrefetchRuntime();
+        transcodeOf('a');
+
+        expect(ensureTrackProfile).not.toHaveBeenCalled();
     });
 });

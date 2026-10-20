@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('electron', {
     separateStems: (request) => ipcRenderer.invoke('automix-htdemucs', request),
     // Whether automix is switched on. While it is, the analysis worker keeps htdemucs loaded; switching
     // it off releases it. See electron/analysis/host.cjs.
+    // (From the PR #750 re-review, 2026-10-19: not kept while it is on any more - the worker releases
+    // htdemucs a minute after each run - and switching it off still releases it at once.)
     setAutomixEnabled: (enabled) => ipcRenderer.send('automix-enabled', enabled === true),
     // Which weights exist, answered without loading them. See the handler for why the settings page
     // is not allowed to infer this from "am I running in Electron".
@@ -270,6 +272,13 @@ contextBridge.exposeInMainWorld('electron', {
         const listener = (_event, status) => callback(status);
         ipcRenderer.on('obs-browser-source-status-changed', listener);
         return () => ipcRenderer.removeListener('obs-browser-source-status-changed', listener);
+    },
+    getGlobalShortcutBackend: () => ipcRenderer.invoke('global-shortcuts-backend'),
+    setGlobalShortcuts: (accelerators) => ipcRenderer.invoke('global-shortcuts-set', accelerators),
+    onGlobalShortcut: (callback) => {
+        const listener = (_event, accelerator) => callback(accelerator);
+        ipcRenderer.on('global-shortcut-triggered', listener);
+        return () => ipcRenderer.removeListener('global-shortcut-triggered', listener);
     },
     updateTaskbarControls: (state) => ipcRenderer.invoke('thumbar-update-buttons', state),
     onTaskbarControl: (callback) => {

@@ -2,7 +2,7 @@ import type React from 'react';
 import type { LucideIcon } from 'lucide-react';
 import type { SearchReturnView, SearchSource } from '../../stores/useSearchNavigationStore';
 import type { LocalLibraryDisplayCatalog } from '../../services/playbackAdapters';
-import type { HomeViewTab, LatentBackgroundTuning, LocalSong, LyricData, PlayerState, ReplayGainMode, SongResult, StatusMessage, SubtitleContentMode, VisualizerMode, VisualizerBackgroundMode, MonetBackgroundTuning } from '../../types';
+import type { HomeViewTab, LatentBackgroundTuning, LocalSong, LyricData, PlayerState, ReplayGainMode, SongResult, StatusMessage, SubtitleContentMode, VisualizerMode, VisualizerBackgroundMode, MonetBackgroundTuning, SmartBeatMode } from '../../types';
 import type { LyricSegmentationRecord, LyricSegmentationSource } from '../../types/lyricSegmentation';
 import type { AppLanguagePreference } from '../../i18n/config';
 import type { PanelTab } from '../UnifiedPanel';
@@ -146,6 +146,8 @@ export type CommandPalettePlaybackContext = {
     volume: number;
     isMuted: boolean;
     setVolume: (volume: number) => void;
+    /** Moves the volume by `delta` from its value at the moment of the call, clamped to 0–1. */
+    stepVolume: (delta: number) => void;
     previewVolume: (volume: number) => void;
     togglePlay: () => void;
     toggleLoop: () => void;
@@ -405,7 +407,9 @@ export type CommandPaletteVisualizerContext = {
     setLatentBackgroundTuning: (patch: Partial<LatentBackgroundTuning>) => void;
     /** The built-in video layer behind the lyrics. */
     toggleVideoLayer: () => void;
-    /** 智能动感模式 (beat_this-driven FX in every mode and background that draws them) on/off. */
+    /** 智能动感模式 (the beat FX in every mode and background that draws them): off, stored results only, or on. */
+    setSmartBeatMode: (mode: SmartBeatMode) => void;
+    /** 智能动感模式 on / off, as v0.7.21 shipped it: any mode that plays goes off, off goes fully on. */
     toggleSmartBeat: () => void;
     /** Opens the file picker for the video layer; resolves to the picked name, or null when cancelled. */
     pickVideoLayerFile: () => Promise<string | null>;

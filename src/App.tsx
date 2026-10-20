@@ -310,6 +310,8 @@ export default function App() {
     // The analysis worker keeps htdemucs loaded while automix can ask for it, and releases it the
     // moment it cannot - the switch off, or the crossfade mode, which reads no model. Sent on mount
     // too: the main process starts out assuming off. See electron/analysis/host.cjs.
+    // (From the PR #750 re-review, 2026-10-19: it no longer keeps htdemucs while automix can ask - it
+    // releases it a minute after each run - but the moment automix cannot still releases it at once.)
     useEffect(() => {
         window.electron?.setAutomixEnabled?.(automixEnabled && transitionMode === 'automix');
     }, [automixEnabled, transitionMode]);
@@ -488,6 +490,7 @@ export default function App() {
     const {
         visualizerMode,
         randomVisualizerModePerSong,
+        randomVisualizerModes,
         handleSetVisualizerMode,
     } = useVisualizerSettingsStore(useShallow(selectVisualizerSettingsSnapshot));
 
@@ -522,6 +525,7 @@ export default function App() {
     useRandomVisualizerMode({
         currentSong,
         enabled: randomVisualizerModePerSong,
+        modes: randomVisualizerModes,
         visualizerMode,
         setVisualizerMode: handleSetVisualizerMode,
     });

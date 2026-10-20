@@ -774,6 +774,8 @@ declare global {
       /**
        * Automix switched on or off. While on, the analysis worker keeps htdemucs loaded across tracks;
        * off releases it in that process. One-way.
+       * (From the PR #750 re-review, 2026-10-19: nothing is kept while on any more - the worker releases
+       * htdemucs a minute after each run - and off still releases it at once.)
        */
       setAutomixEnabled?: (enabled: boolean) => void;
       /**
@@ -782,13 +784,22 @@ declare global {
        * `{ declined }` carries the worker's reason when it ran nothing.
        */
       separateStems?: (
-        request: { left: Float32Array<ArrayBuffer>; right: Float32Array<ArrayBuffer> },
-      ) => Promise<Record<
+        /**
+         * `threads`: the CPU threads to run with (analysis/scheduler.ts cpuThreads); four when absent.
+         * `resident: false`: a fallback for a GPU machine, released after a minute idle (phase 4).
+         * (From the PR #750 re-review, 2026-10-19: `resident` is gone - every run's model is released
+         * after a minute idle, on every machine, and the worker ignores the field.)
+         */
+        request: { left: Float32Array<ArrayBuffer>; right: Float32Array<ArrayBuffer>; threads?: number },
+      ) => Promise<(Record<
         'drums' | 'bass' | 'vocals',
         // Never shared memory: this crosses the IPC boundary by structured clone, which always
         // reconstitutes a plain ArrayBuffer on this side.
         { left: Float32Array<ArrayBuffer>; right: Float32Array<ArrayBuffer> }
-      > | { declined: string } | null>;
+      > & {
+        /** How long the worker spent building the model for this request (ms), 0 when it was built: automix's CPU estimate learns from the rest of the wait. */
+        buildMs?: number;
+      }) | { declined: string } | null>;
       /**
        * Which model files are on disk, answered without loading them.
        *
@@ -975,6 +986,11 @@ declare global {
       onPlaybackSyncBridgeStatusChanged: (callback: (status: ElectronPlaybackSyncBridgeStatus) => void) => () => void;
       onDiscordPresenceStatusChanged: (callback: (status: ElectronDiscordPresenceStatus) => void) => () => void;
       onObsBrowserSourceStatusChanged: (callback: (status: ElectronObsBrowserSourceStatus) => void) => () => void;
+      /** Replaces the registered system-wide shortcuts. `portal` means the desktop binds the keys (native Wayland). */
+      /** 'portal' on native Wayland, where the desktop binds the keys. */
+      getGlobalShortcutBackend: () => Promise<'native' | 'portal'>;
+      setGlobalShortcuts: (accelerators: string[]) => Promise<{ backend: 'native' | 'portal'; results: Array<{ accelerator: string; registered: boolean }> }>;
+      onGlobalShortcut: (callback: (accelerator: string) => void) => () => void;
       updateTaskbarControls: (state: ElectronTaskbarControlState) => Promise<boolean>;
       onTaskbarControl: (callback: (action: ElectronTaskbarControlAction) => void) => () => void;
       openRemoteControl: () => Promise<boolean>;
