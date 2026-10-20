@@ -86,6 +86,7 @@
 - 与上游重叠的代码尽量只加不替换；合并上游后跑 `npx tsc --noEmit -p .` 与 `npx vitest run -c vitest.config.ts`，并核对文档是否仍准确。
 - 发布 Fork 版本时改根目录 `FORK_VERSION` 并在 `FORK_CHANGELOG.md` 最上面加一节（规则见该文件）；合并上游不单独升 Fork 版本号，也不要改 `package.json` 的上游版本号。
 - 服务端与桌面版的后端尽量共用：不依赖 Electron 的模块放在 `electron/` 里，服务端的启动脚本（`scripts/start-*-api.cjs`）直接用它，不要在 `scripts/` 或 `server/` 里另写一份；哪些共用、哪些有意不同见 `docs/fork-features.md` 第 9.5 节。
+- 改直通播放（`packaging/windows/audio-helper/`、`electron/audioHelper/`、`src/components/app/passthrough/`、`src/services/passthrough/`）的行为、数据或界面时，同步更新 `docs/hifi.md`；它是本 Fork 的重点功能，文档里写的实测数据要能用文中的命令重现，写不到的边界要如实写出来，不夸大。
 - 每次推送 `stage-remote` 都会由 `.github/workflows/together-installer.yml` 构建并发布新的安装包（`together-latest`）；推送后确认这次构建成功。
 - 提交信息：`feat(范围): …` / `fix(范围): …` / `chore(范围): …`。不要提交 `.env.local`、令牌文件、账号 Cookie 与 API Key。
 

@@ -1,4 +1,4 @@
-> **Fork 说明**：本文以上游内容为基础。桌面端、发布通道、Linux 打包等章节描述的是[上游](https://github.com/chthollyphile/folia-major)的产品形态，本 Fork 不发布桌面安装包，请到[上游 Releases](https://github.com/chthollyphile/folia-major/releases)查看；本 Fork 的部署与启动方式见 [Stage Remote 使用文档](stage-remote.md) 与[根 README](../README.md#部署与启动)，新增功能见 [Fork 功能与修复清单](fork-features.md)。
+> **Fork 说明**：本文以上游内容为基础。桌面端、发布通道、Linux 打包等章节描述的是[上游](https://github.com/chthollyphile/folia-major)的产品形态，上游的安装包不含本 Fork 的功能；本 Fork 自己的 Windows 安装包与便携版在 [together-latest 发布页](https://github.com/AthlonHD/folia-together/releases/tag/together-latest)，其中的直通播放器见 [Hi-Fi 直通](hifi.md)；本 Fork 的部署与启动方式见 [Stage Remote 使用文档](stage-remote.md) 与[根 README](../README.md#部署与启动)，新增功能见 [Fork 功能与修复清单](fork-features.md)。
 
 # Folia 技术与开发说明
 

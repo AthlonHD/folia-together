@@ -11,6 +11,7 @@
 | --- | --- |
 | [根 README](../README.md) | Fork 概览、部署与启动、反馈约定 |
 | [Fork 更新日志](../FORK_CHANGELOG.md) | Fork 自己的版本号规则与各版本变更（独立于上游版本号） |
+| [Hi-Fi 直通](hifi.md) | **本 Fork 的重点功能**：Windows 桌面版的 WASAPI 直通、整数采样、重采样（rubato / SoXR）、真实链路读数、能保证与不能保证的边界 |
 | [Fork 功能与修复清单](fork-features.md) | 相对上游多出来的全部功能与修复、已知限制、维护约定 |
 | [Stage Remote 使用文档](stage-remote.md) | 服务器本机播放与多人遥控：角色、端口、启动脚本、令牌、账号共享、排错 |
 | [QQ 音乐部署指南](qq-music-deployment.md) | QQ 音乐在 Vercel / Cloudflare / Docker 上的部署（本 Fork 单机形态直接用 `start-stage.cmd`，不需要这篇） |
@@ -25,7 +26,7 @@
 | [library-suites.md](library-suites.md) | 音乐库 core 与 UI suite 架构（本 Fork 在此基础上新增了手机 suite，见 [Fork 功能清单](fork-features.md)） |
 | [lyric-api.md](lyric-api.md) · [kugou-omni-capability-alignment.md](kugou-omni-capability-alignment.md) · [ku-go-api-docs.md](ku-go-api-docs.md) | 歌词接口与酷狗能力说明 |
 | [folium/](folium/) | Folium 模组系统：[API 参考](folium/api.md)、[开发与贡献指南](folium/contributing.md) |
-| [desktop/](desktop/) · [wallpaper-mode.md](wallpaper-mode.md) · [bodian.md](bodian.md) · [linux-glyph-cache-fd-leak.md](linux-glyph-cache-fd-leak.md) | 桌面版相关（本 Fork 不发布桌面安装包） |
+| [desktop/](desktop/) · [wallpaper-mode.md](wallpaper-mode.md) · [bodian.md](bodian.md) · [linux-glyph-cache-fd-leak.md](linux-glyph-cache-fd-leak.md) | 桌面版相关（上游的说明；本 Fork 的桌面版见 [根 README](../README.md#下载桌面版windows) 与 [Hi-Fi 直通](hifi.md)） |
 | [automix-memory-optimization.md](automix-memory-optimization.md) · [client-logging.md](client-logging.md) · [ponder-plan.md](ponder-plan.md) · [ponder-copy.md](ponder-copy.md) · [chore/](chore/) | 其他设计与诊断记录 |
 
 另见：[Docker 部署](../deploy/docker/README.md) 与 [Sync Server](../sync-server/README.md)（上游文档，不含 Stage 中继）。

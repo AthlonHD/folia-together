@@ -4,7 +4,9 @@
 
 - 上游的功能说明、使用指南与许可证条款不变，见根目录 [README](../README.md)。
 - 与上游重叠的部分，原则是「不改上游行为，只加不替换」：新增能力放在独立模块或受开关控制，上游新版本通过合并（merge）引入，冲突在本 Fork 内解决。
-- 当前已合并上游至 **v0.7.21**（含 Spotify / YouTube Music 接入、统一登录窗口、探索页、智能动感模式、设置页重做与 `src/` 目录整理、qq-music-api 3.3.x 等）。每次合并后这里会更新；合并带来依赖升级时需要重新执行 `npm install`。与本 Fork 的交叉点：上游新增的 `handleSetLoopMode`（模组用）会同时关掉随机与心动；上游的「平台换了清空播放器」在本 Fork 里由账户端口声明 `holdsSongs: () => false` 关掉，切换平台仍不清队列。
+- 当前已合并上游 main 至 `26c57f9b`（版本号仍是 **v0.7.21**；含 Spotify / YouTube Music 接入、统一登录窗口、探索页、智能动感模式、设置页重做与 `src/` 目录整理、qq-music-api 3.3.x 等）。每次合并后这里会更新；合并带来依赖升级时需要重新执行 `npm install`。与本 Fork 的交叉点：上游新增的 `handleSetLoopMode`（模组用）会同时关掉随机与心动；上游的「平台换了清空播放器」在本 Fork 里由账户端口声明 `holdsSongs: () => false` 关掉，切换平台仍不清队列。
+
+**重点功能：[Hi-Fi 直通（桌面版）](hifi.md)**——WASAPI 独占 / 共享直出、整数采样、整数倍优先、单次重采样（rubato / SoXR）、真实链路读数。完整说明、实测数据与边界在 [hifi.md](hifi.md)，本文第 8 节只保留与其他功能交叉的部分、构建与脚本。
 
 ---
 
@@ -74,18 +76,19 @@
 
 ## 8. 桌面版直通模式（Windows）
 
+> 完整说明见 **[Hi-Fi 直通](hifi.md)**。下面是这个功能的要点、与其他功能的交叉和构建细节。
+
 桌面版新增「直通模式」（设置 → 播放控制 → 直通模式）：曲目的声音不再走浏览器的音频栈（共享 WASAPI、系统混音器），而是交给独立的原生播放器 `folia-audio-helper.exe`，用 **WASAPI 独占模式**直接送到所选输出设备。网页版、遥控页、手机布局完全不受影响。
 
 - **链路**：主进程把歌曲取成本机文件（在线 URL 由主进程下载，blob 由页面读出字节）→ helper 用 Symphonia 解码成整数采样 → 设备接受的格式原样输出（16 / 24 / 32 位）。`<audio>` 元素继续在页面里静音运行，当作歌词、队列、可视化读取的传输时钟；以 helper 的位置为准，漂移超过 0.3 秒就把元素拉回。
-- **采样率策略**：「跟随音源」先按音源采样率打开设备，设备不接受才改用它支持的最接近的速率（整数倍优先）；「固定」始终用设置的采样率（如 192 kHz），音源不同时由本程序用 rubato 做**一次**高质量重采样，不让设备或系统去转。
+- **采样率策略**：「跟随音源」先按音源采样率打开设备，设备不接受才改用它支持的最接近的速率（整数倍优先）；「固定」始终用设置的采样率（如 192 kHz），音源不同时由本程序做**一次**高质量重采样，不让设备或系统去转。
+- **重采样算法可选**：rubato（默认）或 SoXR（libsoxr，线性相位、32 位精度档、64 位运算；源码在 `packaging/windows/audio-helper/vendor/soxr`，LGPL-2.1，静态链接；helper 自身为 AGPL-3.0）。两者在测试音上的升采样误差都在 −194 dBFS 左右的取整底噪，对比表见 [hifi.md](hifi.md#重采样)。改动从下一首生效。
+- **播放条链路读数**：音质徽章旁的 `PassthroughChainBadge`，显示播放器报告的真实输出（采样率 / 位深、独占或共享、逐位一致或做了什么、重采样用的算法），绿点逐位一致、琥珀点有改动。
+- **边下边放、切歌即停**：需要下载的歌下到前 512 KB（`HEAD_START_BYTES`）就交给播放器，其余写进 `.part` 文件，播放器的 `GrowingFile` 读这个正在增长的文件、等没到的数据；识别格式时先把文件末尾当作零（跳过结尾的标签），识别不了的（如索引在文件末尾的 MP4）再等下载完。点切歌的当下页面先让旧歌停；被新一次载入替换的下载立刻放弃。代码：`electron/audioHelper/stageSource.cjs` 的 `beginStage`、`source.rs` 的 `GrowingFile`。
 - **重采样质量**：用 rubato 的 FFT 重采样器（f64 内部精度、8192 帧长滤波器），带内平坦到距音源奈奎斯特频率约 100 Hz 以内；实测 48 kHz→192 kHz 时 100 Hz–22 kHz 的纯音与理想信号的误差都在 -190 dBFS 以下（24 位底噪为 -144 dBFS），原来的采样点在输出里原样保留。更短的滤波器会削掉接近奈奎斯特的最高一小段（44.1 kHz 音源的 20 kHz 以上），所以不用。`cargo test --release -- --nocapture` 可重现这组数据。
 - **只做无损的位深转换**：16 位补零进 24 位、24 位原样；需要丢位时四舍五入，不截断。位深和声道数一旦被改动，会在链路状态里标出（已重采样 / 位深被截断 / 声道被混合），只有三项都不是才显示「逐位一致」。
 - **暂停、恢复、中断后有几毫秒的淡入淡出**避免爆音，其余时间采样值原样输出。
-- **开启后不生效的**：均衡器、音效、混音过渡（automix）、音量滑块（音量请在下游调节）。所有来源都走直通：在线歌曲（http 地址由主进程下载）、本地文件和已缓存的歌（页面读出字节）、Navidrome 流，以及应用自己的音频地址（Spotify、YouTube Music 的解密流、转码后的文件，由主进程的 `net.fetch` 取成临时文件）。应用自己的音频地址取得的是解密 / 转码后的内容，只存成 `eph-` 临时文件，下一首开始、应用启动和退出时都会删除，不当缓存留着。helper 解不了的格式或取不到文件时自动回到普通播放并提示原因。Spotify 本身最高 320 kbit/s Ogg Vorbis，直通不会让它变成无损。
-
-重采样算法可选 rubato（默认）或 SoXR（libsoxr，源码在 `packaging/windows/audio-helper/vendor/soxr`，LGPL-2.1，静态链接；helper 自身为 AGPL-3.0）；播放条在音质徽章下显示实际链路（`PassthroughChainBadge`）。
-
-切歌时旧歌立刻停；需要下载的歌下到前 512 KB 就开始播、其余边下边放（`stageSource.cjs` 的 `beginStage` + 播放器的 `GrowingFile`），不用等整首下完。
+- **开启后不生效的**：均衡器、音效、混音过渡（automix）、音量滑块、ReplayGain、淡入淡出、「当前播放声卡」（设置里置灰并说明；音量请在下游调节）。所有来源都走直通：在线歌曲（http 地址由主进程下载）、本地文件和已缓存的歌（页面读出字节）、Navidrome 流，以及应用自己的音频地址（Spotify、YouTube Music 的解密流、转码后的文件，由主进程的 `net.fetch` 取成临时文件）。应用自己的音频地址取得的是解密 / 转码后的内容，只存成 `eph-` 临时文件，下一首开始、应用启动和退出时都会删除，不当缓存留着。helper 解不了的格式或取不到文件时自动回到普通播放并提示原因。Spotify 本身最高 320 kbit/s Ogg Vorbis，直通不会让它变成无损。
 - **设备能力探测**：设置里的「检测设备能力」列出该设备在独占模式下接受的格式。**注意**：设备「接受」某个格式不等于它内部不转换——例如 VB-Cable 接受 96 kHz 独占，但内部按 48 kHz 运行并且只保留约 19 位精度。要确认你的虚拟声卡或 DAW 输入（如 Studio One 的 WDM2VST）是否透明，需要在它的另一端录下来与原文件逐样本比对。
 - **一键脚本**（`scripts/start-passthrough.ps1`，从零开始）：没有仓库的电脑上把下面这一行粘进 PowerShell 或 cmd 即可——缺 Git / Node 24 / Rust / Visual Studio Build Tools 就自动下载安装（安装包校验数字签名或官方 SHA-256，装 Build Tools 会弹一次 UAC），自动 clone 本仓库 `stage-remote` 到 `%USERPROFILE%olia-together`，再装依赖、下载 Electron、编译 helper、列出输出设备、启动桌面版。
 
@@ -133,7 +136,7 @@
 
 ## 10. 安装包自动发布
 
-每次推送到 `stage-remote`，GitHub Actions（`.github/workflows/together-installer.yml`）都会在 `windows-latest` 上构建一个新的 Windows 安装包（含直通播放器、分析模型），发布到名为 **together-latest** 的滚动预发布页，文件名 `Folia-Together-v<Fork 版本>-<提交>-Setup.exe`；同时留一份 14 天的工作流产物。发布页始终只有最新的那一个。同一页还有免安装的便携版 `…-Portable.exe`：数据放在 exe 旁的 `FoliaData`（electron-builder 的 `portable` 目标设置 `PORTABLE_EXECUTABLE_DIR`，`electron/main.cjs` 据此改 userData），更新时下载新的便携文件放到旁边。
+每次推送到 `stage-remote`，GitHub Actions（`.github/workflows/together-installer.yml`）都会在 `windows-latest` 上构建一个新的 Windows 安装包（含直通播放器、分析模型），发布到名为 **together-latest** 的滚动预发布页，文件名 `Folia-Together-v<Fork 版本>-<提交>-Setup.exe`；同时留一份 14 天的工作流产物。发布页始终只有最新的那一个。同一页还有免安装的便携版（文件名 `…-Portable.exe`，同样带 `.sha256`）：数据放在 exe 旁的 `FoliaData`（electron-builder 的 `portable` 目标设置 `PORTABLE_EXECUTABLE_DIR`，`electron/main.cjs` 据此改 userData），更新时下载新的便携文件放到旁边。
 
 - 安装包没有数字签名（Windows 会弹 SmartScreen）；同时发布一个 `.sha256` 文件，更新时用来校验。
 - **不用上游的更新通道**：`package.json` 的 `foliaReleaseChannel` 是 `internal`。否则安装版会去检查上游 `chthollyphile/folia-major` 的发布并提示更新成上游版本，Fork 的功能就没了。
@@ -146,7 +149,7 @@
 
 ## 维护约定
 
-- **版本号**：Fork 有自己的版本号（根目录 `FORK_VERSION`，从 `1.0.0` 起，当前 `1.3.0`），与上游 `package.json` 的版本互不影响；规则与每个版本的变更见 [Fork 更新日志](../FORK_CHANGELOG.md)。
+- **版本号**：Fork 有自己的版本号（根目录 `FORK_VERSION`，从 `1.0.0` 起，当前值见该文件），与上游 `package.json` 的版本互不影响；规则与每个版本的变更见 [Fork 更新日志](../FORK_CHANGELOG.md)。
 - **分支**：`stage-remote` 为 Fork 的主开发分支，所有改动先在这里提交与验证。
 - **同步上游**：`git fetch upstream`（`https://github.com/chthollyphile/folia-major.git`）后合并，冲突就地解决，随后跑 `npx tsc --noEmit -p .` 与 `npx vitest run -c vitest.config.ts`，并更新本文档。
 - **提交规范**：`feat(范围): …` / `fix(范围): …` / `chore(范围): …`，范围如 `stage-remote`、`library`、`layout`、`playback`、`ai`、`scripts`。
