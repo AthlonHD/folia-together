@@ -31,7 +31,7 @@ const PassthroughChainBadge: React.FC<{ color?: string; className?: string }> = 
             style={{ color, borderColor: 'currentColor', opacity: 0.8 }}
         >
             <span aria-hidden className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: chain.bitPerfect ? '#22c55e' : '#f59e0b' }} />
-            <span className="truncate">{describeFormats(chain)} · {mode} · {verdict}</span>
+            <span className="truncate">{describeFormats(chain, false).replace(' → ', '→')} · {mode} · {verdict}</span>
         </span>
     );
 };

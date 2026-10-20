@@ -532,7 +532,7 @@ const ExpandedView: React.FC<ExpandedViewProps> = ({
                         {currentSong?.name || noTrackText}
                     </div>
                 )}
-                <div className="mt-0.5 flex flex-col items-center gap-0.5"><AudioQualityBadge color={primaryColor} /><PassthroughChainBadge color={primaryColor} /></div>
+                <div className="mt-0.5 flex min-w-0 items-center justify-center gap-1"><AudioQualityBadge color={primaryColor} className="shrink-0" /><PassthroughChainBadge color={primaryColor} className="min-w-0" /></div>
             </div>
 
             {/* Row 3: Loop Button, Play Button, Lyrics Button */}
