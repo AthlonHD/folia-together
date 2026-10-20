@@ -131,7 +131,7 @@
 
 ## 10. 安装包自动发布
 
-每次推送到 `stage-remote`，GitHub Actions（`.github/workflows/together-installer.yml`）都会在 `windows-latest` 上构建一个新的 Windows 安装包（含直通播放器、分析模型），发布到名为 **together-latest** 的滚动预发布页，文件名 `Folia-Together-v<Fork 版本>-<提交>-Setup.exe`；同时留一份 14 天的工作流产物。发布页始终只有最新的那一个。
+每次推送到 `stage-remote`，GitHub Actions（`.github/workflows/together-installer.yml`）都会在 `windows-latest` 上构建一个新的 Windows 安装包（含直通播放器、分析模型），发布到名为 **together-latest** 的滚动预发布页，文件名 `Folia-Together-v<Fork 版本>-<提交>-Setup.exe`；同时留一份 14 天的工作流产物。发布页始终只有最新的那一个。同一页还有免安装的便携版 `…-Portable.exe`：数据放在 exe 旁的 `FoliaData`（electron-builder 的 `portable` 目标设置 `PORTABLE_EXECUTABLE_DIR`，`electron/main.cjs` 据此改 userData），更新时下载新的便携文件放到旁边。
 
 - 安装包没有数字签名（Windows 会弹 SmartScreen）；同时发布一个 `.sha256` 文件，更新时用来校验。
 - **不用上游的更新通道**：`package.json` 的 `foliaReleaseChannel` 是 `internal`。否则安装版会去检查上游 `chthollyphile/folia-major` 的发布并提示更新成上游版本，Fork 的功能就没了。

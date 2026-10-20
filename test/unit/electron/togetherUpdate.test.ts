@@ -73,6 +73,16 @@ describe('checkForUpdate', () => {
         expect(result.release).toMatchObject({ commit: NEW_COMMIT, name: expect.stringMatching(/Setup\.exe$/), checksumUrl: expect.stringMatching(/\.sha256$/) });
     });
 
+    it('offers the portable file, not the installer, to a portable build', async () => {
+        const name = `Folia-Together-v1.1.0-${NEW_COMMIT.slice(0, 7)}-Portable.exe`;
+        const url = `https://github.com/${REPO}/releases/download/together-latest/${name}`;
+        const release = releaseJson();
+        (release.assets as unknown[]).push({ name, size: 7, browser_download_url: url }, { name: `${name}.sha256`, size: 90, browser_download_url: `${url}.sha256` });
+        const result = await checkForUpdate({ fetchImpl: github(release, 'ahead'), installedCommit: 'aaaaaaa', portable: true });
+        expect(result.status).toBe('available');
+        expect(result.release).toMatchObject({ name, commit: NEW_COMMIT, checksumUrl: `${url}.sha256` });
+    });
+
     it('does not offer a release that is behind the installed build', async () => {
         expect((await checkForUpdate({ fetchImpl: github(releaseJson(), 'behind'), installedCommit: 'aaaaaaa' })).status).toBe('up-to-date');
     });

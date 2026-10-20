@@ -102,6 +102,13 @@ const {
   buildSegmentationSystemPrompt,
   parseSegmentationResponse,
 } = require('../shared/lyricSegmentationPrompt.cjs');
+// The portable Windows build (electron-builder's `portable` target) unpacks itself to a temp folder on each start and sets
+// PORTABLE_EXECUTABLE_DIR to where the .exe lies. Its settings, logins and caches go in a FoliaData folder there, so the whole app moves
+// with the file and leaves nothing in AppData. Must happen before anything asks for the user-data folder.
+const PORTABLE_DIR = process.platform === 'win32' && process.env.PORTABLE_EXECUTABLE_DIR ? process.env.PORTABLE_EXECUTABLE_DIR : '';
+if (PORTABLE_DIR) {
+  app.setPath('userData', path.join(PORTABLE_DIR, 'FoliaData'));
+}
 const useLinuxGraphicsDebugMode = process.env.ELECTRON_LINUX_PACKAGED_GRAPHICS === 'true';
 const isAppImageRuntime =
   process.platform === 'linux' &&
@@ -6528,7 +6535,7 @@ ipcMain.handle('together-update-check', createSenderGuardedHandler({
   onUntrusted: () => ({ status: 'unknown' }),
   handler: async (_event, installedCommit) => {
     try {
-      const result = await checkTogetherUpdate({ fetchImpl: (input, init) => electronNet.fetch(input, init), installedCommit: String(installedCommit || '') });
+      const result = await checkTogetherUpdate({ fetchImpl: (input, init) => electronNet.fetch(input, init), installedCommit: String(installedCommit || ''), portable: Boolean(PORTABLE_DIR) });
       togetherFoundRelease = result.status === 'available' ? result.release : null;
       return result;
     } catch (error) {
@@ -6549,7 +6556,8 @@ ipcMain.handle('together-update-install', createSenderGuardedHandler({
       let lastSent = 0;
       await downloadTogetherUpdate({
         release: togetherFoundRelease,
-        directory: path.join(app.getPath('temp'), 'folia-together-update'),
+        // The portable build is replaced by another portable file placed next to it; the installed one runs an installer from a temp folder.
+        directory: PORTABLE_DIR || path.join(app.getPath('temp'), 'folia-together-update'),
         fetchImpl: (input, init) => electronNet.fetch(input, init),
         onProgress: (done, total) => {
           const now = Date.now();
@@ -6558,7 +6566,7 @@ ipcMain.handle('together-update-install', createSenderGuardedHandler({
           mainWindow?.webContents.send('together-update-progress', { done, total });
         },
         launch: (file) => {
-          // The installer runs on its own; this app steps aside so the installer can replace it.
+          // The installer (or the new portable file) runs on its own; this app steps aside.
           spawn(file, [], { detached: true, stdio: 'ignore' }).unref();
         },
       });

@@ -16,6 +16,7 @@ const path = require('path');
 const DEFAULT_REPO = 'AthlonHD/folia-together';
 const DEFAULT_TAG = 'together-latest';
 const INSTALLER_PATTERN = /^Folia-Together-.*-Setup\.exe$/;
+const PORTABLE_PATTERN = /^Folia-Together-.*-Portable\.exe$/;
 const USER_AGENT = 'folia-together-updater';
 
 const apiHeaders = { Accept: 'application/vnd.github+json', 'User-Agent': USER_AGENT };
@@ -31,7 +32,7 @@ const sameCommit = (a, b) => {
 function releaseCommitOf(release, installerName) {
     const target = shortOf(release.target_commitish);
     if (/^[0-9a-f]{40}$/.test(target)) return target;
-    const fromName = /-([0-9a-f]{7,40})-Setup\.exe$/i.exec(installerName || '');
+    const fromName = /-([0-9a-f]{7,40})-(?:Setup|Portable)\.exe$/i.exec(installerName || '');
     return fromName ? fromName[1].toLowerCase() : '';
 }
 
@@ -39,7 +40,7 @@ function releaseCommitOf(release, installerName) {
  * @returns {Promise<{ status: 'up-to-date' | 'available' | 'none' | 'unknown', release?: object, error?: string }>}
  *   `unknown`: this build does not know its own commit (a development run), so there is nothing to compare.
  */
-async function checkForUpdate({ fetchImpl = fetch, repo = DEFAULT_REPO, tag = DEFAULT_TAG, installedCommit }) {
+async function checkForUpdate({ fetchImpl = fetch, repo = DEFAULT_REPO, tag = DEFAULT_TAG, installedCommit, portable = false }) {
     const installed = shortOf(installedCommit);
     if (!installed || installed === 'dev') return { status: 'unknown' };
 
@@ -48,7 +49,7 @@ async function checkForUpdate({ fetchImpl = fetch, repo = DEFAULT_REPO, tag = DE
     if (!response.ok) return { status: 'unknown', error: `GitHub answered ${response.status}` };
     const data = await response.json();
 
-    const asset = (data.assets || []).find((item) => INSTALLER_PATTERN.test(item.name));
+    const asset = (data.assets || []).find((item) => (portable ? PORTABLE_PATTERN : INSTALLER_PATTERN).test(item.name));
     if (!asset) return { status: 'none' };
     const checksumAsset = (data.assets || []).find((item) => item.name === `${asset.name}.sha256`);
     const commit = releaseCommitOf(data, asset.name);
@@ -83,7 +84,7 @@ const sha256Of = (file) => new Promise((resolve, reject) => {
  *   fetchImpl?: typeof fetch, onProgress?: (done: number, total: number) => void, launch: (file: string) => void }} options
  */
 async function downloadAndInstall({ release, directory, repo = DEFAULT_REPO, fetchImpl = fetch, onProgress = () => {}, launch }) {
-    if (!release || !INSTALLER_PATTERN.test(release.name || '') || !isOwnAsset(release.url, repo)) throw new Error('not-an-installer-of-this-project');
+    if (!release || !(INSTALLER_PATTERN.test(release.name || '') || PORTABLE_PATTERN.test(release.name || '')) || !isOwnAsset(release.url, repo)) throw new Error('not-an-installer-of-this-project');
     if (release.checksumUrl && !isOwnAsset(release.checksumUrl, repo)) throw new Error('not-an-installer-of-this-project');
     await fs.promises.mkdir(directory, { recursive: true });
     const target = path.join(directory, release.name);

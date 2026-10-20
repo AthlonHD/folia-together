@@ -70,7 +70,7 @@ jobs:
       - name: Package Electron app
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npx electron-builder --win nsis --x64 --publish never
+        run: npx electron-builder --win nsis portable --x64 --publish never
 
       - name: Name the installer after the Fork version and the commit
         shell: bash
@@ -81,6 +81,9 @@ jobs:
           mv release/Folia-Setup-*.exe "release/Folia-Together-v${VERSION}-${SHORT}-Setup.exe"
           # The installed app checks the download against this file before it runs the installer.
           (cd release && sha256sum "Folia-Together-v${VERSION}-${SHORT}-Setup.exe" > "Folia-Together-v${VERSION}-${SHORT}-Setup.exe.sha256")
+          # The portable build: one exe that keeps its data next to itself (FoliaData), nothing to install.
+          mv release/Folia-Portable-*.exe "release/Folia-Together-v${VERSION}-${SHORT}-Portable.exe"
+          (cd release && sha256sum "Folia-Together-v${VERSION}-${SHORT}-Portable.exe" > "Folia-Together-v${VERSION}-${SHORT}-Portable.exe.sha256")
           ls -la release/Folia-Together-*
 
       - name: Keep the installer as a workflow artifact
@@ -90,6 +93,8 @@ jobs:
           path: |
             release/Folia-Together-*-Setup.exe
             release/Folia-Together-*-Setup.exe.sha256
+            release/Folia-Together-*-Portable.exe
+            release/Folia-Together-*-Portable.exe.sha256
           if-no-files-found: error
           retention-days: 14
 
@@ -118,6 +123,8 @@ jobs:
           OUT="$(gh release create "${TAG}" \
             release/Folia-Together-*-Setup.exe \
             release/Folia-Together-*-Setup.exe.sha256 \
+            release/Folia-Together-*-Portable.exe \
+            release/Folia-Together-*-Portable.exe.sha256 \
             --repo "${GITHUB_REPOSITORY}" \
             --title "Folia Together - latest build" \
             --notes-file release-notes.md \
