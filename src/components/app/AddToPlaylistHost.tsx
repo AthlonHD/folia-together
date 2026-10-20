@@ -10,6 +10,10 @@ import { omni } from '../../services/onlineMusic/omni';
 import { selectDisplaySong, usePlaybackStore } from '../../stores/usePlaybackStore';
 import { useAddToPlaylistStore } from '../../stores/useAddToPlaylistStore';
 import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
+import { isStageRemoteMode } from '../../services/stageMode';
+import { setStatusMessage } from '../../stores/useStatusMessageStore';
+import { canHoldInCrossPlaylist, onlineIdentityOf, visiblePlaylists } from './crossPlaylist/crossPlaylistModel';
+import { useCrossPlaylistStore } from './crossPlaylist/crossPlaylistStore';
 
 // src/components/app/AddToPlaylistHost.tsx
 // The playlist picker for the current song, and the "new playlist" prompt behind it.
@@ -42,6 +46,9 @@ type PlaylistEntry = { id: string; name: string; description?: string };
 
 // 选择框里"播放队列"这一项的保留 id,不会与任何歌单 id 冲突
 const PLAY_QUEUE_ENTRY_ID = '__play_queue__';
+// 跨平台歌单在选择框里的项:前缀 + 歌单 id;再加一个"新建"。
+const CROSS_ENTRY_PREFIX = '__cross__:';
+const CROSS_NEW_ENTRY_ID = '__cross_new__';
 
 // What kind of song this is to the picker, and whether its source takes it into a playlist.
 const describeSong = (song: SongResult | null, hasOnlinePlaylists: boolean) => {
@@ -97,6 +104,13 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
     // The song the "new playlist" prompt is for: the one the picker it came from was about.
     const [createFor, setCreateFor] = useState<SongResult | null>(null);
     const [navidromePlaylists, setNavidromePlaylists] = useState<PlaylistEntry[]>([]);
+    // 跨平台歌单:任何在线平台的歌都能放进去(遥控端没有自己的)。"新建"问的是同一首歌,所以也记着它。
+    const crossAllowed = !isStageRemoteMode();
+    const crossPlaylists = useCrossPlaylistStore(state => state.playlists);
+    const [crossCreateFor, setCrossCreateFor] = useState<SongResult | null>(null);
+    useEffect(() => {
+        if (crossAllowed && isOpen) void useCrossPlaylistStore.getState().load();
+    }, [crossAllowed, isOpen]);
 
     // The dialogs are about the song they were asked for, whatever is playing by now.
     const currentSong = createFor ?? (isOpen ? askedSong : null) ?? shownSong;
@@ -114,8 +128,9 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
     const hasQueueEntry = Boolean(targetSong && isOpen);
     const shown = describeSong(shownSong, shownPlaylists.length > 0);
     const { isNavidrome, isLocal, isOnline, canCreateOnline, onlineProviderLabel, canAddOnlineSong, isApplicable: songApplicable, canAdd: songCanAdd } = describeSong(currentSong, onlinePlaylists.length > 0);
-    const isApplicable = songApplicable || hasQueueEntry;
-    const canAdd = songCanAdd || hasQueueEntry;
+    const crossOk = crossAllowed && canHoldInCrossPlaylist(currentSong);
+    const isApplicable = songApplicable || hasQueueEntry || crossOk;
+    const canAdd = songCanAdd || hasQueueEntry || crossOk;
     const needsNavidromePlaylists = isNavidrome || shown.isNavidrome;
 
     const refreshNavidromePlaylists = useCallback(async () => {
@@ -153,6 +168,8 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
         }
 
         if (isOnline) {
+            // A platform that takes no songs into playlists lists none: only the cross-platform ones below remain.
+            if (!canAddOnlineSong) return [];
             return onlinePlaylists.map((playlist) => ({
                 id: String(playlist.id),
                 name: playlist.name,
@@ -165,9 +182,22 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
         }
 
         return [];
-    }, [isLocal, isOnline, isNavidrome, localPlaylists, navidromePlaylists, onlinePlaylists, t]);
+    }, [canAddOnlineSong, isLocal, isOnline, isNavidrome, localPlaylists, navidromePlaylists, onlinePlaylists, t]);
 
-    const disabledReason = shown.isOnline && !shown.canAddOnlineSong
+    const shownCrossOk = crossAllowed && canHoldInCrossPlaylist(shownSong);
+    const crossEntries = useMemo<PlaylistEntry[]>(() => {
+        if (!crossOk) return [];
+        return [
+            ...visiblePlaylists(crossPlaylists).map(playlist => ({
+                id: `${CROSS_ENTRY_PREFIX}${playlist.id}`,
+                name: playlist.name,
+                description: `${t('crossPlaylist.pickerEntry')} · ${t('crossPlaylist.songCount', { count: playlist.entries.length })}`,
+            })),
+            { id: CROSS_NEW_ENTRY_ID, name: t('crossPlaylist.pickerNew'), description: t('crossPlaylist.pickerNewDescription') },
+        ];
+    }, [crossOk, crossPlaylists, t]);
+
+    const disabledReason = shown.isOnline && !shown.canAddOnlineSong && !shownCrossOk
         ? t('status.providerPlaylistMutationUnavailable', { provider: shown.onlineProviderLabel })
         : (!shown.canAdd ? t('localMusic.noPlaylistsFound') : undefined);
 
@@ -182,8 +212,12 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
     // Published rather than recomputed by each consumer: the star button and the command both need
     // this answer, and only one of them can afford to be the thing that fetches it.
     useEffect(() => {
-        setAvailability({ isApplicable: shown.isApplicable, canAdd: shown.isApplicable && shown.canAdd, disabledReason });
-    }, [disabledReason, setAvailability, shown.canAdd, shown.isApplicable]);
+        setAvailability({
+            isApplicable: shown.isApplicable || shownCrossOk,
+            canAdd: (shown.isApplicable && shown.canAdd) || shownCrossOk,
+            disabledReason: shownCrossOk ? undefined : disabledReason,
+        });
+    }, [disabledReason, setAvailability, shown.canAdd, shown.isApplicable, shownCrossOk]);
 
     return (
         <div className="pointer-events-auto">
@@ -195,9 +229,11 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
                 description={isOnline && !canAddOnlineSong
                     ? t('status.providerPlaylistMutationUnavailable', { provider: onlineProviderLabel })
                     : (isOnline && onlineProviderLabel ? `${onlineProviderLabel} · ${t('home.playlists') || 'Playlists'}` : (t('home.playlists') || 'Playlists'))}
-                playlists={hasQueueEntry
-                    ? [{ id: PLAY_QUEUE_ENTRY_ID, name: t('queue.title') }, ...availablePlaylists]
-                    : availablePlaylists}
+                playlists={[
+                    ...(hasQueueEntry ? [{ id: PLAY_QUEUE_ENTRY_ID, name: t('queue.title') }] : []),
+                    ...availablePlaylists,
+                    ...crossEntries,
+                ]}
                 onSelect={async (playlistId) => {
                     if (playlistId === PLAY_QUEUE_ENTRY_ID && targetSong) {
                         onAddSongToPlayQueue(targetSong);
@@ -205,6 +241,18 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
                         return;
                     }
                     if (!currentSong) throw new Error('Selected playlist is unavailable');
+                    if (playlistId === CROSS_NEW_ENTRY_ID) {
+                        setCrossCreateFor(currentSong);
+                        close();
+                        return;
+                    }
+                    if (String(playlistId).startsWith(CROSS_ENTRY_PREFIX)) {
+                        const id = String(playlistId).slice(CROSS_ENTRY_PREFIX.length);
+                        const name = visiblePlaylists(useCrossPlaylistStore.getState().playlists).find(playlist => playlist.id === id)?.name ?? '';
+                        const { added } = await useCrossPlaylistStore.getState().addSongs(id, [currentSong]);
+                        setStatusMessage({ type: added > 0 ? 'success' : 'info', text: t(added > 0 ? 'crossPlaylist.added' : 'crossPlaylist.alreadyThere', { name }) });
+                        return;
+                    }
                     if (isLocal) {
                         await onAddCurrentSongToLocalPlaylist(String(playlistId), currentSong);
                         return;
@@ -227,6 +275,20 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
                     close();
                 } : undefined}
                 createLabel={t(isNavidrome ? 'navidrome.createPlaylist' : 'localMusic.createPlaylist')}
+            />
+
+            <TextInputDialog
+                isOpen={crossCreateFor !== null}
+                onClose={() => setCrossCreateFor(null)}
+                isDaylight={isDaylight}
+                title={t('crossPlaylist.createTitle')}
+                placeholder={t('crossPlaylist.namePlaceholder')}
+                confirmLabel={t('options.save')}
+                onConfirm={async (name) => {
+                    if (!crossCreateFor || !name.trim() || !onlineIdentityOf(crossCreateFor)) return;
+                    const playlist = await useCrossPlaylistStore.getState().create(name, [crossCreateFor]);
+                    setStatusMessage({ type: 'success', text: t('crossPlaylist.created', { name: playlist.name }) });
+                }}
             />
 
             <TextInputDialog

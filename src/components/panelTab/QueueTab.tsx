@@ -1,11 +1,13 @@
 import React from 'react';
 import { List, useListRef, type RowComponentProps } from 'react-window';
-import { ListEnd, ListMusic, ListPlus, PanelsTopLeft, Shuffle, Trash2 } from 'lucide-react';
+import { Library, ListEnd, ListMusic, ListPlus, PanelsTopLeft, Shuffle, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SongResult } from '../../types';
 import TextInputDialog from '../shared/TextInputDialog';
 import ConfirmDialog from '../shared/ConfirmDialog';
 import { Button } from '../modal/settings/kit';
+import { useCrossPlaylistStore } from '../app/crossPlaylist/crossPlaylistStore';
+import { isStageRemoteMode } from '../../services/stageMode';
 import { useKitReducedMotion } from '../modal/settings/kit/motion';
 import { getSongUnavailableLabel, isSongUnavailable } from '../../services/onlineMusic/songAvailability';
 import { getSongArtistLabel } from '../../services/onlineMusic/songMetadata';
@@ -236,8 +238,20 @@ const QueueTab: React.FC<QueueTabProps> = ({
         setIsSaveDialogOpen(true);
     };
 
+    // 跨平台歌单存在这台设备上,遥控端没有自己的
+    const openCrossPlaylists = isStageRemoteMode() ? null : () => useCrossPlaylistStore.getState().open();
+
     if (playQueue.length === 0) {
-        return <EmptyState icon={<ListMusic size={28} />}>{t('queue.empty')}</EmptyState>;
+        return (
+            <>
+                <EmptyState icon={<ListMusic size={28} />}>{t('queue.empty')}</EmptyState>
+                {openCrossPlaylists && (
+                    <div className="flex justify-center pb-3">
+                        <Button variant="quiet" icon={Library} onClick={openCrossPlaylists}>{t('crossPlaylist.open')}</Button>
+                    </div>
+                )}
+            </>
+        );
     }
 
     return (
@@ -252,6 +266,11 @@ const QueueTab: React.FC<QueueTabProps> = ({
                         <Button variant="quiet" onClick={handleSavePlaylist}>
                             {t('localMusic.saveQueueAsPlaylist')}
                         </Button>
+                    )}
+                    {openCrossPlaylists && (
+                        <PanelIconButton size="s" label={t('crossPlaylist.open')} onClick={openCrossPlaylists}>
+                            <Library size={15} />
+                        </PanelIconButton>
                     )}
                     {onOpenLattice && (
                         <PanelIconButton size="s" label={t('home.lattice')} onClick={onOpenLattice}>

@@ -34,6 +34,7 @@ export const SETTINGS_ANCHOR_DEFINITIONS = {
     grid3dCardStyle: { section: 'home' },
     rememberHomeCardPosition: { section: 'home' },
     gridViewCardSettings: { section: 'home' },
+    searchOrder: { section: 'home' },
 
     // pages/LyricsPage
     localLyricFormatOrder: { section: 'lyrics' },

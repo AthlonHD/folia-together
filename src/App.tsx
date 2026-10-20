@@ -6,6 +6,7 @@ import { loadCachedOrFetchCover } from './services/coverCache';
 import VisualizerRenderer from './components/visualizer/VisualizerRenderer';
 import CommandPalette from './components/command-palette/CommandPalette';
 import AddToPlaylistHost from './components/app/AddToPlaylistHost';
+import CrossPlaylistHost from './components/app/crossPlaylist/CrossPlaylistHost';
 import { useCommandPalette } from './components/command-palette/useCommandPalette';
 import { useCommandPaletteContext } from './hooks/useCommandPaletteContext';
 import { useReducedMotionFor } from './hooks/useReducedMotionFor';
@@ -2932,6 +2933,16 @@ export default function App() {
                 onAddCurrentSongToNavidromePlaylist={addCurrentSongToNavidromePlaylist}
                 onCreateCurrentNavidromePlaylist={createCurrentNavidromePlaylist}
             />
+
+            {/* 跨平台歌单:存在这台设备上,遥控端没有自己的(见 components/app/crossPlaylist) */}
+            {!isStageRemoteMode() && (
+                <CrossPlaylistHost
+                    isDaylight={isDaylight}
+                    onPlaySong={(song, queue) => playSong(song, queue)}
+                    onPlayAll={playOnlineQueueFromStart}
+                    onAddAllToQueue={addOnlineSongsToQueue}
+                />
+            )}
 
             <CommandPalette
                 activeIndex={commandPalette.activeIndex}

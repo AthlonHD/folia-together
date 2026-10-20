@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, Loader2, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -11,11 +11,10 @@ import {
 } from '../../../stores/useSearchNavigationStore';
 import SearchResultsList from './SearchResultsList';
 import { useCollectionNavigationStore } from '../../../stores/useCollectionNavigationStore';
-import { useOnlineProviderAccountStore } from '../../../stores/useOnlineProviderAccountStore';
+import { useSearchSources } from './useSearchSources';
 import { omni } from '../../../services/onlineMusic/omni';
 import { useIsBravaisLibraryActive } from '../../../library/app/bravaisLibraryActive';
 import { useIsPhoneLayout } from '../../../hooks/useLayoutMode';
-import { isStageRemoteMode, REMOTE_PLAYABLE_PROVIDER_IDS } from '../../../services/stageMode';
 
 // src/components/app/search/SearchWorkspace.tsx
 
@@ -79,21 +78,8 @@ const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({
         const raw = searchResults || [];
         return resolveTrackDisplay ? raw.map(resolveTrackDisplay) : raw;
     }, [resolveTrackDisplay, searchResults]);
-    const activeOnlineProviderId = useOnlineProviderAccountStore(state => state.activeProviderId);
-    // 每个可用的在线平台各一个搜索标签(当前平台排第一),而不是只有当前平台:
-    // 队列可以跨平台混排,搜歌当然也要能直接在网易云、QQ 音乐之间切换,不必先去切平台。
-    const providerRegistryVersion = useSyncExternalStore(omni.subscribeProviders, omni.getProviderRegistryVersion);
-    const sources = useMemo<SearchSource[]>(() => {
-        const remote = isStageRemoteMode();
-        const available = omni.getProviderSummaries()
-            .filter(provider => provider.availability.configured !== false)
-            .map(provider => provider.providerId)
-            .filter(providerId => !remote || REMOTE_PLAYABLE_PROVIDER_IDS.has(providerId));
-        const online = [activeOnlineProviderId, ...available.filter(providerId => providerId !== activeOnlineProviderId)];
-        return [...online, 'local', 'navidrome'];
-        // providerRegistryVersion 只用来在平台列表变化(mod 源增减)时重算
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeOnlineProviderId, providerRegistryVersion]);
+    // 每个可用的在线平台各一个搜索标签,顺序按设置(默认当前平台排第一),见 useSearchSources
+    const sources = useSearchSources();
     const hasCollection = useCollectionNavigationStore(state => Boolean(state.snapshot?.stack.length));
     // Bravais 的歌手 / 专辑页是半透明的墙,搜索页留在它后面会透出来;Grid 的集合页要靠搜索页做展开动画,不动。
     // 只是看不见、点不到,仍然挂着,所以返回时搜索词、结果和滚动位置都在。

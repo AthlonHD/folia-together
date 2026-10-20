@@ -31,6 +31,9 @@ const readServerVersion = () => {
   return { commit, forkVersion, startedAt: new Date().toISOString() };
 };
 const SERVER_VERSION = readServerVersion();
+// 跨平台歌单的同步组(同步码配对、按歌单合并):数据放在 ~/.folia-stage/sync,不需要访问令牌(本机播放的浏览器没有),凭组密钥访问
+const { createPlaylistSync } = require('./playlistSync.cjs');
+const playlistSync = createPlaylistSync({ dataDir: process.env.STAGE_SYNC_DIR || path.join(os.homedir(), '.folia-stage', 'sync') });
 // 只放行点歌/遥控所需路由,歌词注入、媒体上传、清状态等写入类路由一律 404
 const ALLOWED_ROUTES = [/^\/stage\/health$/, /^\/stage\/player\//];
 // 这三个 channel 对应桌面版主进程发给渲染进程的请求
@@ -551,6 +554,7 @@ stageApi = createStageApi({
   extraUpgradeHandler: handleHostUpgrade,
   extraHttpHandler: async (req, res, requestUrl) => (
     (await handleServerVersion(req, res, requestUrl))
+    || (await playlistSync.handle(req, res, requestUrl))
     || (await handleStageAuth(req, res, requestUrl))
     || (await handleNeteaseProxy(req, res, requestUrl))
     || (await handleQqProxy(req, res, requestUrl))

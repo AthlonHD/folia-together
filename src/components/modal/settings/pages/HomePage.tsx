@@ -13,8 +13,11 @@ import { hasLibrarySuiteChoice } from '../../../../library/registry';
 import { omni } from '../../../../services/onlineMusic/omni';
 import { useGridViewSettingsStore } from '../../../../stores/useGridViewSettingsStore';
 import { useHomeLayoutSettingsStore } from '../../../../stores/useHomeLayoutSettingsStore';
+import { useSearchSettingsStore } from '../../../../stores/useSearchSettingsStore';
+import { useSearchSourceCandidates } from '../../../app/search/useSearchSources';
+import { isSameSearchSourceOrder, orderSearchSources } from '../../../../utils/searchSourceOrder';
 import { useOnlineProviderAccountStore } from '../../../../stores/useOnlineProviderAccountStore';
-import { Button, Chips, Group, PictureChoice, Reveal, Row, Segmented, Slider, Toggle, option, type SettingsGroupDef, type SettingsOptionDef } from '../kit';
+import { Button, Chips, Group, OrderList, PictureChoice, Reveal, Row, Segmented, Slider, Toggle, option, type SettingsGroupDef, type SettingsOptionDef } from '../kit';
 import { BRAVAIS_WALL_OPTIONS, BravaisWallGroup } from './BravaisWallGroup';
 import { GridCardsPreview, HomeCardStylePicture } from './pictures';
 
@@ -27,6 +30,7 @@ import { GridCardsPreview, HomeCardStylePicture } from './pictures';
 // The choice of suite is not part of the config export.
 const SUITE: SettingsGroupDef = { id: 'librarySuite', titleKey: 'options.librarySuite', available: hasLibrarySuiteChoice };
 const HOME: SettingsGroupDef = { id: 'homeScreen', titleKey: 'options.settingsHeadingHome' };
+const SEARCH: SettingsGroupDef = { id: 'searchOrder', titleKey: 'options.searchOrder' };
 const GRID: SettingsGroupDef = { id: 'gridViewCardSettings', titleKey: 'options.gridViewCardSettings' };
 
 const O = {
@@ -39,6 +43,8 @@ const O = {
     tabLocal: option(HOME, 'showHomeTabLocal', 'options.showHomeTabLocal'),
     cardStyle: option(HOME, 'grid3dCardStyle', 'options.grid3dCardStyle'),
     rememberPosition: option(HOME, 'rememberHomeCardPosition', 'options.rememberHomeCardPosition'),
+    searchOrder: option(SEARCH, 'searchSourceOrderList', 'options.searchSourceOrderList'),
+    searchCurrentFirst: option(SEARCH, 'searchCurrentSourceFirst', 'options.searchCurrentSourceFirst'),
     fullBleedCover: option(GRID, 'gridViewFullBleedCover', 'options.gridViewFullBleedCover'),
     squareCard: option(GRID, 'gridViewSquareCard', 'options.gridViewSquareCard'),
     minCardScale: option(GRID, 'gridViewMinCardScale', 'options.gridViewMinCardScale'),
@@ -79,6 +85,16 @@ const HomePage: React.FC = () => {
         setMinCardOpacity: state.handleSetGridViewMinCardOpacity,
         resetFalloff: state.resetGridViewCardFalloff,
     })));
+    const search = useSearchSettingsStore(useShallow(state => ({
+        order: state.searchSourceOrder,
+        currentFirst: state.searchCurrentSourceFirst,
+        setOrder: state.handleSetSearchSourceOrder,
+        setCurrentFirst: state.handleToggleSearchCurrentSourceFirst,
+    })));
+    const searchCandidates = useSearchSourceCandidates();
+    // The saved order, with sources it does not know yet after the ones it does (what the search page shows with "current first" off).
+    const searchSources = orderSearchSources({ sources: searchCandidates, order: search.order, currentFirst: false });
+    const searchLabel = (source: string) => (source === 'local' ? t('search.sourceLocal') : source === 'navidrome' ? t('search.sourceNavidrome') : omni.getProviderLabel(source));
     // The capsule has an explore tab only where the platform in use has an explore page.
     const hasExplore = useOnlineProviderAccountStore(() => omni.getActiveCapabilities().explore === true);
     const isDefaultFalloff = grid.minCardScale === HEX_CARD_MIN_SCALE_DEFAULT && grid.minCardOpacity === HEX_CARD_MIN_OPACITY_DEFAULT;
@@ -123,6 +139,26 @@ const HomePage: React.FC = () => {
                 </Row>
                 <Row option={O.rememberPosition} note={t('options.rememberHomeCardPositionDesc')}>
                     <Toggle checked={home.rememberPosition} onChange={home.setRememberPosition} />
+                </Row>
+            </Group>
+
+            <Group def={SEARCH}>
+                <Row
+                    option={O.searchOrder}
+                    hint={t('options.searchSourceOrderDesc')}
+                    below={(
+                        <OrderList
+                            items={searchSources.map(source => ({ id: source, label: searchLabel(source) }))}
+                            onChange={search.setOrder}
+                        />
+                    )}
+                >
+                    <Button icon={RotateCcw} onClick={() => search.setOrder([])} disabled={isSameSearchSourceOrder(search.order, [])}>
+                        {t('options.searchSourceOrderReset')}
+                    </Button>
+                </Row>
+                <Row option={O.searchCurrentFirst} hint={t('options.searchCurrentSourceFirstDesc')}>
+                    <Toggle checked={search.currentFirst} onChange={search.setCurrentFirst} />
                 </Row>
             </Group>
 
