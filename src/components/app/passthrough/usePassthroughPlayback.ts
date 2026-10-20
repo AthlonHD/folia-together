@@ -34,6 +34,7 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
     const deviceId = usePassthroughSettingsStore(state => state.passthroughDeviceId);
     const rateStrategy = usePassthroughSettingsStore(state => state.passthroughRateStrategy);
     const fixedRate = usePassthroughSettingsStore(state => state.passthroughFixedRate);
+    const resampler = usePassthroughSettingsStore(state => state.passthroughResampler);
     const mode = usePassthroughSettingsStore(state => state.passthroughMode);
     const audioSrc = usePlaybackStore(state => state.audioSrc);
 
@@ -65,8 +66,8 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
     // The helper's settings follow the page's; they take effect from the next track.
     useEffect(() => {
         if (!enabled || !api) return;
-        void api.configure({ deviceId, rateStrategy, fixedRate, mode });
-    }, [api, enabled, deviceId, rateStrategy, fixedRate, mode]);
+        void api.configure({ deviceId, rateStrategy, fixedRate, mode, resampler });
+    }, [api, enabled, deviceId, rateStrategy, fixedRate, mode, resampler]);
 
     // Leaving pass-through (switched off, or the window closing) hands the sound back to the web player.
     useEffect(() => {

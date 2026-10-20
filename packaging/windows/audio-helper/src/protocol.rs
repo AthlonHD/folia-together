@@ -17,6 +17,8 @@ pub enum Command {
         fixed_rate: u32,
         #[serde(default)]
         mode: OutputMode,
+        #[serde(default)]
+        resampler: ResampleEngine,
     },
     Load {
         path: String,
@@ -52,6 +54,24 @@ pub enum OutputMode {
     #[default]
     Exclusive,
     Shared,
+}
+
+/// Which resampler converts the sample rate when the device cannot take the source rate as is.
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ResampleEngine {
+    #[default]
+    Rubato,
+    Soxr,
+}
+
+impl ResampleEngine {
+    pub fn name(self) -> &'static str {
+        match self {
+            ResampleEngine::Rubato => "rubato",
+            ResampleEngine::Soxr => "soxr",
+        }
+    }
 }
 
 /// `Native` offers the source rate to the device first; `Fixed` always targets `fixed_rate`.
@@ -100,6 +120,9 @@ pub struct Chain {
     pub truncated: bool,
     pub downmixed: bool,
     pub bit_perfect: bool,
+    /// Which resampler made the conversion; absent when the rate was not converted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resampler: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

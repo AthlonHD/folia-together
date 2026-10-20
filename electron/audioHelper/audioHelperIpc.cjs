@@ -81,6 +81,7 @@ function registerAudioHelperIpc({ ipcMain, isTrusted, getWindow, stageDirectory,
         deviceId: String(config?.deviceId ?? ''),
         rateStrategy: config?.rateStrategy === 'fixed' ? 'fixed' : 'native',
         mode: config?.mode === 'shared' ? 'shared' : 'exclusive',
+        resampler: config?.resampler === 'soxr' ? 'soxr' : 'rubato',
         fixedRate: Number.isFinite(config?.fixedRate) ? Math.round(config.fixedRate) : 192000,
     }));
 

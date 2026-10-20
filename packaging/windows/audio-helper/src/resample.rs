@@ -1,4 +1,5 @@
-// One-stage sample-rate conversion (rubato FFT resampler, f64 internally) used only when the device cannot take the source rate as is.
+// One-stage sample-rate conversion used only when the device cannot take the source rate as is. Two engines: rubato's FFT resampler (f64
+// internally) and libsoxr at its 32-bit quality with the 64-bit engine; the player picks one by the user's setting.
 use rubato::audioadapter::{Adapter, AdapterMut};
 use rubato::audioadapter_buffers::owned::InterleavedOwned;
 use rubato::{Fft, FixedSync, Indexing, Resampler as _, WindowFunction};
@@ -100,6 +101,175 @@ impl Resampler {
         }
     }
 }
+
+/// libsoxr, linear phase, 32-bit quality, 64-bit arithmetic, polyphase coefficients for every phase of the ratio rather than interpolated
+/// between a few (soxr's own default interpolates, and measured about -80 dB at 18 kHz from 44.1 kHz to 96 kHz; computed exactly it is
+/// at the 32-bit rounding floor), 32-bit integer in and out: the data path stays integer
+/// and no dither is added (the output keeps the 32-bit container).
+mod soxr_sys {
+    use std::os::raw::{c_char, c_uint, c_ulong, c_void};
+
+    pub type SoxrT = *mut c_void;
+    pub type SoxrError = *const c_char;
+
+    #[repr(C)]
+    pub struct IoSpec {
+        pub itype: c_uint,
+        pub otype: c_uint,
+        pub scale: f64,
+        pub e: *mut c_void,
+        pub flags: c_ulong,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct QualitySpec {
+        pub precision: f64,
+        pub phase_response: f64,
+        pub passband_end: f64,
+        pub stopband_begin: f64,
+        pub e: *mut c_void,
+        pub flags: c_ulong,
+    }
+
+    pub const SOXR_INT32_I: c_uint = 2;
+    pub const SOXR_32_BITQ: c_ulong = 7;
+    pub const SOXR_LINEAR_PHASE: c_ulong = 0;
+    pub const SOXR_DOUBLE_PRECISION: c_ulong = 16;
+    pub const SOXR_NO_DITHER: c_ulong = 8;
+    pub const SOXR_COEF_INTERP_LOW: c_ulong = 2;
+
+    extern "C" {
+        pub fn soxr_quality_spec(recipe: c_ulong, flags: c_ulong) -> QualitySpec;
+        pub fn soxr_create(input_rate: f64, output_rate: f64, channels: c_uint, error: *mut SoxrError, io: *const IoSpec, quality: *const QualitySpec, runtime: *const c_void) -> SoxrT;
+        pub fn soxr_process(r: SoxrT, input: *const c_void, ilen: usize, idone: *mut usize, output: *mut c_void, olen: usize, odone: *mut usize) -> SoxrError;
+        pub fn soxr_delete(r: SoxrT);
+    }
+}
+
+pub struct SoxrResampler {
+    handle: soxr_sys::SoxrT,
+    channels: usize,
+    ratio: f64,
+    frames_in: u64,
+    emitted: u64,
+}
+
+// The handle is only used by the thread that owns the resampler.
+unsafe impl Send for SoxrResampler {}
+
+impl SoxrResampler {
+    pub fn new(rate_in: u32, rate_out: u32, channels: usize) -> Result<SoxrResampler, String> {
+        Self::with_quality(rate_in, rate_out, channels, soxr_sys::SOXR_32_BITQ | soxr_sys::SOXR_LINEAR_PHASE, soxr_sys::SOXR_DOUBLE_PRECISION | soxr_sys::SOXR_COEF_INTERP_LOW)
+    }
+
+    pub fn with_quality(rate_in: u32, rate_out: u32, channels: usize, recipe: std::os::raw::c_ulong, flags: std::os::raw::c_ulong) -> Result<SoxrResampler, String> {
+        let io = soxr_sys::IoSpec {
+            itype: soxr_sys::SOXR_INT32_I,
+            otype: soxr_sys::SOXR_INT32_I,
+            scale: 1.0,
+            e: std::ptr::null_mut(),
+            flags: soxr_sys::SOXR_NO_DITHER,
+        };
+        let mut error: soxr_sys::SoxrError = std::ptr::null();
+        let handle = unsafe {
+            let quality = soxr_sys::soxr_quality_spec(recipe, flags);
+            soxr_sys::soxr_create(rate_in as f64, rate_out as f64, channels as u32, &mut error, &io, &quality, std::ptr::null())
+        };
+        if handle.is_null() || !error.is_null() {
+            let text = if error.is_null() { "no handle".to_string() } else { unsafe { std::ffi::CStr::from_ptr(error) }.to_string_lossy().into_owned() };
+            if !handle.is_null() {
+                unsafe { soxr_sys::soxr_delete(handle) };
+            }
+            return Err(format!("soxr {rate_in}->{rate_out}: {text}"));
+        }
+        Ok(SoxrResampler { handle, channels, ratio: rate_out as f64 / rate_in as f64, frames_in: 0, emitted: 0 })
+    }
+
+    fn run(&mut self, input: Option<&[i32]>) -> Vec<i32> {
+        let mut out = Vec::new();
+        let (mut ptr, mut left) = match input {
+            Some(data) => (data.as_ptr(), data.len() / self.channels),
+            None => (std::ptr::null(), 0),
+        };
+        let room = 16_384usize;
+        let mut buf = vec![0i32; room * self.channels];
+        loop {
+            let (mut idone, mut odone) = (0usize, 0usize);
+            let error = unsafe {
+                soxr_sys::soxr_process(self.handle, ptr as *const _, left, &mut idone, buf.as_mut_ptr() as *mut _, room, &mut odone)
+            };
+            if !error.is_null() {
+                break;
+            }
+            out.extend_from_slice(&buf[..odone * self.channels]);
+            self.emitted += odone as u64;
+            if input.is_some() {
+                ptr = unsafe { ptr.add(idone * self.channels) };
+                left -= idone;
+                if left == 0 && odone < room {
+                    break;
+                }
+            } else if odone == 0 {
+                break;
+            }
+        }
+        out
+    }
+
+    pub fn push(&mut self, input: &[i32]) -> Vec<i32> {
+        self.frames_in += (input.len() / self.channels) as u64;
+        self.run(Some(input))
+    }
+
+    /// Flushes what the filter still holds, then trims to exactly the length the ratio gives.
+    pub fn finish(&mut self) -> Vec<i32> {
+        let target = (self.frames_in as f64 * self.ratio).round() as u64;
+        let mut out = self.run(None);
+        if self.emitted > target {
+            let excess = (self.emitted - target) as usize;
+            out.truncate(out.len().saturating_sub(excess * self.channels));
+        }
+        out
+    }
+}
+
+impl Drop for SoxrResampler {
+    fn drop(&mut self) {
+        unsafe { soxr_sys::soxr_delete(self.handle) };
+    }
+}
+
+/// The engine the user picked.
+pub enum AnyResampler {
+    Rubato(Resampler),
+    Soxr(SoxrResampler),
+}
+
+impl AnyResampler {
+    pub fn new(engine: ResampleEngine, rate_in: u32, rate_out: u32, channels: usize) -> Result<AnyResampler, String> {
+        match engine {
+            ResampleEngine::Rubato => Resampler::new(rate_in, rate_out, channels).map(AnyResampler::Rubato),
+            ResampleEngine::Soxr => SoxrResampler::new(rate_in, rate_out, channels).map(AnyResampler::Soxr),
+        }
+    }
+
+    pub fn push(&mut self, input: &[i32]) -> Vec<i32> {
+        match self {
+            AnyResampler::Rubato(r) => r.push(input),
+            AnyResampler::Soxr(r) => r.push(input),
+        }
+    }
+
+    pub fn finish(&mut self) -> Vec<i32> {
+        match self {
+            AnyResampler::Rubato(r) => r.finish(),
+            AnyResampler::Soxr(r) => r.finish(),
+        }
+    }
+}
+
+pub use crate::protocol::ResampleEngine;
 
 #[cfg(test)]
 mod tests {
@@ -213,6 +383,48 @@ mod passband {
             let a = edge(48_000, 192_000, chunk, sub, window);
             let b = edge(44_100, 192_000, chunk, sub, window);
             println!("{name:<36}{a:>10.0}{b:>24.0}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod engines {
+    use super::*;
+
+    /// Both engines on the same tones: the length must follow the ratio, and the error against the ideal tone is printed side by side.
+    #[test]
+    fn rubato_and_soxr_side_by_side() {
+        let amp = 0.5 * 2_147_483_647.0;
+        for (rate_in, rate_out) in [(48_000usize, 192_000usize), (44_100, 96_000), (44_100, 192_000)] {
+            println!("{rate_in} -> {rate_out}");
+            for hz in [1_000.0f64, 10_000.0, 18_000.0, 20_000.0] {
+                let seconds = 2usize;
+                let input: Vec<i32> = (0..rate_in * seconds)
+                    .flat_map(|n| {
+                        let v = ((2.0 * std::f64::consts::PI * hz * n as f64 / rate_in as f64).sin() * amp).round() as i32;
+                        [v, v]
+                    })
+                    .collect();
+                let mut line = format!("  {hz:>7.0} Hz");
+                for engine in [ResampleEngine::Rubato, ResampleEngine::Soxr] {
+                    let mut r = AnyResampler::new(engine, rate_in as u32, rate_out as u32, 2).unwrap();
+                    let mut out = r.push(&input);
+                    out.extend(r.finish());
+                    let frames = out.len() / 2;
+                    assert_eq!(frames, rate_out * seconds, "{} length", engine.name());
+                    let (from, to) = (frames / 4, frames * 3 / 4);
+                    let mut sum_sq = 0.0f64;
+                    for k in from..to {
+                        let ideal = (2.0 * std::f64::consts::PI * hz * k as f64 / rate_out as f64).sin() * amp;
+                        let e = out[k * 2] as f64 - ideal;
+                        sum_sq += e * e;
+                    }
+                    let db = 20.0 * ((sum_sq / (to - from) as f64).sqrt() / 2_147_483_648.0).log10();
+                    line.push_str(&format!("   {}: {db:>7.1} dBFS", engine.name()));
+                    assert!(db < -110.0, "{} at {hz} Hz: {db}", engine.name());
+                }
+                println!("{line}");
+            }
         }
     }
 }

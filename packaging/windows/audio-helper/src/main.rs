@@ -8,7 +8,7 @@ mod tone;
 mod source;
 
 use player::{start_session, Session};
-use protocol::{emit, emit_error, Command, Event, OutputMode, RateStrategy};
+use protocol::{emit, emit_error, Command, Event, OutputMode, RateStrategy, ResampleEngine};
 use std::io::BufRead;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
@@ -76,6 +76,7 @@ struct Config {
     strategy: RateStrategy,
     fixed_rate: u32,
     mode: OutputMode,
+    engine: ResampleEngine,
 }
 
 fn serve() {
@@ -100,7 +101,7 @@ fn serve() {
         let _ = tx.send(Command::Quit);
     });
 
-    let mut config = Config { device_id: String::new(), strategy: RateStrategy::Native, fixed_rate: 192_000, mode: OutputMode::Exclusive };
+    let mut config = Config { device_id: String::new(), strategy: RateStrategy::Native, fixed_rate: 192_000, mode: OutputMode::Exclusive, engine: ResampleEngine::Rubato };
     let mut session: Option<Session> = None;
     let mut last_position = Instant::now();
     loop {
@@ -138,11 +139,12 @@ fn handle(cmd: Command, config: &mut Config, session: &mut Option<Session>) {
             Ok(formats) => emit(&Event::Probe { device_id, formats }),
             Err(e) => emit_error("probe-failed", e),
         },
-        Command::Configure { device_id, rate_strategy, fixed_rate, mode } => {
+        Command::Configure { device_id, rate_strategy, fixed_rate, mode, resampler } => {
             config.device_id = device_id.clone();
             config.strategy = rate_strategy;
             config.fixed_rate = fixed_rate;
             config.mode = mode;
+            config.engine = resampler;
             emit(&Event::Configured { device_id });
         }
         Command::Load { path, start_sec, autoplay, token, total_bytes } => {
@@ -157,7 +159,7 @@ fn handle(cmd: Command, config: &mut Config, session: &mut Option<Session>) {
                 }
                 old.stop();
             }
-            match start_session(&path, &config.device_id, config.strategy, config.fixed_rate, config.mode, start_sec, autoplay, token, total_bytes) {
+            match start_session(&path, &config.device_id, config.strategy, config.fixed_rate, config.mode, config.engine, start_sec, autoplay, token, total_bytes) {
                 Ok(s) => {
                     emit(&Event::State { state: if autoplay { "playing" } else { "paused" } });
                     *session = Some(s);

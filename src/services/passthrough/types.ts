@@ -2,6 +2,9 @@
 
 export type PassthroughRateStrategy = 'native' | 'fixed';
 
+/** Which resampler converts the sample rate when the device cannot take the source's rate as is. */
+export type PassthroughResampler = 'rubato' | 'soxr';
+
 /** Exclusive bypasses the Windows mixer; shared goes through it at the endpoint's own format (for drivers that only pass shared streams on). */
 export type PassthroughOutputMode = 'exclusive' | 'shared';
 
@@ -39,6 +42,8 @@ export interface PassthroughChain {
     truncated: boolean;
     downmixed: boolean;
     bitPerfect: boolean;
+    /** Which resampler made the conversion; absent when the rate was not converted. */
+    resampler?: PassthroughResampler;
 }
 
 export type PassthroughHelperEvent =
@@ -65,7 +70,7 @@ export interface AudioHelperApi {
     getStatus: () => Promise<{ available: boolean; running: boolean }>;
     listDevices: () => Promise<{ ok: true; devices: PassthroughDevice[] } | { ok: false; error: string }>;
     probeDevice: (deviceId: string) => Promise<{ ok: true; formats: PassthroughFormatProbe[] } | { ok: false; error: string }>;
-    configure: (config: { deviceId: string; rateStrategy: PassthroughRateStrategy; fixedRate: number; mode: PassthroughOutputMode }) => Promise<boolean>;
+    configure: (config: { deviceId: string; rateStrategy: PassthroughRateStrategy; fixedRate: number; mode: PassthroughOutputMode; resampler: PassthroughResampler }) => Promise<boolean>;
     load: (request: PassthroughLoadRequest) => Promise<{ ok: true } | { ok: false; error: string }>;
     play: () => Promise<boolean>;
     pause: () => Promise<boolean>;

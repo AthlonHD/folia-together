@@ -4,7 +4,7 @@ import {
     extensionForMime,
     startSecFor,
 } from '../../../src/components/app/passthrough/passthroughSource';
-import { chainDepartures, describeChain } from '../../../src/services/passthrough/formatChain';
+import { chainDepartures, describeChain, describeFormats } from '../../../src/services/passthrough/formatChain';
 import { toFallbackReason } from '../../../src/services/passthrough/passthroughStatusStore';
 import type { PassthroughChain } from '../../../src/services/passthrough/types';
 
@@ -79,6 +79,13 @@ describe('describeChain', () => {
     it('shows the resampled rate and a lossy source without a bit depth', () => {
         const text = describeChain(chain({ codec: 'mp3', sourceRate: 44100, sourceBits: 0, outputRate: 192000, resampled: true, bitPerfect: false }));
         expect(text).toBe('MP3 44.1k → WDM2VST 192k/24 · WASAPI exclusive');
+    });
+});
+
+describe('describeFormats', () => {
+    it('reads as the formats alone, source then output', () => {
+        expect(describeFormats(chain())).toBe('FLAC 96k/24 → 96k/24');
+        expect(describeFormats(chain({ codec: 'mp3', sourceRate: 44100, sourceBits: 0, outputRate: 192000, resampled: true, bitPerfect: false, resampler: 'soxr' }))).toBe('MP3 44.1k → 192k/24');
     });
 });
 

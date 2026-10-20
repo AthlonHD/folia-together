@@ -13,6 +13,9 @@ symphonia = { version = "0.6.1", features = ["all"] }
 wasapi = "0.26.0"
 windows = { version = "0.62", features = ["Win32_Media_Audio"] }
 
+[build-dependencies]
+cc = "1"
+
 [profile.release]
 strip = true
 lto = true

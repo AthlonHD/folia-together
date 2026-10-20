@@ -26,6 +26,7 @@ export const PASSTHROUGH_OPTIONS = {
     enable: option(PASSTHROUGH, 'passthroughEnable', 'passthrough.enable', { electronOnly: true, available: () => runsOnWindows() }),
     device: option(PASSTHROUGH, 'passthroughDevice', 'passthrough.device', { electronOnly: true, available: () => runsOnWindows() }),
     mode: option(PASSTHROUGH, 'passthroughMode', 'passthrough.mode', { electronOnly: true, available: () => runsOnWindows() }),
+    resampler: option(PASSTHROUGH, 'passthroughResampler', 'passthrough.resampler', { electronOnly: true, available: () => runsOnWindows() }),
     rate: option(PASSTHROUGH, 'passthroughRate', 'passthrough.rate', { electronOnly: true, available: () => runsOnWindows() }),
     fixedRate: option(PASSTHROUGH, 'passthroughFixedRate', 'passthrough.fixedRate', { electronOnly: true, available: () => runsOnWindows() }),
     probe: option(PASSTHROUGH, 'passthroughProbe', 'passthrough.probe', { electronOnly: true, available: () => runsOnWindows() }),
@@ -58,6 +59,8 @@ const PassthroughGroup: React.FC = () => {
     const fixedRate = usePassthroughSettingsStore(state => state.passthroughFixedRate);
     const mode = usePassthroughSettingsStore(state => state.passthroughMode);
     const setMode = usePassthroughSettingsStore(state => state.handleSetPassthroughMode);
+    const resampler = usePassthroughSettingsStore(state => state.passthroughResampler);
+    const setResampler = usePassthroughSettingsStore(state => state.handleSetPassthroughResampler);
     const setEnabled = usePassthroughSettingsStore(state => state.handleTogglePassthrough);
     const setDevice = usePassthroughSettingsStore(state => state.handleSetPassthroughDevice);
     const setStrategy = usePassthroughSettingsStore(state => state.handleSetPassthroughRateStrategy);
@@ -134,6 +137,7 @@ const PassthroughGroup: React.FC = () => {
             {chain.bitPerfect
                 ? t('passthrough.chainBitPerfect')
                 : chainDepartures(chain).map(key => t(`passthrough.chain${key}`)).join(' / ')}
+            {chain.resampled && chain.resampler && ` (${t(`passthrough.chainResampler${chain.resampler === 'soxr' ? 'Soxr' : 'Rubato'}`)})`}
             {levelDb !== null && ` · ${t('passthrough.level')} ${levelDb <= -120 ? t('passthrough.levelSilent') : `${levelDb.toFixed(1)} dBFS`}`}
         </>
         : fallbackReason
@@ -161,6 +165,16 @@ const PassthroughGroup: React.FC = () => {
                             { value: 'shared', label: t('passthrough.modeShared') },
                         ]}
                         onChange={setMode}
+                    />
+                </Row>
+                <Row option={O.resampler} hint={t('passthrough.resamplerDesc')} note={t('passthrough.resamplerNote')}>
+                    <Segmented
+                        value={resampler}
+                        options={[
+                            { value: 'rubato', label: t('passthrough.resamplerRubato') },
+                            { value: 'soxr', label: t('passthrough.resamplerSoxr') },
+                        ]}
+                        onChange={setResampler}
                     />
                 </Row>
                 <Reveal when={mode === 'exclusive'}>

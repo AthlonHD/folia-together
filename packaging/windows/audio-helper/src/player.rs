@@ -1,7 +1,7 @@
 // Playback session: a decoder thread fills a ring buffer, an event-driven WASAPI exclusive render thread drains it.
 use crate::devices::PROBE_RATES;
-use crate::protocol::{emit, emit_error, Chain, Event, OutputMode, RateStrategy};
-use crate::resample::Resampler;
+use crate::protocol::{emit, emit_error, Chain, Event, OutputMode, RateStrategy, ResampleEngine};
+use crate::resample::AnyResampler;
 use crate::source::Source;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -128,6 +128,7 @@ pub fn start_session(
     strategy: RateStrategy,
     fixed_rate: u32,
     mode: OutputMode,
+    engine: ResampleEngine,
     start_sec: f64,
     autoplay: bool,
     token: u64,
@@ -196,6 +197,7 @@ pub fn start_session(
             truncated,
             downmixed,
             bit_perfect: !resampled && !truncated && !downmixed,
+            resampler: if resampled { Some(engine.name().to_string()) } else { None },
         },
     });
 
@@ -203,7 +205,7 @@ pub fn start_session(
     let shared_decode = shared.clone();
     let decode = thread::Builder::new()
         .name("folia-decode".into())
-        .spawn(move || decode_thread(source, shared_decode))
+        .spawn(move || decode_thread(source, shared_decode, engine))
         .map_err(|e| ("open-failed".to_string(), e.to_string()))?;
     Ok(Session { shared, token, duration_sec, render: Some(render), decode: Some(decode) })
 }
@@ -234,14 +236,14 @@ fn push_ring(shared: &Shared, samples: &[i32]) -> bool {
     true
 }
 
-fn decode_thread(mut source: Source, shared: Arc<Shared>) {
+fn decode_thread(mut source: Source, shared: Arc<Shared>, engine: ResampleEngine) {
     let channels = source.info.channels as usize;
     let rate_in = source.info.rate;
-    let make_resampler = || -> Option<Resampler> {
+    let make_resampler = || -> Option<AnyResampler> {
         if rate_in == shared.out_rate {
             return None;
         }
-        match Resampler::new(rate_in, shared.out_rate, OUT_CHANNELS) {
+        match AnyResampler::new(engine, rate_in, shared.out_rate, OUT_CHANNELS) {
             Ok(r) => Some(r),
             Err(e) => {
                 emit_error("resample-failed", e);

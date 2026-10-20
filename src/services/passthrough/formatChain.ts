@@ -9,6 +9,12 @@ const khz = (hz: number): string => {
     return Number.isInteger(value) ? String(value) : value.toFixed(1);
 };
 
+/** e.g. `FLAC 96k/24 → 192k/24`: the formats alone, without the device or the mode. */
+export const describeFormats = (chain: PassthroughChain): string => {
+    const source = `${chain.codec.replace(/^pcm_/, 'PCM ').toUpperCase()} ${khz(chain.sourceRate)}k${chain.sourceBits ? `/${chain.sourceBits}` : ''}`;
+    return `${source} → ${khz(chain.outputRate)}k/${chain.outputValidBits}`;
+};
+
 /** e.g. `FLAC 96k/24 → CABLE Input 192k/24 · exclusive` */
 export const describeChain = (chain: PassthroughChain): string => {
     const source = `${chain.codec.replace(/^pcm_/, 'PCM ').toUpperCase()} ${khz(chain.sourceRate)}k${chain.sourceBits ? `/${chain.sourceBits}` : ''}`;

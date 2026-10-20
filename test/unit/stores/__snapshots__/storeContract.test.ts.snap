@@ -103,6 +103,7 @@ exports[`store contract > keeps every localStorage key the stores read or write 
   "passthrough_fixed_rate",
   "passthrough_mode",
   "passthrough_rate_strategy",
+  "passthrough_resampler",
   "pendolo_tuning",
   "playback_entry_view",
   "playback_entry_view_chosen",
