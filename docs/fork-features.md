@@ -4,7 +4,7 @@
 
 - 上游的功能说明、使用指南与许可证条款不变，见根目录 [README](../README.md)。
 - 与上游重叠的部分，原则是「不改上游行为，只加不替换」：新增能力放在独立模块或受开关控制，上游新版本通过合并（merge）引入，冲突在本 Fork 内解决。
-- 当前已合并上游 main 至 `26c57f9b`（版本号仍是 **v0.7.21**；含 Spotify / YouTube Music 接入、统一登录窗口、探索页、智能动感模式、设置页重做与 `src/` 目录整理、qq-music-api 3.3.x 等）。每次合并后这里会更新；合并带来依赖升级时需要重新执行 `npm install`。与本 Fork 的交叉点：上游新增的 `handleSetLoopMode`（模组用）会同时关掉随机与心动；上游的「平台换了清空播放器」在本 Fork 里由账户端口声明 `holdsSongs: () => false` 关掉，切换平台仍不清队列。
+- 当前已合并上游 main 至 `f3a90708`（版本号仍是 **v0.7.21**；新近并入的有 Folium 1.7：模组命令可绑系统级全局快捷键、密钥字段、`folium.account`、实验接口 `platform.raw` 等；含 Spotify / YouTube Music 接入、统一登录窗口、探索页、智能动感模式、设置页重做与 `src/` 目录整理、qq-music-api 3.3.x 等）。每次合并后这里会更新；合并带来依赖升级时需要重新执行 `npm install`。与本 Fork 的交叉点：上游新增的 `handleSetLoopMode`（模组用）会同时关掉随机与心动；上游的「平台换了清空播放器」在本 Fork 里由账户端口声明 `holdsSongs: () => false` 关掉，切换平台仍不清队列。
 
 **重点功能：[Hi-Fi 直通（桌面版）](hifi.md)**——WASAPI 独占 / 共享直出、整数采样、整数倍优先、单次重采样（rubato / SoXR）、真实链路读数。完整说明、实测数据与边界在 [hifi.md](hifi.md)，本文第 8 节只保留与其他功能交叉的部分、构建与脚本。
 
