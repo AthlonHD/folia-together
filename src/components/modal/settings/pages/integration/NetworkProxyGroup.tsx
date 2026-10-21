@@ -30,6 +30,8 @@ const NetworkProxyGroup: React.FC = () => {
     const [mode, setMode] = useState<Mode>('system');
     const [url, setUrl] = useState('');
     const [notice, setNotice] = useState<Notice>(null);
+    // What the main process uses for sign-in and playback: the saved setting, not what is typed on the page.
+    const [saved, setSaved] = useState<{ mode: Mode; url: string } | null>(null);
     const [probe, setProbe] = useState<Probe | 'testing' | null>(null);
 
     useEffect(() => {
@@ -37,6 +39,7 @@ const NetworkProxyGroup: React.FC = () => {
             if (!config) return;
             setMode(config.mode);
             setUrl(config.url);
+            setSaved(config);
         });
     }, [electron]);
 
@@ -54,6 +57,7 @@ const NetworkProxyGroup: React.FC = () => {
             return;
         }
         setUrl(result.config.url);
+        setSaved(result.config);
         setNotice({ tone: 'ok', text: t('networkProxy.saved') });
     }, [electron, errorText, mode, t, url]);
 
@@ -88,6 +92,9 @@ const NetworkProxyGroup: React.FC = () => {
                 below={(
                     <>
                         {notice && <Status tone={notice.tone}>{notice.text}</Status>}
+                        {saved && (saved.mode !== mode || (mode === 'custom' && saved.url !== url.trim())) && (
+                            <Status tone="warn">{t('networkProxy.unsaved')}</Status>
+                        )}
                         {Array.isArray(probe) && probe.map(item => {
                             const service = t(item.id === 'spotify' ? 'networkProxy.serviceSpotify' : 'networkProxy.serviceYoutubeMusic');
                             return (

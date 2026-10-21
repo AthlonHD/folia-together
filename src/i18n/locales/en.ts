@@ -139,6 +139,7 @@ export default {
     "testing": "Testing…",
     "reachable": "{{service}}: reachable ({{ms}} ms)",
     "unreachable": "{{service}}: not reachable ({{error}})",
+    "unsaved": "Not saved yet: sign-in and playback use the saved setting, and the test above tried the one on this page. Press Save",
     "route": "route: {{route}}",
     "serviceSpotify": "Spotify",
     "serviceYoutubeMusic": "YouTube Music",

@@ -139,6 +139,7 @@ export default {
     "testing": "Menguji…",
     "reachable": "{{service}}: dapat dijangkau ({{ms}} ms)",
     "unreachable": "{{service}}: tidak dapat dijangkau ({{error}})",
+    "unsaved": "Belum disimpan: masuk dan pemutaran memakai pengaturan yang tersimpan, sedangkan uji tadi memakai yang ada di halaman ini. Tekan Simpan",
     "route": "rute: {{route}}",
     "serviceSpotify": "Spotify",
     "serviceYoutubeMusic": "YouTube Music",

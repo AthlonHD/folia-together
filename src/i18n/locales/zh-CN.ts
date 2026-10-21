@@ -139,6 +139,7 @@ export default {
     "testing": "测试中…",
     "reachable": "{{service}}:可以连接({{ms}} 毫秒)",
     "unreachable": "{{service}}:连不上({{error}})",
+    "unsaved": "还没保存:登录和播放用的是已保存的设置,上面的测试试的是页面上的设置。请点「保存」",
     "route": "路线:{{route}}",
     "serviceSpotify": "Spotify",
     "serviceYoutubeMusic": "YouTube Music",
