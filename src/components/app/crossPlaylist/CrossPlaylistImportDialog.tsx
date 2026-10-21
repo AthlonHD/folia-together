@@ -147,7 +147,7 @@ export const CrossPlaylistImportDialog: React.FC<Props> = ({ isOpen, onClose, is
                                         key={keyOf(option)}
                                         role="presentation"
                                         onClick={() => { if (!busy) toggle(keyOf(option)); }}
-                                        className="st-row st-t-fast flex min-h-12 cursor-pointer items-center gap-3 px-4 py-1.5 hover:bg-[var(--st-fill)]"
+                                        className="st-row relative st-t-fast flex min-h-12 cursor-pointer items-center gap-3 px-4 py-1.5 hover:bg-[var(--st-fill)]"
                                     >
                                         <TickBox checked={picked.has(keyOf(option))} onChange={() => toggle(keyOf(option))} disabled={Boolean(busy)} label={option.name} />
                                         <span className="min-w-0 flex-1 truncate text-sm">{option.name}</span>

@@ -243,7 +243,7 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
                     {current.entries.map((entry, index) => {
                         const unavailable = isSongUnavailable(entry.song);
                         return (
-                            <div key={entry.id} className={`st-row flex ${ROW_HEIGHT} items-center gap-1 pl-4 pr-2 ${unavailable ? 'opacity-55' : ''}`}>
+                            <div key={entry.id} className={`st-row relative flex ${ROW_HEIGHT} items-center gap-1 pl-4 pr-2 ${unavailable ? 'opacity-55' : ''}`}>
                                 <span className="w-7 shrink-0 text-xs tabular-nums text-[color:var(--st-t3)]">{index + 1}</span>
                                 <button
                                     type="button"
@@ -306,7 +306,7 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
                             key={playlist.id}
                             type="button"
                             onClick={() => store.openPlaylist(playlist.id)}
-                            className="st-row st-focus-inside st-t-fast flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-[var(--st-fill)]"
+                            className="st-row relative st-focus-inside st-t-fast flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-[var(--st-fill)]"
                         >
                             <div className="min-w-0 flex-1">
                                 <div className="truncate text-sm leading-5">{playlist.name}</div>
