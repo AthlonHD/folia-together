@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AtSign, CornerDownLeft, ListEnd, ListPlus, ListX, Trash2, X } from 'lucide-react';
+import { AtSign, CornerDownLeft, Library, ListEnd, ListPlus, ListX, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import CommandPaletteQueueList, { type CommandPaletteQueueListProps } from './CommandPaletteQueueList';
 import type { QueueSearchEvaluation, QueueSearchSuggestion } from './queueSearch';
@@ -20,6 +20,10 @@ type CommandPaletteQueueViewProps = CommandPaletteQueueListProps & {
     /** 清空整个播放队列;不能清(个性化电台、队列已空)时 canClearQueue 为 false,不显示按钮。 */
     canClearQueue: boolean;
     onClearQueue: () => void;
+    /** Puts the songs the list shows (all of them without a filter, the matches with one) in a cross-platform playlist; absent where there are none. */
+    onAddToCrossPlaylist?: () => void;
+    /** How many songs that is, for the button's note. */
+    crossPlaylistCount?: number;
 };
 
 const actionIcon: Record<QueueBatchAction, typeof Trash2> = {
@@ -52,6 +56,8 @@ const CommandPaletteQueueView: React.FC<CommandPaletteQueueViewProps> = ({
     onExecuteBatch,
     canClearQueue,
     onClearQueue,
+    onAddToCrossPlaylist,
+    crossPlaylistCount = 0,
     ...listProps
 }) => {
     const { t } = useTranslation();
@@ -85,6 +91,19 @@ const CommandPaletteQueueView: React.FC<CommandPaletteQueueViewProps> = ({
                         ? t('commandPalette.queueSyntaxHint')
                         : null}
                 </div>
+                {onAddToCrossPlaylist && crossPlaylistCount > 0 && (
+                    <button
+                        type="button"
+                        data-testid="command-palette-queue-cross-playlist"
+                        disabled={isExecuting}
+                        onClick={onAddToCrossPlaylist}
+                        title={t('crossPlaylist.paletteAddHint')}
+                        className="flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 opacity-65 transition-opacity hover:opacity-100 disabled:cursor-wait"
+                    >
+                        <Library size={12} />
+                        <span>{evaluation.hasMeaningfulFilter ? t('crossPlaylist.paletteAddMatches', { count: crossPlaylistCount }) : t('crossPlaylist.paletteAdd')}</span>
+                    </button>
+                )}
                 {canClearQueue && (
                     <button
                         type="button"

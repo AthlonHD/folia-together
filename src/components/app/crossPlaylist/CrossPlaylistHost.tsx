@@ -61,6 +61,7 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
         isOpen: state.isOpen,
         playlists: state.playlists,
         openPlaylistId: state.openPlaylistId,
+        pendingAdd: state.pendingAdd,
         close: state.close,
         openPlaylist: state.openPlaylist,
         create: state.create,
@@ -324,7 +325,7 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
     return (
         <>
             <ThemedDialog
-                isOpen
+                isOpen={!store.pendingAdd}
                 onClose={store.close}
                 isDaylight={isDaylight}
                 title={current ? current.name : t('crossPlaylist.title')}
@@ -335,6 +336,32 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
             >
                 {body}
             </ThemedDialog>
+
+            <PlaylistSelectionDialog
+                isOpen={Boolean(store.pendingAdd)}
+                onClose={store.close}
+                isDaylight={isDaylight}
+                title={t('crossPlaylist.addSongsTitle', { count: store.pendingAdd?.filter(canHoldInCrossPlaylist).length ?? 0 })}
+                description={t('crossPlaylist.addSongsHint')}
+                playlists={lists.map(playlist => ({ id: playlist.id, name: playlist.name, description: t('crossPlaylist.songCount', { count: playlist.entries.length }) }))}
+                onCreate={() => {
+                    const songs = (store.pendingAdd ?? []).filter(canHoldInCrossPlaylist);
+                    // The window opens on its list, and the new playlist is named over it, with these songs in it.
+                    useCrossPlaylistStore.getState().open();
+                    setCreating({ songs });
+                }}
+                createLabel={t('crossPlaylist.createTitle')}
+                onSelect={async (playlistId) => {
+                    const songs = (store.pendingAdd ?? []).filter(canHoldInCrossPlaylist);
+                    const name = lists.find(playlist => playlist.id === String(playlistId))?.name ?? '';
+                    const { added, skipped } = await store.addSongs(String(playlistId), songs);
+                    setStatusMessage({
+                        type: added > 0 ? 'success' : 'info',
+                        text: skipped > 0 ? t('crossPlaylist.addedSome', { name, added, skipped }) : t('crossPlaylist.added', { name }),
+                    });
+                    store.close();
+                }}
+            />
 
             <CrossPlaylistImportDialog isOpen={importOpen} onClose={() => setImportOpen(false)} isDaylight={isDaylight} initialTargetId={current?.id ?? null} />
 

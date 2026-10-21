@@ -67,6 +67,15 @@ export const SheetLayerContext = createContext<HTMLElement | null | undefined>(u
 /** The open sheets, the topmost last. The keyboard belongs to the topmost one. */
 const openSheets: symbol[] = [];
 
+// Whether a sheet is open, for the parts of the shell that draw over it (the title bar's glass strip): they follow this rather than guess.
+const openSheetListeners = new Set<() => void>();
+const notifyOpenSheets = () => openSheetListeners.forEach(listener => listener());
+export const subscribeOpenSheets = (listener: () => void): (() => void) => {
+    openSheetListeners.add(listener);
+    return () => { openSheetListeners.delete(listener); };
+};
+export const hasOpenSheet = (): boolean => openSheets.length > 0;
+
 /**
  * The variables of the sheet's panel: the settings kit's, and what the kit does not hold: the colour
  * of the text on a red button, and the sheet's shadow. The text colour is the app's, or the
@@ -210,6 +219,7 @@ const SheetFrame: React.FC<SheetFrameProps> = ({
 
         const token = Symbol('sheet');
         openSheets.push(token);
+        notifyOpenSheets();
         if (!panel.contains(document.activeElement)) {
             (panel.querySelector<HTMLElement>('[data-autofocus]') ?? panel).focus({ preventScroll: true });
         }
@@ -254,6 +264,7 @@ const SheetFrame: React.FC<SheetFrameProps> = ({
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
             openSheets.splice(openSheets.indexOf(token), 1);
+            notifyOpenSheets();
             // Back to what opened the sheet, unless focus has since been put somewhere else.
             const active = document.activeElement;
             if (opener?.isConnected && (!active || active === document.body || panel.contains(active))) {

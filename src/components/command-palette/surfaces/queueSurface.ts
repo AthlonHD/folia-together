@@ -3,6 +3,9 @@ import { evaluateQueueForPalette } from '../queueEvaluation';
 import { replaceQueueAction, replaceQueueFacet } from '../queueQuery';
 import type { QueueSearchEvaluation, QueueSearchSuggestion } from '../queueSearch';
 import type { CommandPaletteContext } from '../types';
+import { isStageRemoteMode } from '../../../services/stageMode';
+import { canHoldInCrossPlaylist } from '../../app/crossPlaylist/crossPlaylistModel';
+import { useCrossPlaylistStore } from '../../app/crossPlaylist/crossPlaylistStore';
 import type { CommandPaletteSurface, CommandSurfaceRenderArgs } from './types';
 
 // src/components/command-palette/surfaces/queueSurface.ts
@@ -28,6 +31,8 @@ const runBatch = (evaluation: QueueSearchEvaluation, context: CommandPaletteCont
 
 const buildViewProps = ({ context, query, matches, activeIndex, setActiveIndex, setQuery, isDaylight, theme, isExecuting, executeMatch, close }: CommandSurfaceRenderArgs) => {
     const evaluation = evaluateQueueForPalette(context, query);
+    // The songs the list shows (all of the queue, or what the filter matched): the ones a cross-platform playlist can hold.
+    const shownSongs = (evaluation.hasMeaningfulFilter ? evaluation.matches.map(match => match.entry.song) : context.playback.queue).filter(canHoldInCrossPlaylist);
     return {
         activeIndex,
         currentSong: context.shared.currentSong,
@@ -46,6 +51,12 @@ const buildViewProps = ({ context, query, matches, activeIndex, setActiveIndex, 
         // 与命令「清空队列」同一条可用规则:个性化电台里没有这个操作,队列空了也没得清。
         canClearQueue: !context.playback.isFmMode && context.playback.queue.length > 0,
         onClearQueue: context.playback.clearQueue,
+        // 跨平台歌单存在这台设备上,遥控端没有自己的
+        onAddToCrossPlaylist: isStageRemoteMode() ? undefined : () => {
+            useCrossPlaylistStore.getState().openToAdd(shownSongs);
+            close();
+        },
+        crossPlaylistCount: shownSongs.length,
         onExecuteMatch: executeMatch,
         onKeepOpenOnSongChange: context.playback.setQueuePaletteKeepOpen,
         onMoveSongToEnd: context.playback.moveQueueSongToEnd,

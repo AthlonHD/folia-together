@@ -91,6 +91,8 @@ interface CrossPlaylistState {
     isOpen: boolean;
     /** The playlist whose songs the window shows; null for the list of playlists. */
     openPlaylistId: string | null;
+    /** Songs somebody asked to put in a playlist (the queue list of the command palette): the window asks which playlist first. */
+    pendingAdd: SongResult[] | null;
     /** The group this device syncs with, or null when it does not sync. */
     syncConfig: CrossSyncConfig | null;
     syncState: 'idle' | 'syncing' | 'error';
@@ -104,6 +106,8 @@ interface CrossPlaylistState {
     joinSync: (serverUrl: string, code: string) => Promise<void>;
     leaveSync: () => void;
     open: (playlistId?: string | null) => void;
+    /** Opens the window to ask which playlist these songs go into (or a new one). */
+    openToAdd: (songs: readonly SongResult[]) => void;
     close: () => void;
     openPlaylist: (playlistId: string | null) => void;
     create: (name: string, songs?: readonly SongResult[]) => Promise<CrossPlaylist>;
@@ -167,6 +171,7 @@ export const useCrossPlaylistStore = create<CrossPlaylistState>((set, get) => {
         lastSyncedAt: null,
         isOpen: false,
         openPlaylistId: null,
+        pendingAdd: null,
         load: async () => {
             if (get().loaded) return;
             const stored = normalizePlaylists(await getFromCache<unknown>(CROSS_PLAYLISTS_CACHE_KEY));
@@ -242,10 +247,14 @@ export const useCrossPlaylistStore = create<CrossPlaylistState>((set, get) => {
             set({ syncConfig: null, syncState: 'idle', syncError: null, lastSyncedAt: null });
         },
         open: (playlistId = null) => {
-            set({ isOpen: true, openPlaylistId: playlistId });
+            set({ isOpen: true, openPlaylistId: playlistId, pendingAdd: null });
             void get().load();
         },
-        close: () => set({ isOpen: false }),
+        openToAdd: (songs) => {
+            set({ isOpen: true, openPlaylistId: null, pendingAdd: [...songs] });
+            void get().load();
+        },
+        close: () => set({ isOpen: false, pendingAdd: null }),
         openPlaylist: (playlistId) => set({ openPlaylistId: playlistId }),
         create: async (name, songs = []) => {
             await get().load();

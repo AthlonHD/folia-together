@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { Lock, LockOpen } from 'lucide-react';
 import type { Theme } from '../../types';
 import { SettingsKitThemeContext } from '../modal/settings/kit/kitTheme';
-import { SheetLayerContext } from '../shared/Sheet';
+import { SheetLayerContext, hasOpenSheet, subscribeOpenSheets } from '../shared/Sheet';
 import TitlebarDragZone from '../TitlebarDragZone';
 import WindowControls from '../WindowControls';
 import { usePlayerOverlayRoot, usePlayerOverlayReservation } from '../../hooks/usePlayerOverlayLayout';
@@ -141,7 +141,10 @@ const AppShell: React.FC<AppShellProps> = ({
 
     const shouldApplyWindowRadius = useCustomWindowRadius && !isWindowMaximized && !isWindowFullscreen;
     const areTitlebarControlsVisible = isTitlebarRevealed || alwaysShowMainWindowTitlebar;
-    const shouldRenderTitlebarBackdrop = !isPlayerView || (useCustomWindowRadius && !isMainWindowClickThroughEnabled);
+    // A sheet (dialog) is drawn under the title bar's strip, and the strip's glass and edge line would run across the top of the sheet,
+    // a thin white line just above it: the window buttons stay, the glass goes while a sheet is open.
+    const sheetOpen = useSyncExternalStore(subscribeOpenSheets, hasOpenSheet, () => false);
+    const shouldRenderTitlebarBackdrop = !sheetOpen && (!isPlayerView || (useCustomWindowRadius && !isMainWindowClickThroughEnabled));
     // In the player the bar is a full-width glass strip. Elsewhere it is only the corner behind the window buttons: a full-width blur
     // over the top of the page hid whatever is drawn there (a heading, the rail's title) every time the cursor came close.
     const titlebarBackdropClassName = isPlayerView

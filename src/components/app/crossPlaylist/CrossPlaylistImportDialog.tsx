@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import ThemedDialog from '../../shared/ThemedDialog';
 import { Button } from '../../modal/settings/kit';
-import { FIELD_CLASS } from '../../modal/settings/kit/TextField';
+import { CustomSelect } from '../../shared/CustomSelect';
 import { omni } from '../../../services/onlineMusic/omni';
 import { useOnlineProviderAccountStore } from '../../../stores/useOnlineProviderAccountStore';
 import { setStatusMessage } from '../../../stores/useStatusMessageStore';
@@ -19,6 +20,28 @@ import { useCrossPlaylistStore } from './crossPlaylistStore';
 type Props = { isOpen: boolean; onClose: () => void; isDaylight: boolean; initialTargetId?: string | null };
 
 const NEW_PLAYLIST = '';
+
+/** The app's own tick box (the browser's would be a different blue): a button that reads as a checkbox. */
+const TickBox: React.FC<{ checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean; label: string }> = ({ checked, onChange, disabled, label }) => (
+    <button
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={(event) => {
+            event.stopPropagation();
+            onChange(!checked);
+        }}
+        className={`st-t-fast flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-colors disabled:opacity-40 ${
+            checked
+                ? 'border-transparent bg-[var(--st-accent)] text-[color:var(--st-on-accent)]'
+                : 'border-[color:var(--st-t3)] bg-transparent text-transparent hover:border-[color:var(--st-t2)]'
+        }`}
+    >
+        <Check size={13} strokeWidth={3} aria-hidden />
+    </button>
+);
 
 export const CrossPlaylistImportDialog: React.FC<Props> = ({ isOpen, onClose, isDaylight, initialTargetId = null }) => {
     const { t } = useTranslation();
@@ -99,28 +122,37 @@ export const CrossPlaylistImportDialog: React.FC<Props> = ({ isOpen, onClose, is
             ) : (
                 <div className="flex min-h-0 flex-1 flex-col gap-3">
                     <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
-                        <label className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                             <span className="text-[color:var(--st-t2)]">{t('crossPlaylist.importInto')}</span>
-                            <select value={target} onChange={event => setTarget(event.target.value)} className={`${FIELD_CLASS} px-2`} disabled={Boolean(busy)}>
-                                <option value={NEW_PLAYLIST}>{t('crossPlaylist.importIntoNew')}</option>
-                                {targets.map(playlist => <option key={playlist.id} value={playlist.id}>{playlist.name}</option>)}
-                            </select>
-                        </label>
-                        <label className="flex items-center gap-2" title={t('crossPlaylist.followHint')}>
-                            <input type="checkbox" checked={follow} onChange={event => setFollow(event.target.checked)} disabled={Boolean(busy)} />
-                            <span>{t('crossPlaylist.follow')}</span>
-                        </label>
+                            <CustomSelect
+                                compact
+                                value={target}
+                                onChange={setTarget}
+                                options={[{ value: NEW_PLAYLIST, label: t('crossPlaylist.importIntoNew') }, ...targets.map(playlist => ({ value: playlist.id, label: playlist.name }))]}
+                                disabled={Boolean(busy)}
+                                isDaylight={isDaylight}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2" title={t('crossPlaylist.followHint')}>
+                            <TickBox checked={follow} onChange={setFollow} disabled={Boolean(busy)} label={t('crossPlaylist.follow')} />
+                            <button type="button" className="text-left" onClick={() => setFollow(!follow)} disabled={Boolean(busy)}>{t('crossPlaylist.follow')}</button>
+                        </div>
                     </div>
                     <div className="st-card st-scroll min-h-0 flex-1 overflow-y-auto rounded-xl bg-[var(--st-card)] shadow-[0_0_0_1px_var(--st-line)]">
                         {groups.map(([providerId, list]) => (
                             <div key={providerId}>
                                 <div className="sticky top-0 bg-[var(--st-card)] px-4 py-1.5 text-xs font-medium text-[color:var(--st-t2)]">{omni.getProviderLabel(providerId)}</div>
                                 {list.map(option => (
-                                    <label key={keyOf(option)} className="st-row flex min-h-12 cursor-pointer items-center gap-3 px-4 py-1.5 hover:bg-[var(--st-fill)]">
-                                        <input type="checkbox" checked={picked.has(keyOf(option))} onChange={() => toggle(keyOf(option))} disabled={Boolean(busy)} />
+                                    <div
+                                        key={keyOf(option)}
+                                        role="presentation"
+                                        onClick={() => { if (!busy) toggle(keyOf(option)); }}
+                                        className="st-row st-t-fast flex min-h-12 cursor-pointer items-center gap-3 px-4 py-1.5 hover:bg-[var(--st-fill)]"
+                                    >
+                                        <TickBox checked={picked.has(keyOf(option))} onChange={() => toggle(keyOf(option))} disabled={Boolean(busy)} label={option.name} />
                                         <span className="min-w-0 flex-1 truncate text-sm">{option.name}</span>
                                         {typeof option.trackCount === 'number' && <span className="shrink-0 text-xs text-[color:var(--st-t3)]">{t('crossPlaylist.songCount', { count: option.trackCount })}</span>}
-                                    </label>
+                                    </div>
                                 ))}
                             </div>
                         ))}
