@@ -71,25 +71,28 @@ function closeQuietly(session) {
 
 // Connects the playback component to Spotify as the account. It is a native module with a build
 // for some systems only; where there is none, Spotify cannot be played.
-function openLibrespotSession({ accessToken, deviceId }) {
+function openLibrespotSession({ accessToken, deviceId, proxy }) {
   let librespot;
   try {
     librespot = require('@lox-audioserver/node-librespot');
   } catch (error) {
     throw spotifyError('unavailable', 'Spotify playback is not available on this system', `${process.platform}-${process.arch}: ${error?.message}`);
   }
-  return librespot.createSession({ accessToken, clientId: CLIENT_ID, deviceName: deviceId });
+  // `proxy` (an HTTP proxy address) is an option of the patched build only (packaging/windows/librespot-proxy); the upstream binding
+  // ignores it, so where there is no patched build the connection stays direct.
+  return librespot.createSession({ accessToken, clientId: CLIENT_ID, deviceName: deviceId, ...(proxy ? { proxy } : {}) });
 }
 
 // `accessToken()` resolves to the account's token; `deviceId()` names this installation to
-// Spotify; `fetch` reaches the CDN; `openSession({ accessToken, deviceId })` resolves to
+// Spotify; `fetch` reaches the CDN; `playbackProxy()` resolves to the HTTP proxy address the playback component connects through (or
+// null); `openSession({ accessToken, deviceId, proxy })` resolves to
 // `{ resolveAudioFileAsync({ uri, bitrate }), close() }`.
 // A URL is honoured only when its key was issued here during this run, so page content cannot
 // make the app fetch an arbitrary id.
 // `disk` is the store of kept files (`audioFiles.cjs`); without one nothing is kept.
 // `onKept(limitBytes)` is called after a file was written, with the size the cache is to stay under.
 function createSpotifyAudio({
-  accessToken, deviceId, fetch, openSession = openLibrespotSession, now = Date.now, quietLimitMs = QUIET_LIMIT_MS,
+  accessToken, deviceId, fetch, playbackProxy = async () => null, openSession = openLibrespotSession, now = Date.now, quietLimitMs = QUIET_LIMIT_MS,
   randomKey = () => crypto.randomBytes(16).toString('hex'),
   log = (...args) => console.log(...args), warn = (...args) => console.warn(...args),
   disk = null, onKept = () => {},
@@ -122,7 +125,7 @@ function createSpotifyAudio({
       const startedIn = generation;
       const startedAt = now();
       const attempt = (async () => {
-        const making = Promise.resolve(accessToken()).then(token => openSession({ accessToken: token, deviceId: deviceId() }));
+        const making = Promise.all([accessToken(), playbackProxy()]).then(([token, proxy]) => openSession({ accessToken: token, deviceId: deviceId(), proxy }));
         const session = await within(making, 'connecting').catch(error => {
           // A connection that is there only after the wait for it ended is not kept.
           making.then(closeQuietly, () => {});

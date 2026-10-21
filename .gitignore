@@ -99,6 +99,8 @@ packaging/windows/wallpaper-helper/target/
 # Built by packaging/windows/build-audio-helper.mjs (Windows pass-through playback helper).
 build/folia-audio-helper.exe
 packaging/windows/audio-helper/target/
+# Built by packaging/windows/librespot-proxy/build.cjs (Spotify playback component with a proxy option).
+packaging/windows/librespot-proxy/work/
 
 # Local Rust Spout sender build artifacts.
 build/folia-spout-sender.exe

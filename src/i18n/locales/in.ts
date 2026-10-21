@@ -125,6 +125,28 @@ export default {
     "availableToast": "Build baru tersedia. Unduh di Pengaturan > Umum > Pembaruan Fork",
     "foot": "Penginstal Fork tidak memakai kanal pembaruan upstream. Pembaruan mengunduh penginstal, memeriksa SHA-256-nya, lalu menutup aplikasi ini dan menjalankan penginstal."
   },
+  "networkProxy": {
+    "groupTitle": "Server proxy (Spotify dan YouTube Music)",
+    "mode": "Proxy",
+    "modeSystem": "Ikuti sistem",
+    "modeDirect": "Langsung",
+    "modeCustom": "Kustom",
+    "address": "Alamat proxy",
+    "addressHint": "Contoh http://127.0.0.1:7890 atau socks5://127.0.0.1:1080. Proxy yang memerlukan nama pengguna dan kata sandi tidak didukung",
+    "save": "Simpan",
+    "saved": "Tersimpan. Pemutaran Spotify tersambung ulang melaluinya pada lagu berikutnya",
+    "test": "Uji koneksi",
+    "testing": "Menguji…",
+    "reachable": "{{service}}: dapat dijangkau ({{ms}} ms)",
+    "unreachable": "{{service}}: tidak dapat dijangkau ({{error}})",
+    "serviceSpotify": "Spotify",
+    "serviceYoutubeMusic": "YouTube Music",
+    "errorEmpty": "Isi alamat proxy terlebih dahulu",
+    "errorInvalid": "Alamat tidak valid. Gunakan bentuk http://host:port atau socks5://host:port",
+    "errorScheme": "Hanya proxy http, https, socks5 dan socks4 yang didukung",
+    "errorCredentials": "Alamat dengan nama pengguna atau kata sandi tidak didukung",
+    "foot": "Ini pengaturan khusus aplikasi untuk Spotify dan YouTube Music; bagian lain aplikasi tidak terpengaruh. Pemutaran Spotify itu sendiri (koneksi audio) hanya dapat memakai proxy HTTP; proxy SOCKS bekerja untuk penelusuran dan masuk, tetapi pemutaran tersambung langsung. Memerlukan build Windows dengan komponen pemutaran berkemampuan proxy."
+  },
   "stageRemote": {
     "groupTitle": "Server jarak jauh",
     "url": "Alamat server",

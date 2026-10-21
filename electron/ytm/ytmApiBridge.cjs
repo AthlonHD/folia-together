@@ -154,7 +154,7 @@ function createYtmApiBridge({
   wait = ms => new Promise(resolve => { setTimeout(resolve, ms); }),
   // The web sign-in: `signInFolder()` is the folder its browser window runs on, `browserSignIn`
   // that browser, `browserName()` the User-Agent the account's requests are sent under.
-  signInFolder = () => undefined, browserSignIn = createBrowserSignIn({ now, log, warn }), browserName = desktopChromeName,
+  signInFolder = () => undefined, browserProxyArgs = () => [], browserSignIn = createBrowserSignIn({ now, log, warn, proxyArgs: browserProxyArgs }), browserName = desktopChromeName,
 }) {
   const webRepo = createYtmWebSessionRepository({ store, safeStorage, now, log, warn });
   let libraries = null;

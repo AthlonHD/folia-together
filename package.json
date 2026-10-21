@@ -72,6 +72,7 @@
     "build:windowtolayer": "node packaging/linux/build-windowtolayer.mjs",
     "build:wallpaper-helper": "node packaging/windows/build-wallpaper-helper.mjs",
     "build:audio-helper": "node packaging/windows/build-audio-helper.mjs",
+    "build:librespot-proxy": "node packaging/windows/librespot-proxy/build.cjs",
     "build:ffmpeg": "node packaging/ffmpeg/fetch-ffmpeg.mjs",
     "contributors:add": "npx all-contributors-cli add",
     "contributors:generate": "npx all-contributors-cli generate",

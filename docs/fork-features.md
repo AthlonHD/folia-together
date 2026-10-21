@@ -128,6 +128,15 @@
 - 桌面版里原来的「播放位置：控制服务器 / 本机播放」不再出现：桌面版页面的地址背后没有中继，那一项在桌面版里是连不通的。
 - 代码位置：`electron/stageRemote/`（主进程）、`src/components/modal/settings/pages/RemoteServerGroup.tsx`（设置）。
 
+## 9.1 Spotify / YouTube Music 的代理服务器（桌面版，Windows）
+
+两个服务在部分地区连不上，桌面版有自己的代理设置（设置 → 连接与集成 → **代理服务器**），不影响应用的其他部分。
+
+- 三种模式：**跟随系统**（默认，等于此前的行为）、**直连**、**自定义**（`http://`、`https://`、`socks5://`、`socks4://`；带用户名密码的地址会被拒绝）。「测试连接」会用当前页面上的设置试连两个服务。
+- 作用范围：两个服务的网络会话（API、登录、浏览）、YouTube Music 网页登录打开的浏览器（`--proxy-server` / `--no-proxy-server`）、Spotify 播放组件（librespot）。保存后会话立即重载，Spotify 播放连接从下一首起重连。
+- **Spotify 播放只能走 HTTP 代理**：上游的 `@lox-audioserver/node-librespot` 没有代理选项，安装包用 `packaging/windows/librespot-proxy/`（`npm run build:librespot-proxy`，需要 Rust MSVC）给 `createSession` 补一个 `proxy` 字段后重新编译，CI（`together-installer.yml`）在打包前执行。补丁在包版本变了、对不上时直接报错（`test/unit/electron/librespotProxyPatch.test.ts` 对着真实包源码检查）。选了 SOCKS 代理时，浏览和登录走代理，播放直连，日志里有 `[NetworkProxy]` 提示。没有补丁版组件（非 Windows、本地开发）时 `proxy` 被忽略，播放直连。
+- 代码位置：`electron/networkProxy/`（设置、地址解析、探测）、`electron/main.cjs`（会话与 IPC `network-proxy-*`）、`src/components/modal/settings/pages/integration/NetworkProxyGroup.tsx`（设置页）。
+
 ---
 
 ## 9.5 服务端与桌面版：哪些共用，哪些不共用

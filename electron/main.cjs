@@ -52,6 +52,7 @@ const { createYtmApiBridge } = require('./ytm/ytmApiBridge.cjs');
 const { createYtmSandbox } = require('./ytm/sandbox.cjs');
 const { YTM_AUDIO_PRIVILEGED_SCHEME, YTM_AUDIO_SCHEME } = require('./ytm/audio.cjs');
 const { createSpotifyApiBridge } = require('./spotify/spotifyApiBridge.cjs');
+const { createNetworkProxy, toElectronProxyConfig, playbackProxyFor, browserProxyArgs, probeServices } = require('./networkProxy/networkProxy.cjs');
 const { SPOTIFY_AUDIO_PRIVILEGED_SCHEME, SPOTIFY_AUDIO_SCHEME } = require('./spotify/audio.cjs');
 const { createQqAuthSessionRepository } = require('./qq/qqAuthSessionRepository.cjs');
 const { DEFAULT_DISCORD_APPLICATION_ID, createDiscordPresenceController } = require('./discordPresence.cjs');
@@ -274,14 +275,27 @@ const bodianApiBridge = createBodianApiBridge({ store, safeStorage,
 // after app ready, hence the lazy lookup; like the update check, the partition follows the system
 // proxy.
 const ytmSandbox = createYtmSandbox({ BrowserWindow, session, isAllowed: () => Boolean(mainWindow && !mainWindow.isDestroyed()) });
-let ytmNetwork = null;
-const getYtmNetwork = () => {
-  if (!ytmNetwork) {
-    const ses = session.fromPartition('folia-ytm');
-    ytmNetwork = ses.setProxy({ mode: 'system' }).catch(() => {}).then(() => ses);
+// The proxy of the two services is the app's own setting (system / direct / custom), applied to their partitions, to the playback
+// component of Spotify and to the browser of the YouTube Music sign-in.
+const networkProxy = createNetworkProxy({ store });
+const serviceNetworks = new Map();
+const applyServiceProxy = async ses => {
+  try {
+    await ses.setProxy(toElectronProxyConfig(networkProxy.get()));
+    await ses.forceReloadProxyConfig();
+    await ses.closeAllConnections();
+  } catch (error) {
+    console.warn('[NetworkProxy] Could not apply the proxy setting:', error?.message || error);
   }
-  return ytmNetwork;
 };
+const getServiceNetwork = (partition) => {
+  if (!serviceNetworks.has(partition)) {
+    const ses = session.fromPartition(partition);
+    serviceNetworks.set(partition, applyServiceProxy(ses).then(() => ses));
+  }
+  return serviceNetworks.get(partition);
+};
+const getYtmNetwork = () => getServiceNetwork('folia-ytm');
 const ytmApiBridge = createYtmApiBridge({ store, safeStorage,
   fetch: async (input, init) => (await getYtmNetwork()).fetch(input instanceof URL ? input.href : input, { ...init, credentials: 'omit' }),
   evaluate: code => ytmSandbox.evaluate(code),
@@ -289,14 +303,16 @@ const ytmApiBridge = createYtmApiBridge({ store, safeStorage,
   // The browser window of the web sign-in runs on this folder; the bridge removes it when a
   // sign-in ends.
   signInFolder: () => path.join(app.getPath('userData'), 'ytm-sign-in'),
+  browserProxyArgs: () => browserProxyArgs(networkProxy.get()),
 });
-let spotifyNetwork = null;
-const getSpotifyNetwork = () => {
-  if (!spotifyNetwork) {
-    const ses = session.fromPartition('folia-spotify');
-    spotifyNetwork = ses.setProxy({ mode: 'system' }).catch(() => {}).then(() => ses);
-  }
-  return spotifyNetwork;
+const getSpotifyNetwork = () => getServiceNetwork('folia-spotify');
+// The HTTP proxy for the Spotify playback component; following the system, it is what the system proxy answers for a Spotify address.
+const resolveSpotifyPlaybackProxy = async () => {
+  const config = networkProxy.get();
+  const resolved = config.mode === 'system' ? await (await getSpotifyNetwork()).resolveProxy('https://apresolve.spotify.com/').catch(() => '') : '';
+  const { url, reason } = playbackProxyFor(config, resolved);
+  if (reason === 'socks-unsupported') console.warn('[NetworkProxy] Spotify playback cannot use a SOCKS proxy; it connects directly');
+  return url;
 };
 const spotifyApiBridge = createSpotifyApiBridge({ store, safeStorage,
   fetch: async (input, init) => (await getSpotifyNetwork()).fetch(input instanceof URL ? input.href : input, { ...init, credentials: 'omit' }),
@@ -304,6 +320,7 @@ const spotifyApiBridge = createSpotifyApiBridge({ store, safeStorage,
   language: () => getMainLocaleKey(),
   audioDirectory: () => path.join(getConfiguredCacheDirectory(), 'spotify'),
   onAudioKept: limitBytes => pruneMediaCache(limitBytes),
+  playbackProxy: resolveSpotifyPlaybackProxy,
 });
 const qqAuthSessionRepository = createQqAuthSessionRepository({ store, safeStorage });
 // AI API keys are sealed with safeStorage instead of sitting in config.json as plaintext, and never
@@ -6633,6 +6650,31 @@ ipcMain.handle('ytm-api-request', (event, operation, params) => {
     return { ok: false, error: { code: 'unavailable', message: 'Untrusted YouTube Music request' } };
   }
   return ytmApiBridge.request(operation, params);
+});
+ipcMain.handle('network-proxy-get', (event) => {
+  if (!isTrustedMainWindowContents(event.sender)) return null;
+  return networkProxy.get();
+});
+ipcMain.handle('network-proxy-save', async (event, raw) => {
+  if (!isTrustedMainWindowContents(event.sender)) return { ok: false, error: 'untrusted' };
+  const saved = networkProxy.save(raw);
+  if (!saved.ok) return saved;
+  await Promise.all([...serviceNetworks.values()].map(async pending => applyServiceProxy(await pending)));
+  spotifyApiBridge.networkChanged();
+  console.log(`[NetworkProxy] Saved: ${saved.config.mode}${saved.config.mode === 'custom' ? ` ${saved.config.url}` : ''}`);
+  return saved;
+});
+ipcMain.handle('network-proxy-test', async (event, raw) => {
+  if (!isTrustedMainWindowContents(event.sender)) return [];
+  // An unsaved setting is tried on a session of its own, so the test does not disturb what is playing.
+  const config = raw ? createNetworkProxy({ store: { get: () => raw, set: () => {} } }).get() : networkProxy.get();
+  const ses = session.fromPartition(`folia-proxy-test-${Date.now()}`, { cache: false });
+  try {
+    await ses.setProxy(toElectronProxyConfig(config));
+    return await probeServices({ fetchThrough: (url, signal) => ses.fetch(url, { signal, credentials: 'omit' }) });
+  } finally {
+    ses.closeAllConnections().catch(() => {});
+  }
 });
 ipcMain.handle('spotify-api-request', (event, operation, params) => {
   if (!isTrustedMainWindowContents(event.sender)) {

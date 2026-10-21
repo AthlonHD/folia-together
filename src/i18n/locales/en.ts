@@ -125,6 +125,28 @@ export default {
     "availableToast": "A newer build is available. Download it in Settings > General > Fork updates",
     "foot": "The fork's installers do not use the upstream update channel. An update downloads the installer, checks its SHA-256, then quits this app and runs the installer."
   },
+  "networkProxy": {
+    "groupTitle": "Proxy server (Spotify and YouTube Music)",
+    "mode": "Proxy",
+    "modeSystem": "Follow system",
+    "modeDirect": "Direct",
+    "modeCustom": "Custom",
+    "address": "Proxy address",
+    "addressHint": "For example http://127.0.0.1:7890 or socks5://127.0.0.1:1080. A proxy that needs a user name and password is not supported",
+    "save": "Save",
+    "saved": "Saved. Spotify playback reconnects through it on the next track",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "reachable": "{{service}}: reachable ({{ms}} ms)",
+    "unreachable": "{{service}}: not reachable ({{error}})",
+    "serviceSpotify": "Spotify",
+    "serviceYoutubeMusic": "YouTube Music",
+    "errorEmpty": "Enter the proxy address first",
+    "errorInvalid": "That address will not work. Use the form http://host:port or socks5://host:port",
+    "errorScheme": "Only http, https, socks5 and socks4 proxies are supported",
+    "errorCredentials": "An address with a user name or password is not supported",
+    "foot": "This is the app's own setting for Spotify and YouTube Music; other parts of the app are not affected. Spotify playback itself (the audio connection) can use an HTTP proxy only; a SOCKS proxy works for browsing and sign-in but playback then connects directly. Needs the Windows build with the proxy-enabled playback component."
+  },
   "stageRemote": {
     "groupTitle": "Remote server",
     "url": "Server address",

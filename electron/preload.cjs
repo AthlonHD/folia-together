@@ -196,6 +196,9 @@ contextBridge.exposeInMainWorld('electron', {
     bodianRequest: (operation, params) => ipcRenderer.invoke('bodian-api-request', operation, params),
     ytmRequest: (operation, params) => ipcRenderer.invoke('ytm-api-request', operation, params),
     spotifyRequest: (operation, params) => ipcRenderer.invoke('spotify-api-request', operation, params),
+    getNetworkProxy: () => ipcRenderer.invoke('network-proxy-get'),
+    saveNetworkProxy: (config) => ipcRenderer.invoke('network-proxy-save', config),
+    testNetworkProxy: (config) => ipcRenderer.invoke('network-proxy-test', config),
     getQqPort: () => ipcRenderer.invoke('get-qq-port'),
     getQqApiStatus: () => ipcRenderer.invoke('get-qq-api-status'),
     onQqApiStatusChanged: (callback) => {

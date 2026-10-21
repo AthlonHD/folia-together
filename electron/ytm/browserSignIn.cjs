@@ -227,6 +227,8 @@ function createBrowserSignIn({
   mark = dir => { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, FOLDER_MARK), ''); },
   remove = removeFolderOnce, wait = ms => new Promise(resolve => { setTimeout(resolve, ms); }),
   execFile = childProcess.execFile, kill = (pid, signal) => process.kill(pid, signal),
+  // The switches that give the sign-in browser the app's proxy setting (a browser follows the system on its own).
+  proxyArgs = () => [],
 } = {}) {
   // The path of an installed browser: Chrome, then Edge, Chromium, Brave. null when there is none.
   const findBrowser = () => {
@@ -275,7 +277,7 @@ function createBrowserSignIn({
     let child = null;
     try {
       mark(profileDir);
-      child = start(browserPath, [`--user-data-dir=${profileDir}`, '--no-first-run', '--no-default-browser-check', SIGN_IN_URL], { stdio: 'ignore', detached: true });
+      child = start(browserPath, [`--user-data-dir=${profileDir}`, '--no-first-run', '--no-default-browser-check', ...proxyArgs(), SIGN_IN_URL], { stdio: 'ignore', detached: true });
     } catch (error) {
       warn(`[Ytm] The sign-in folder could not be marked as the app's own (${error?.code ?? 'unknown'}); no browser was started`);
     }

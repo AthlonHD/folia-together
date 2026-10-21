@@ -83,11 +83,11 @@ const TRACK_ID = /^[0-9A-Za-z]{22}$/;
 
 // `audioDirectory()` is where the audio files kept on disk are; without it none is kept.
 // `onAudioKept(limitBytes)` is called after one was written, with the size the media cache is
-// to stay under.
+// to stay under. `playbackProxy()` resolves to the HTTP proxy for the playback component, or null.
 function createSpotifyApiBridge({
   store, safeStorage, fetch, openExternal, language = () => 'zh-CN', now = Date.now,
   log = (...args) => console.log(...args), warn = (...args) => console.warn(...args), signIn: givenSignIn, openSession,
-  audioDirectory, onAudioKept,
+  audioDirectory, onAudioKept, playbackProxy,
 }) {
   const repo = createSpotifySessionRepository({ store, safeStorage, log, warn });
   const signIn = givenSignIn ?? createSpotifySignIn({ fetch, openExternal, language, now, log, warn });
@@ -252,7 +252,7 @@ function createSpotifyApiBridge({
   };
   const audioFiles = audioDirectory ? createSpotifyAudioFiles({ directory: audioDirectory }) : null;
   const audio = createSpotifyAudio({
-    accessToken: () => accessToken(), deviceId, fetch, now, log, warn, disk: audioFiles, onKept: onAudioKept,
+    accessToken: () => accessToken(), deviceId, fetch, playbackProxy, now, log, warn, disk: audioFiles, onKept: onAudioKept,
     ...(openSession ? { openSession } : {}),
   });
 
@@ -452,6 +452,8 @@ function createSpotifyApiBridge({
     // The audio files kept on disk, for the media cache to count, prune and clear: `list()`,
     // `remove(name)`, `clear()`.
     audioFiles,
+    // The proxy setting changed: the playback connection is closed, and made again through the new setting on the next track.
+    networkChanged: () => audio.clear(),
 
     async request(operation, params = {}) {
       if (typeof operation !== 'string' || !SPOTIFY_OPERATIONS.includes(operation)) {

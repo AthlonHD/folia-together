@@ -46,12 +46,17 @@ jobs:
           workspaces: |
             packaging/windows/wallpaper-helper
             packaging/windows/audio-helper
+            packaging/windows/librespot-proxy/work
 
       - name: Build wallpaper helper
         run: npm run build:wallpaper-helper
 
       - name: Build pass-through audio helper
         run: npm run build:audio-helper
+
+      # The Spotify playback component has no proxy option upstream; this builds it with one over the installed package's prebuild.
+      - name: Build Spotify playback component with proxy option
+        run: npm run build:librespot-proxy
 
       - name: Build web app for Electron
         env:

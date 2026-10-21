@@ -106,6 +106,20 @@ describe('Spotify audio', () => {
         expect((await get(url, `bytes=${stream.length}-`)).status).toBe(416);
     });
 
+    it('connects the playback component through the proxy it is given, and through none otherwise', async () => {
+        const proxied = setup();
+        const open = vi.fn(async () => ({ resolveAudioFileAsync: vi.fn(), close: vi.fn(async () => {}) }));
+        const audio = createSpotifyAudio({
+            accessToken: async () => 'access-private', deviceId: () => 'device', fetch: proxied.fetch, openSession: open, playbackProxy: async () => 'http://127.0.0.1:7890',
+            quietLimitMs: 30, log: () => {}, warn: () => {},
+        });
+        await audio.issue(TRACK, 320).catch(() => {});
+        expect(open).toHaveBeenCalledWith({ accessToken: 'access-private', deviceId: 'device', proxy: 'http://127.0.0.1:7890' });
+
+        await proxied.audio.issue(TRACK, 320);
+        expect(proxied.openSession).toHaveBeenCalledWith({ accessToken: 'access-private', deviceId: 'device', proxy: null });
+    });
+
     it('hands out a new address each time and locates the file once', async () => {
         const { audio, sessions, openSession } = setup();
         const first = await audio.issue(TRACK, 320);

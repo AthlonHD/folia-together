@@ -125,6 +125,28 @@ export default {
     "availableToast": "有新版本,可到「设置 → 通用 → 本 Fork 更新」下载安装",
     "foot": "Fork 的安装包不使用上游的更新通道。更新时会下载安装包、校验 SHA-256,然后退出本应用并运行安装程序。"
   },
+  "networkProxy": {
+    "groupTitle": "代理服务器(Spotify 与 YouTube Music)",
+    "mode": "代理",
+    "modeSystem": "跟随系统",
+    "modeDirect": "直连",
+    "modeCustom": "自定义",
+    "address": "代理地址",
+    "addressHint": "例如 http://127.0.0.1:7890 或 socks5://127.0.0.1:1080;不支持需要用户名和密码的代理",
+    "save": "保存",
+    "saved": "已保存。Spotify 播放会在下一首歌起通过它重新连接",
+    "test": "测试连接",
+    "testing": "测试中…",
+    "reachable": "{{service}}:可以连接({{ms}} 毫秒)",
+    "unreachable": "{{service}}:连不上({{error}})",
+    "serviceSpotify": "Spotify",
+    "serviceYoutubeMusic": "YouTube Music",
+    "errorEmpty": "请先填写代理地址",
+    "errorInvalid": "地址不对,请用 http://主机:端口 或 socks5://主机:端口 的形式",
+    "errorScheme": "只支持 http、https、socks5、socks4 代理",
+    "errorCredentials": "不支持带用户名或密码的地址",
+    "foot": "这是本应用给 Spotify 和 YouTube Music 单独用的设置,不影响应用的其他部分。Spotify 播放本身(音频连接)只能用 HTTP 代理;SOCKS 代理可用于浏览和登录,但播放会直连。需要带代理功能的播放组件(Windows 安装包)。"
+  },
   "stageRemote": {
     "groupTitle": "遥控服务器",
     "url": "服务器地址",

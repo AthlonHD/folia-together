@@ -211,6 +211,15 @@ describe('openSignIn', () => {
         fs.rmSync(path.dirname(folder), { recursive: true, force: true });
     });
 
+    it('gives the sign-in browser the proxy switches of the app\'s setting, before the address it opens', () => {
+        const { spawn } = fakeBrowser();
+        createBrowserSignIn({ spawn, mark: () => {}, proxyArgs: () => ['--proxy-server=http://127.0.0.1:7890'], ...quiet }).openSignIn(BROWSER, PROFILE);
+        const args: string[] = spawn.mock.calls[0][1];
+        expect(args).toContain('--proxy-server=http://127.0.0.1:7890');
+        expect(args.indexOf('--proxy-server=http://127.0.0.1:7890')).toBeLessThan(args.length - 1);
+        expect(args[args.length - 1]).toMatch(/^https:\/\/accounts\.google\.com\//);
+    });
+
     it('starts an ordinary browser: the folder as one argument, no shell, no debugging switch', () => {
         const { spawn } = fakeBrowser();
         open({ ms: 0 }, spawn);

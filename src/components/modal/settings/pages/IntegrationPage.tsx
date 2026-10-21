@@ -8,6 +8,7 @@ import { useStageSettingsStore } from '../../../../stores/useStageSettingsStore'
 import { Button, CopyValue, Group, Reveal, Row, Status, Toggle, Value, type SettingsOptionDef } from '../kit';
 import NavidromeRows from './integration/NavidromeRows';
 import { O, SERVICES, STREAMING } from './integration/options';
+import NetworkProxyGroup, { NETWORK_PROXY_OPTIONS } from './integration/NetworkProxyGroup';
 import { DesktopStageRows, WebStageRows } from './integration/StageModeRows';
 import SyncServerRows from './integration/SyncServerRows';
 import { useSettingsPage } from './settingsPageContext';
@@ -19,7 +20,7 @@ import { useSettingsPage } from './settingsPageContext';
 // Discord, OBS and the lyric interface exist in the desktop app only. The rows of Navidrome, the
 // sync server and stage mode are in pages/integration.
 
-export const OPTIONS: SettingsOptionDef[] = Object.values(O);
+export const OPTIONS: SettingsOptionDef[] = [...Object.values(O), ...Object.values(NETWORK_PROXY_OPTIONS)];
 
 const OBS_GUIDE_STEPS = [1, 2, 3, 4, 5, 6];
 
@@ -78,6 +79,8 @@ const IntegrationPage: React.FC = () => {
                 </Row>
             </Group>
 
+            {/* 本 Fork:两个被墙较多的流媒体服务用的代理服务器(桌面版) */}
+            {isElectron && <NetworkProxyGroup />}
             <Group def={STREAMING}>
                 <Row option={O.transparentBackground} hint={t('options.transparentPlayerBackgroundDesc')}>
                     <Toggle checked={transparentPlayerBackground} onChange={onToggleTransparentPlayerBackground} />
