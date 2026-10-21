@@ -35,7 +35,22 @@ if (-not $SkipRust -and -not (Get-Command cargo -ErrorAction SilentlyContinue)) 
 Write-Host "分支: $(git rev-parse --abbrev-ref HEAD)  提交: $(git rev-parse --short HEAD)"
 
 if ($ReinstallDeps -or -not (Test-Path 'node_modules\.bin\tsc.cmd')) {
-    Step 'npm ci' { npm ci }
+    # 上一次中断的 node / electron 进程会占着 node_modules 里的 .node 文件,npm 删不掉(EPERM)
+    Stop-Process -Name node, electron, esbuild -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+    Write-Host "`n=== npm ci ===" -ForegroundColor Cyan
+    npm ci
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host '第一次 npm ci 失败,清掉 node_modules 后重试一次(装了一半的目录常常导致 EPERM)' -ForegroundColor Yellow
+        Stop-Process -Name node, electron, esbuild -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+        if (Test-Path 'node_modules') { Remove-Item -Recurse -Force 'node_modules' -ErrorAction SilentlyContinue }
+        if (Test-Path 'node_modules') {
+            throw 'node_modules 删不掉,还有程序在占用它。请把项目目录加进 Windows Defender 排除项,关掉打开该目录的窗口,或重启电脑后重跑'
+        }
+        npm ci
+        if ($LASTEXITCODE -ne 0) { throw 'npm ci 重试仍失败,请看上面的报错(下载 GitHub 上的依赖不通时加 -Proxy)' }
+    }
 }
 if (-not (Test-Path 'node_modules\.bin\tsc.cmd')) { throw '依赖没有装好(node_modules 里没有 tsc),请看上面 npm ci 的报错' }
 
