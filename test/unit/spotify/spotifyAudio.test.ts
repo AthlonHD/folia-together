@@ -117,7 +117,7 @@ describe('Spotify audio', () => {
         expect(open).toHaveBeenCalledWith({ accessToken: 'access-private', deviceId: 'device', proxy: 'http://127.0.0.1:7890' });
 
         await proxied.audio.issue(TRACK, 320);
-        expect(proxied.openSession).toHaveBeenCalledWith({ accessToken: 'access-private', deviceId: 'device', proxy: null });
+        expect(proxied.openSession).toHaveBeenCalledWith({ accessToken: 'access-private', deviceId: 'device' });
     });
 
     it('hands out a new address each time and locates the file once', async () => {

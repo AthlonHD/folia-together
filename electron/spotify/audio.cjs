@@ -125,7 +125,7 @@ function createSpotifyAudio({
       const startedIn = generation;
       const startedAt = now();
       const attempt = (async () => {
-        const making = Promise.all([accessToken(), playbackProxy()]).then(([token, proxy]) => openSession({ accessToken: token, deviceId: deviceId(), proxy }));
+        const making = Promise.all([accessToken(), playbackProxy()]).then(([token, proxy]) => openSession({ accessToken: token, deviceId: deviceId(), ...(proxy ? { proxy } : {}) }));
         const session = await within(making, 'connecting').catch(error => {
           // A connection that is there only after the wait for it ended is not kept.
           making.then(closeQuietly, () => {});

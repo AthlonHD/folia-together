@@ -1,6 +1,7 @@
 import type { Artist, UnifiedSong } from '../../../types';
 import type { ProviderCatalogRef, ProviderCollection, ProviderPage, ProviderUser } from '../../../types/onlineMusic';
 import { OnlineProviderError } from '../../../types/onlineMusic';
+import { spotifyImageUrl } from './spotifyImageUrl';
 
 // src/services/onlineMusic/spotify/spotifyNormalize.ts
 // Spotify's query answers, as far as this adapter reads them (measured 2026-10-08), and what they
@@ -59,10 +60,10 @@ const ref = (kind: 'album' | 'artist', id: string): ProviderCatalogRef | undefin
 );
 
 // Spotify lists a picture in several sizes, or in one size it does not state.
-const pictureOf = (sources: SpotifyPicture[] | undefined): string => (
+const pictureOf = (sources: SpotifyPicture[] | undefined): string => spotifyImageUrl(
     (sources ?? []).reduce<SpotifyPicture | null>((best, source) => (
         source?.url && (!best || (source.width ?? 0) > (best.width ?? 0)) ? source : best
-    ), null)?.url ?? ''
+    ), null)?.url ?? '',
 );
 
 const artistsOf = (rows: SpotifyArtistRow[] | undefined): Artist[] => (rows ?? [])
@@ -107,7 +108,12 @@ export const spotifySongOf = (
 // Cached canonical songs pass through unchanged.
 export const normalizeSpotifySong = (raw: unknown): UnifiedSong => {
     const item = (raw ?? {}) as SpotifyTrack & { sourceRef?: UnifiedSong['sourceRef'] };
-    if (item.sourceRef?.kind === 'online' && item.sourceRef.providerId === 'spotify') return item as unknown as UnifiedSong;
+    if (item.sourceRef?.kind === 'online' && item.sourceRef.providerId === 'spotify') {
+        // A song kept from before the pictures went through the main process still holds the address of the picture itself.
+        const kept = item as unknown as UnifiedSong;
+        const cover = kept.album?.coverUrl ? spotifyImageUrl(kept.album.coverUrl) : '';
+        return cover && cover !== kept.album?.coverUrl ? { ...kept, album: { ...kept.album, coverUrl: cover } } : kept;
+    }
     const song = spotifySongOf(item);
     if (!song) throw new OnlineProviderError('invalid-response', 'Spotify song has no id', 'spotify');
     return song;

@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const { createSpotifyAudio } = require('./audio.cjs');
 const { createSpotifyAudioFiles } = require('./audioFiles.cjs');
+const { createSpotifyImages, isImageRequest } = require('./images.cjs');
 const { SpotifyError, describeError, lineReason, plainWords, spotifyError, statusError, toErrorResult } = require('./errors.cjs');
 const { createSpotifySessionRepository, publicAccountId } = require('./session.cjs');
 const { createSpotifySignIn } = require('./signIn.cjs');
@@ -250,6 +251,7 @@ function createSpotifyApiBridge({
     store.set(DEVICE_KEY, made);
     return made;
   };
+  const images = createSpotifyImages({ fetch, warn });
   const audioFiles = audioDirectory ? createSpotifyAudioFiles({ directory: audioDirectory }) : null;
   const audio = createSpotifyAudio({
     accessToken: () => accessToken(), deviceId, fetch, playbackProxy, now, log, warn, disk: audioFiles, onKept: onAudioKept,
@@ -448,7 +450,8 @@ function createSpotifyApiBridge({
   };
 
   return {
-    handleAudioRequest: request => audio.handle(request),
+    // `folia-spotify://image/...` is a picture, fetched with the network session of Spotify's requests (so with its proxy); any other address is audio.
+    handleAudioRequest: request => (isImageRequest(request) ? images.handle(request) : audio.handle(request)),
     // The audio files kept on disk, for the media cache to count, prune and clear: `list()`,
     // `remove(name)`, `clear()`.
     audioFiles,
