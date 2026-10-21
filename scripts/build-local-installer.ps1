@@ -32,20 +32,31 @@ if (-not $SkipRust -and -not (Get-Command cargo -ErrorAction SilentlyContinue)) 
     throw '没找到 cargo(Rust)。先装 rustup 和 MSVC 生成工具,或加 -SkipRust 跳过 Rust 组件'
 }
 
-# 分析模型的运行时(MNN)要用 CMake 3.24 以上从源码编译;没有就用 winget 装一份
-function Find-CMake([switch]$Refresh) {
-    # winget 刚装完的程序不在当前窗口的 PATH 里,重新读一遍系统和用户的 PATH
-    if ($Refresh) { $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User') }
+# 分析模型的运行时(MNN)要用 CMake 3.24 以上从源码编译。没有就下载官方的免安装压缩包,解压到 build\.tools(不需要 winget、不需要管理员)
+function Find-CMake {
+    $tool = Join-Path (Get-Location) 'build\.tools\cmake\bin'
+    if ((Test-Path "$tool\cmake.exe") -and ($env:Path -notlike "*$tool*")) { $env:Path = "$tool;$env:Path" }
     foreach ($dir in "$env:ProgramFiles\CMake\bin", "${env:ProgramFiles(x86)}\CMake\bin") {
         if ((Test-Path "$dir\cmake.exe") -and ($env:Path -notlike "*$dir*")) { $env:Path += ";$dir" }
     }
     return [bool](Get-Command cmake -ErrorAction SilentlyContinue)
 }
 if (-not (Find-CMake)) {
-    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { throw '没找到 cmake,也没有 winget。请到 https://cmake.org/download/ 装 CMake(勾选加入 PATH)后重跑' }
-    Write-Host '没找到 CMake,用 winget 安装...' -ForegroundColor Yellow
-    winget install --id Kitware.CMake -e --silent --accept-package-agreements --accept-source-agreements
-    if (-not (Find-CMake -Refresh)) { throw 'CMake 装完仍找不到,请重开一个 PowerShell 窗口后重跑' }
+    $version = '3.31.6'
+    $zip = Join-Path $env:TEMP "cmake-$version.zip"
+    $tools = Join-Path (Get-Location) 'build\.tools'
+    Write-Host "没找到 CMake,下载免安装版 $version (约 40 MB)..." -ForegroundColor Yellow
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $ProgressPreference = 'SilentlyContinue'
+    $params = @{ Uri = "https://github.com/Kitware/CMake/releases/download/v$version/cmake-$version-windows-x86_64.zip"; OutFile = $zip; UseBasicParsing = $true }
+    if ($Proxy) { $params.Proxy = $Proxy }
+    Invoke-WebRequest @params
+    New-Item -ItemType Directory -Force $tools | Out-Null
+    Remove-Item -Recurse -Force "$tools\cmake" -ErrorAction SilentlyContinue
+    Expand-Archive -Path $zip -DestinationPath $tools -Force
+    Rename-Item "$tools\cmake-$version-windows-x86_64" 'cmake'
+    Remove-Item $zip -Force
+    if (-not (Find-CMake)) { throw 'CMake 下载解压后仍找不到。请手动到 https://cmake.org/download/ 下载 Windows x64 zip,解压到 build\.tools\cmake(里面要有 bin\cmake.exe)后重跑' }
 }
 Write-Host "CMake: $(cmake --version | Select-Object -First 1)"
 
