@@ -109,6 +109,9 @@ function createSpotifyAudio({
   // with one and then lasts as long as Spotify keeps it.
   let held = null;
   let opening = null;
+  // Set when what the component asks Spotify for over the proxy cannot connect: the connections made after that go direct, until the
+  // sign-in or the proxy setting changes (`clear`).
+  let proxyUnusable = false;
   // Bumped by clear(): what was asked for the previous account is not kept or handed out.
   let generation = 0;
   const sessionChanged = spotifyError('auth-required', 'Spotify session changed');
@@ -127,7 +130,7 @@ function createSpotifyAudio({
       const startedIn = generation;
       const startedAt = now();
       const attempt = (async () => {
-        const [token, proxy] = await Promise.all([accessToken(), Promise.resolve(playbackProxy()).catch(() => null)]);
+        const [token, proxy] = await Promise.all([accessToken(), proxyUnusable ? null : Promise.resolve(playbackProxy()).catch(() => null)]);
         // One connection attempt, with or without the proxy. A connection that is there only after the wait for it ended is not kept.
         const tryConnect = (through, limitMs) => {
           const making = Promise.resolve(openSession({ accessToken: token, deviceId: deviceId(), ...(through ? { proxy: through } : {}) }));
@@ -138,6 +141,7 @@ function createSpotifyAudio({
         };
         log(`[Spotify] Playback connecting ${proxy ? `through the proxy ${proxy.replace(/\/\/[^@/]*@/, '//')}` : 'directly'}`);
         let session;
+        let viaProxy = Boolean(proxy);
         try {
           try {
             session = await tryConnect(proxy, proxy ? Math.min(quietLimitMs, PROXY_ATTEMPT_MS) : quietLimitMs);
@@ -146,6 +150,7 @@ function createSpotifyAudio({
             // track silent where the connection could be made without it: tried once more directly, and said.
             if (!proxy || startedIn !== generation) throw error;
             warn(`[Spotify] Playback could not connect through the proxy (${describeError(error)}); trying directly`);
+            viaProxy = false;
             session = await tryConnect(null, quietLimitMs);
           }
         } catch (error) {
@@ -156,7 +161,7 @@ function createSpotifyAudio({
           closeQuietly(session);
           throw sessionChanged;
         }
-        held = { session, closed: false };
+        held = { session, closed: false, viaProxy };
         log(`[Spotify] Playback connected in ${now() - startedAt}ms`);
         return held;
       })().finally(() => { if (opening === attempt) opening = null; });
@@ -174,6 +179,7 @@ function createSpotifyAudio({
 
   // Where a track's file is and what opens it. Spotify may have closed a connection that was
   // made earlier, so a failure on one is tried once more on a new connection.
+  const CONNECT_FAILURE = /\(Connect\b|error trying to connect|tunnel|ECONNREFUSED|connection (?:refused|reset)/i;
   const locate = async (trackId, bitrate) => {
     for (;;) {
       const kept = held;
@@ -182,6 +188,17 @@ function createSpotifyAudio({
         return await within(connection.session.resolveAudioFileAsync({ uri: `spotify:track:${trackId}`, bitrate }), 'locating the file');
       } catch (error) {
         const said = String(error?.message ?? error);
+        // The component could not connect to what it asks Spotify for (the HTTP side of it): that is the network, not a track Spotify lacks.
+        if (CONNECT_FAILURE.test(said)) {
+          warn(`[Spotify] Locating ${trackId} failed to connect${connection.viaProxy ? ' through the proxy' : ''}: ${said.replace(/[\w.~+/=%-]{40,}/g, '<long>').slice(0, 700)}`);
+          disconnect(connection);
+          if (connection.viaProxy && !proxyUnusable) {
+            proxyUnusable = true;
+            warn('[Spotify] The proxy does not carry what the playback component asks Spotify for; connecting directly from now on');
+            continue;
+          }
+          throw spotifyError('network', 'Spotify playback could not reach Spotify', said);
+        }
         const aboutTheTrack = /track is unavailable|no audio files available/i.test(said);
         if (aboutTheTrack || connection !== kept) {
           // A new connection that cannot load the track's entry: Spotify has no such track.
@@ -448,6 +465,7 @@ function createSpotifyAudio({
     // The files on disk stay: they are the same for every account, and none opens without one.
     clear() {
       generation += 1;
+      proxyUnusable = false;
       keys.clear();
       files.clear();
       pending.clear();

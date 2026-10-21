@@ -137,6 +137,35 @@ describe('Spotify audio', () => {
         expect(warnings.some(line => /through the proxy/.test(line))).toBe(true);
     });
 
+    it('goes direct when the proxy cannot carry what the component asks Spotify for, and says that it is the network, not the track', async () => {
+        const base = setup();
+        const warnings: string[] = [];
+        const refused = 'failed to load audio item: Error { kind: Unavailable, error: hyper_util::client::legacy::Error(Connect, Custom { kind: Other }) }';
+        const sessionOf = (fails: boolean) => ({
+            resolveAudioFileAsync: vi.fn(async () => {
+                if (fails) throw new Error(refused);
+                return { cdnUrl: 'https://cdn.test/file?n=1', keyHex: KEY.toString('hex'), format: base.sessions[0]?.format ?? 'OGG_VORBIS_320' };
+            }),
+            close: vi.fn(async () => {}),
+        });
+        const open = vi.fn(async (options: { proxy?: string }) => sessionOf(Boolean(options.proxy)));
+        const make = (playbackProxy: () => Promise<string | null>) => createSpotifyAudio({
+            accessToken: async () => 'access-private', deviceId: () => 'device', fetch: base.fetch, openSession: open, playbackProxy,
+            quietLimitMs: 30, log: () => {}, warn: (...args: unknown[]) => { warnings.push(args.join(' ')); },
+        });
+        const audio = make(async () => 'http://127.0.0.1:7890');
+        await audio.issue(TRACK, 320).catch(() => {});
+        expect(open.mock.calls.map(([options]) => options.proxy)).toEqual(['http://127.0.0.1:7890', undefined]);
+        expect(warnings.some(line => /through the proxy/.test(line))).toBe(true);
+
+        // Nothing to fall back to: the failure is the network's, not "Spotify has no audio for this track".
+        const failing = vi.fn(async () => sessionOf(true));
+        const stuck = createSpotifyAudio({
+            accessToken: async () => 'access-private', deviceId: () => 'device', fetch: base.fetch, openSession: failing, quietLimitMs: 30, log: () => {}, warn: () => {},
+        });
+        await expect(stuck.issue(TRACK, 320)).rejects.toMatchObject({ code: 'network' });
+    });
+
     it('hands out a new address each time and locates the file once', async () => {
         const { audio, sessions, openSession } = setup();
         const first = await audio.issue(TRACK, 320);
