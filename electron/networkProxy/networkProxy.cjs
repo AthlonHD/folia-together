@@ -131,21 +131,23 @@ function createNetworkProxy({ store }) {
 
 /**
  * Whether Spotify and YouTube Music can be reached with this setting: one small request to each, through a session that has the setting.
- * `fetchThrough(url, signal)` resolves to a response-like `{ status }`.
+ * `fetchThrough(url, signal)` resolves to a response-like `{ status }`. `resolve(url)` (Electron's `resolveProxy`) says which route the
+ * session takes for that address ("PROXY 127.0.0.1:7890", "DIRECT"), so a result can show whether the setting took effect.
  */
-async function probeServices({ fetchThrough, now = Date.now, timeoutMs = 8000 }) {
+async function probeServices({ fetchThrough, resolve = async () => '', now = Date.now, timeoutMs = 8000 }) {
   const targets = [
     { id: 'spotify', url: 'https://accounts.spotify.com/' },
     { id: 'youtubeMusic', url: 'https://music.youtube.com/' },
   ];
   return Promise.all(targets.map(async (target) => {
     const startedAt = now();
+    const via = await Promise.resolve(resolve(target.url)).catch(() => '');
     try {
       const response = await fetchThrough(target.url, AbortSignal.timeout(timeoutMs));
       // Any answer means the service was reached; what it answers is its own business.
-      return { id: target.id, ok: true, status: response.status, ms: now() - startedAt };
+      return { id: target.id, ok: true, status: response.status, ms: now() - startedAt, via };
     } catch (error) {
-      return { id: target.id, ok: false, error: error instanceof Error ? error.message : String(error), ms: now() - startedAt };
+      return { id: target.id, ok: false, error: error instanceof Error ? error.message : String(error), ms: now() - startedAt, via };
     }
   }));
 }

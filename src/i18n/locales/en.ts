@@ -139,6 +139,7 @@ export default {
     "testing": "Testing…",
     "reachable": "{{service}}: reachable ({{ms}} ms)",
     "unreachable": "{{service}}: not reachable ({{error}})",
+    "route": "route: {{route}}",
     "serviceSpotify": "Spotify",
     "serviceYoutubeMusic": "YouTube Music",
     "errorEmpty": "Enter the proxy address first",

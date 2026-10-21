@@ -882,7 +882,7 @@ declare global {
       getNetworkProxy?: () => Promise<{ mode: 'system' | 'direct' | 'custom'; url: string } | null>;
       saveNetworkProxy?: (config: { mode: 'system' | 'direct' | 'custom'; url: string }) => Promise<{ ok: true; config: { mode: 'system' | 'direct' | 'custom'; url: string } } | { ok: false; error: string }>;
       /** 试连这两个服务;不传设置就用已保存的。 */
-      testNetworkProxy?: (config?: { mode: 'system' | 'direct' | 'custom'; url: string }) => Promise<Array<{ id: string; ok: boolean; status?: number; error?: string; ms: number }>>;
+      testNetworkProxy?: (config?: { mode: 'system' | 'direct' | 'custom'; url: string }) => Promise<Array<{ id: string; ok: boolean; status?: number; error?: string; ms: number; via?: string }>>;
       /** 桌面版当遥控端:在独立窗口里打开服务器的遥控页。令牌只留在主进程,这里只知道有没有保存。 */
       stageRemote?: {
         getConfig: () => Promise<{ url: string; hasToken: boolean }>;

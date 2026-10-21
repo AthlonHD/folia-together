@@ -127,6 +127,17 @@ describe('probeServices', () => {
         expect(results.find(result => result.id === 'youtubeMusic')).toMatchObject({ ok: false, error: 'net::ERR_CONNECTION_TIMED_OUT' });
     });
 
+    it('says which route the session takes for each address, also when the request fails', async () => {
+        const results = await probeServices({
+            fetchThrough: async (url: string) => {
+                if (url.includes('spotify')) return { status: 200 };
+                throw new Error('net::ERR_PROXY_CONNECTION_FAILED');
+            },
+            resolve: async () => 'PROXY 127.0.0.1:7890',
+        });
+        expect(results.every(result => result.via === 'PROXY 127.0.0.1:7890')).toBe(true);
+    });
+
     it('counts any answer, even an error status, as reaching the service', async () => {
         const results = await probeServices({ fetchThrough: async () => ({ status: 403 }) });
         expect(results.every(result => result.ok && result.status === 403)).toBe(true);

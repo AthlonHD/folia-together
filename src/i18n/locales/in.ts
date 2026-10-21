@@ -139,6 +139,7 @@ export default {
     "testing": "Menguji…",
     "reachable": "{{service}}: dapat dijangkau ({{ms}} ms)",
     "unreachable": "{{service}}: tidak dapat dijangkau ({{error}})",
+    "route": "rute: {{route}}",
     "serviceSpotify": "Spotify",
     "serviceYoutubeMusic": "YouTube Music",
     "errorEmpty": "Isi alamat proxy terlebih dahulu",

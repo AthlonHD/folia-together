@@ -139,6 +139,7 @@ export default {
     "testing": "测试中…",
     "reachable": "{{service}}:可以连接({{ms}} 毫秒)",
     "unreachable": "{{service}}:连不上({{error}})",
+    "route": "路线:{{route}}",
     "serviceSpotify": "Spotify",
     "serviceYoutubeMusic": "YouTube Music",
     "errorEmpty": "请先填写代理地址",

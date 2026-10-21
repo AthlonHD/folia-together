@@ -6670,8 +6670,15 @@ ipcMain.handle('network-proxy-test', async (event, raw) => {
   const config = raw ? createNetworkProxy({ store: { get: () => raw, set: () => {} } }).get() : networkProxy.get();
   const ses = session.fromPartition(`folia-proxy-test-${Date.now()}`, { cache: false });
   try {
-    await ses.setProxy(toElectronProxyConfig(config));
-    return await probeServices({ fetchThrough: (url, signal) => ses.fetch(url, { signal, credentials: 'omit' }) });
+    const electronConfig = toElectronProxyConfig(config);
+    await ses.setProxy(electronConfig);
+    await ses.forceReloadProxyConfig();
+    const results = await probeServices({
+      fetchThrough: (url, signal) => ses.fetch(url, { signal, credentials: 'omit' }),
+      resolve: url => ses.resolveProxy(url),
+    });
+    console.log(`[NetworkProxy] Test with ${JSON.stringify(electronConfig)}: ${results.map(r => `${r.id} ${r.ok ? `ok ${r.status}` : `failed ${r.error}`} via ${r.via || '?'}`).join('; ')}`);
+    return results;
   } finally {
     ses.closeAllConnections().catch(() => {});
   }

@@ -92,7 +92,7 @@ const NetworkProxyGroup: React.FC = () => {
                             const service = t(item.id === 'spotify' ? 'networkProxy.serviceSpotify' : 'networkProxy.serviceYoutubeMusic');
                             return (
                                 <Status key={item.id} tone={item.ok ? 'ok' : 'error'}>
-                                    {item.ok ? t('networkProxy.reachable', { service, ms: item.ms }) : t('networkProxy.unreachable', { service, error: item.error ?? '' })}
+                                    {`${item.ok ? t('networkProxy.reachable', { service, ms: item.ms }) : t('networkProxy.unreachable', { service, error: item.error ?? '' })}${item.via ? ` · ${t('networkProxy.route', { route: item.via })}` : ''}`}
                                 </Status>
                             );
                         })}
