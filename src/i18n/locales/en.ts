@@ -601,6 +601,7 @@ export default {
     "aiFallbackThemeUsed": "AI is not configured, using a built-in theme",
     "playbackError": "Playback Error",
     "loadingSong": "Loading song URL...",
+    "loadingNextTrack": "Loading the next song...",
     "dataSynced": "Data synced successfully",
     "syncFailed": "Sync failed",
     "loginExpired": "Login expired. Please sign in again",

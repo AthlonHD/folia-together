@@ -24,6 +24,8 @@ type CommandPaletteQueueViewProps = CommandPaletteQueueListProps & {
     onAddToCrossPlaylist?: () => void;
     /** How many songs that is, for the button's note. */
     crossPlaylistCount?: number;
+    /** 打开跨平台歌单窗口(不管队列里有没有歌);遥控端不给。 */
+    onOpenCrossPlaylists?: () => void;
 };
 
 const actionIcon: Record<QueueBatchAction, typeof Trash2> = {
@@ -58,6 +60,7 @@ const CommandPaletteQueueView: React.FC<CommandPaletteQueueViewProps> = ({
     onClearQueue,
     onAddToCrossPlaylist,
     crossPlaylistCount = 0,
+    onOpenCrossPlaylists,
     ...listProps
 }) => {
     const { t } = useTranslation();
@@ -102,6 +105,19 @@ const CommandPaletteQueueView: React.FC<CommandPaletteQueueViewProps> = ({
                     >
                         <Library size={12} />
                         <span>{evaluation.hasMeaningfulFilter ? t('crossPlaylist.paletteAddMatches', { count: crossPlaylistCount }) : t('crossPlaylist.paletteAdd')}</span>
+                    </button>
+                )}
+                {onOpenCrossPlaylists && (
+                    <button
+                        type="button"
+                        data-testid="command-palette-queue-open-cross-playlists"
+                        disabled={isExecuting}
+                        onClick={onOpenCrossPlaylists}
+                        title={t('crossPlaylist.title')}
+                        className="flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 opacity-65 transition-opacity hover:opacity-100 disabled:cursor-wait"
+                    >
+                        <Library size={12} />
+                        <span>{t('crossPlaylist.open')}</span>
                     </button>
                 )}
                 {canClearQueue && (

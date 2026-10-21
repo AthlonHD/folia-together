@@ -57,6 +57,10 @@ const buildViewProps = ({ context, query, matches, activeIndex, setActiveIndex, 
             close();
         },
         crossPlaylistCount: shownSongs.length,
+        onOpenCrossPlaylists: isStageRemoteMode() ? undefined : () => {
+            useCrossPlaylistStore.getState().open();
+            close();
+        },
         onExecuteMatch: executeMatch,
         onKeepOpenOnSongChange: context.playback.setQueuePaletteKeepOpen,
         onMoveSongToEnd: context.playback.moveQueueSongToEnd,

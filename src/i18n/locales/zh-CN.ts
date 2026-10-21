@@ -601,6 +601,7 @@ export default {
     "aiFallbackThemeUsed": "AI功能未配置，使用内置主题",
     "playbackError": "播放出错",
     "loadingSong": "正在获取歌曲链接...",
+    "loadingNextTrack": "正在加载下一首...",
     "dataSynced": "数据同步成功",
     "syncFailed": "同步失败",
     "loginExpired": "登录状态已失效，请重新登录",

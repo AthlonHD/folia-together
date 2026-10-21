@@ -601,6 +601,7 @@ export default {
     "aiFallbackThemeUsed": "AI belum dikonfigurasi, menggunakan tema bawaan",
     "playbackError": "Kesalahan Pemutaran",
     "loadingSong": "Memuat URL lagu...",
+    "loadingNextTrack": "Memuat lagu berikutnya...",
     "dataSynced": "Data berhasil disinkronkan",
     "syncFailed": "Sinkronisasi gagal",
     "loginExpired": "Login kedaluwarsa. Silakan login lagi",

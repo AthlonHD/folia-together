@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
-import { Lock, Save, Trash2 } from 'lucide-react';
+import { Library, ListPlus, Lock, Save, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { setStatusMessage } from '../../stores/useStatusMessageStore';
+import { isStageRemoteMode } from '../../services/stageMode';
+import { canHoldInCrossPlaylist } from '../app/crossPlaylist/crossPlaylistModel';
+import { useCrossPlaylistStore } from '../app/crossPlaylist/crossPlaylistStore';
+import type { SongResult } from '../../types';
 import type { WallToolsHost } from './wallToolsHost';
 
 // src/components/wall/WallToolsQueueIslandHeader.tsx
@@ -12,6 +16,7 @@ import type { WallToolsHost } from './wallToolsHost';
 //   进入确认态后 400ms 内的点击、以及双击里的第二击（event.detail > 1）都不算「再点一次」：双击不能绕过确认。
 // Esc 在 document 捕获阶段处理（先于面板在 document 上的冒泡监听收起面板）；拖拽中让给浮岛撤拖拽。
 // 外部舞台播放（只读）时不给保存与清空，只挂一把锁说明原因。
+// 跨平台歌单的两个入口也在这里（遥控端没有，歌单存在本机）：打开跨平台歌单窗口、把整个队列存入一个跨平台歌单；只读时也能用，它们不改队列。
 
 /** 清空的两步确认窗口（ms）。 */
 const CLEAR_CONFIRM_MS = 3000;
@@ -24,13 +29,15 @@ type WallToolsQueueIslandHeaderProps = {
     readOnly: boolean;
     /** 当前队列能不能存成本地歌单（utils/queueReorder 的 canSaveQueueAsLocalPlaylist）。 */
     canSave: boolean;
+    /** 队列里的歌，存入跨平台歌单用。 */
+    songs: readonly SongResult[];
     /** 经浮岛的 aria-live 播报一句。 */
     announce: (text: string) => void;
     /** 浮岛此刻在拖拽：Esc 先撤拖拽，这里不接。 */
     isDragging: () => boolean;
 };
 
-export function WallToolsQueueIslandHeader({ host, count, readOnly, canSave, announce, isDragging }: WallToolsQueueIslandHeaderProps) {
+export function WallToolsQueueIslandHeader({ host, count, readOnly, canSave, songs, announce, isDragging }: WallToolsQueueIslandHeaderProps) {
     const { t } = useTranslation();
     const saveButtonRef = useRef<HTMLButtonElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -117,6 +124,9 @@ export function WallToolsQueueIslandHeader({ host, count, readOnly, canSave, ann
         if (count === 0 && clearPending) stopClearPending();
     }, [clearPending, count, stopClearPending]);
 
+    const crossAllowed = !isStageRemoteMode();
+    const crossSongs = songs.filter(canHoldInCrossPlaylist);
+
     const clearLabel = clearPending ? t('wallTools.queueClearConfirm') : t('wallTools.queueClear');
 
     return (
@@ -161,6 +171,36 @@ export function WallToolsQueueIslandHeader({ host, count, readOnly, canSave, ann
                     }}
                 >
                     <Save aria-hidden="true" />
+                </button>
+            )}
+            {crossAllowed && !naming && crossSongs.length > 0 && (
+                <button
+                    type="button"
+                    className="lattice-tools-island-header-action"
+                    data-queue-island-action="cross-add"
+                    aria-label={t('crossPlaylist.paletteAdd')}
+                    title={t('crossPlaylist.paletteAddHint')}
+                    onClick={() => {
+                        stopClearPending();
+                        useCrossPlaylistStore.getState().openToAdd(crossSongs);
+                    }}
+                >
+                    <ListPlus aria-hidden="true" />
+                </button>
+            )}
+            {crossAllowed && !naming && (
+                <button
+                    type="button"
+                    className="lattice-tools-island-header-action"
+                    data-queue-island-action="cross-open"
+                    aria-label={t('crossPlaylist.open')}
+                    title={t('crossPlaylist.open')}
+                    onClick={() => {
+                        stopClearPending();
+                        useCrossPlaylistStore.getState().open();
+                    }}
+                >
+                    <Library aria-hidden="true" />
                 </button>
             )}
             {!readOnly && !naming && count > 0 && (

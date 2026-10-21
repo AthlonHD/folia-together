@@ -6,6 +6,7 @@ import { SongResult } from '../../types';
 import TextInputDialog from '../shared/TextInputDialog';
 import ConfirmDialog from '../shared/ConfirmDialog';
 import { Button } from '../modal/settings/kit';
+import { canHoldInCrossPlaylist } from '../app/crossPlaylist/crossPlaylistModel';
 import { useCrossPlaylistStore } from '../app/crossPlaylist/crossPlaylistStore';
 import { isStageRemoteMode } from '../../services/stageMode';
 import { useKitReducedMotion } from '../modal/settings/kit/motion';
@@ -266,6 +267,11 @@ const QueueTab: React.FC<QueueTabProps> = ({
                         <Button variant="quiet" onClick={handleSavePlaylist}>
                             {t('localMusic.saveQueueAsPlaylist')}
                         </Button>
+                    )}
+                    {openCrossPlaylists && playQueue.some(canHoldInCrossPlaylist) && (
+                        <PanelIconButton size="s" label={t('crossPlaylist.paletteAdd')} onClick={() => useCrossPlaylistStore.getState().openToAdd(playQueue.filter(canHoldInCrossPlaylist))}>
+                            <ListPlus size={15} />
+                        </PanelIconButton>
                     )}
                     {openCrossPlaylists && (
                         <PanelIconButton size="s" label={t('crossPlaylist.open')} onClick={openCrossPlaylists}>

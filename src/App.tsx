@@ -1134,7 +1134,28 @@ export default function App() {
     const cachePlayedOutRef = useRef<(song: SongResult, src: string | null) => void>(() => { });
     // The active deck's last position on single loop, with the source it was on: a looping track
     // never fires `ended`, so its wrap back to the start is what says it was played through.
+    // A wait longer than this is not a fetch any more (the queue ended, the play failed): the listener may start the track again.
+    const ADVANCE_PENDING_LIMIT_MS = 15000;
     const loopPositionRef = useRef<{ src: string; time: number } | null>(null);
+    // A track ran out and the queue is moving on, but the next song has not been written yet (its address, its lyrics state are
+    // still being fetched). Until it is, the ended element must not be started again, and the wait is told.
+    const advancePendingRef = useRef<{ src: string; cueTimer: number | null; cueText: string | null; since: number } | null>(null);
+    const clearAdvancePending = useCallback(() => {
+        const pending = advancePendingRef.current;
+        if (!pending) return;
+        if (pending.cueTimer !== null) window.clearTimeout(pending.cueTimer);
+        const cueText = pending.cueText;
+        advancePendingRef.current = null;
+        if (cueText) setStatusMsg(prev => (prev?.text === cueText ? null : prev));
+    }, []);
+    // playSong writes the arriving song's source in two steps, the first of which empties it: from then on the wait is over.
+    // A play that goes through the local library or Navidrome does not empty it, but it also starts loading.
+    useEffect(() => {
+        if (!audioSrc) clearAdvancePending();
+        return usePlaybackStore.subscribe((state, previous) => {
+            if (state.isLoadingToPlay && !previous.isLoadingToPlay) clearAdvancePending();
+        });
+    }, [audioSrc, clearAdvancePending]);
 
     // Reads a local track's bytes off its own file handle, so automix can separate a next-up local
     // song whose head has no prefetch URL and never enters the online media cache. Resolved here
@@ -2497,6 +2518,14 @@ export default function App() {
             }}
             onPlay={(e) => {
                 if (!automix.isActiveDeck(e.currentTarget)) return;
+                // The track that just ran out started again from its beginning while the next song is still being fetched: it is
+                // stopped, or the listener hears the old song's first second before the new one.
+                const pendingAdvance = advancePendingRef.current;
+                if (pendingAdvance && Date.now() - pendingAdvance.since < ADVANCE_PENDING_LIMIT_MS && e.currentTarget.getAttribute('src') === pendingAdvance.src && e.currentTarget.currentTime < 1) {
+                    console.warn('[Playback] The track that just ended started again; stopped it until the next song is ready');
+                    e.currentTarget.pause();
+                    return;
+                }
                 shouldAutoPlay.current = false;
                 // The same split onTimeUpdate, onSeeked and onLoadedMetadata all make, and the two
                 // handlers that were missing it: while the picture is held this deck is the track
@@ -2636,6 +2665,20 @@ export default function App() {
                 // If single loop is active, native loop handles it.
                 // If not, we handle queue logic.
                 if (effectiveLoopMode !== 'one') {
+                    // An online next song takes a moment to fetch; the old one sits ended meanwhile, so after a short wait it is said.
+                    clearAdvancePending();
+                    const src = e.currentTarget.getAttribute('src');
+                    if (src) {
+                        const cueText = t('status.loadingNextTrack');
+                        const cueTimer = window.setTimeout(() => {
+                            const pending = advancePendingRef.current;
+                            if (!pending || pending.cueText) return;
+                            pending.cueTimer = null;
+                            pending.cueText = cueText;
+                            setStatusMsg({ type: 'info', text: cueText });
+                        }, 700);
+                        advancePendingRef.current = { src, cueTimer, cueText: null, since: Date.now() };
+                    }
                     void handleNextTrack({ allowStopOnMissing: true, shouldNavigateToPlayer: false });
                 }
             }}

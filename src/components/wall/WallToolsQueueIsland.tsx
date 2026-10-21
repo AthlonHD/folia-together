@@ -269,6 +269,7 @@ export function WallToolsQueueIsland({ id, host, trailsPanel = false }: { id: st
                 count={count}
                 readOnly={readOnly}
                 canSave={canSave}
+                songs={playQueue}
                 announce={announce}
                 isDragging={isDragging}
             />
