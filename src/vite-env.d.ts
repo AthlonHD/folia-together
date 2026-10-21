@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { ModClearCacheResult, ModExportProgress, ModFfmpegStatus, ModLogEntry, ModMainCallStats, ModRuntimeInfo, ModRuntimeSnapshot, ModStorageUsageResult } from './mods/types';
+import type { ModClearCacheResult, ModExportProgress, ModFfmpegStatus, ModLogEntry, ModMainCallStats, ModRpcMessage, ModRuntimeInfo, ModRuntimeSnapshot, ModSecretChange, ModStorageUsageResult } from './mods/types';
 
 declare global {
   const __COMMIT_HASH__: string;
@@ -1044,6 +1044,7 @@ declare global {
         cancelExport: () => Promise<{ ok: boolean }>;
         invokeModRpc: (modId: string, name: string, args: unknown[]) => Promise<{ ok: boolean; result?: unknown; error?: string }>;
         invokeModStorage: (modId: string, operation: string, key?: string, value?: unknown) => Promise<{ ok: boolean; result?: unknown; error?: string }>;
+        invokeModSecrets: (modId: string, operation: string, key?: unknown, value?: unknown) => Promise<{ ok: boolean; result?: unknown; error?: string }>;
         invokeModNetFetch: (modId: string, url: string, init: unknown) => Promise<{ ok: boolean; result?: unknown; error?: string }>;
         invokeModPickFile: (modId: string, accept: string, persist?: boolean) => Promise<{ ok: boolean; result?: unknown; error?: string }>;
         invokeModRestoreFile: (modId: string, grantId: string) => Promise<{ ok: boolean; result?: unknown; error?: string }>;
@@ -1060,6 +1061,8 @@ declare global {
         onModsStateChanged: (callback: (mods: ModRuntimeInfo[]) => void) => () => void;
         onExportProgress: (callback: (progress: ModExportProgress) => void) => () => void;
         onModLog: (callback: (entry: ModLogEntry) => void) => () => void;
+        onModRpcMessage: (callback: (message: ModRpcMessage) => void) => () => void;
+        onModSecretChanged: (callback: (change: ModSecretChange) => void) => () => void;
       };
     };
   }
