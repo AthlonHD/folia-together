@@ -53,6 +53,63 @@ const SESSION_PATCHED = [
   '    let session = Session::new(session_config, cache);',
 ].join('\n');
 
+// The audio key alone. librespot's `resolveAudioFileAsync` finds the file and its CDN address over HTTPS (its own TLS, rustls) and asks
+// the key over the access-point connection. Where that HTTPS fails while the app's own requests to Spotify work (one machine refused
+// Spotify's certificate there: UnknownIssuer), the app finds the file and the address itself and asks only the key here.
+const TASK_ANCHOR = '/// Session tokens for first-party API access (pathfinder etc.): the login5';
+const TASK_ADDED = [
+  '/// libuv-threadpool task for `request_audio_key_async` (added by Folia, packaging/windows/librespot-proxy): only the audio key of',
+  '/// a file, asked over the access-point connection; the app found the file and its CDN address itself.',
+  'pub struct AudioKeyTask {',
+  '    session: Session,',
+  '    track_id: SpotifyId,',
+  '    file_id: FileId,',
+  '}',
+  '',
+  'impl Task for AudioKeyTask {',
+  '    type Output = String;',
+  '    type JsValue = String;',
+  '',
+  '    fn compute(&mut self) -> Result<Self::Output> {',
+  '        let key = runtime()',
+  '            .block_on(self.session.audio_key().request(self.track_id, self.file_id))',
+  '            .map_err(|e| Error::from_reason(format!("audio key unavailable: {e:?}")))?;',
+  '        Ok(key.0.iter().map(|b| format!("{:02x}", b)).collect::<String>())',
+  '    }',
+  '',
+  '    fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {',
+  '        Ok(output)',
+  '    }',
+  '}',
+  '',
+  TASK_ANCHOR,
+].join('\n');
+
+const METHOD_ANCHOR = '    /// Mint the first-party session tokens (login5 bearer + client-token) for';
+const METHOD_ADDED = [
+  '    /// Only the audio key of a file (added by Folia): `uri` names the playable track (the alternative when relinked), `file_id_hex`',
+  '    /// its file (40 hex characters). Asked over the access-point connection.',
+  '    #[napi(ts_return_type = "Promise<string>")]',
+  '    pub fn request_audio_key_async(&self, uri: String, file_id_hex: String) -> Result<AsyncTask<AudioKeyTask>> {',
+  '        let (_, track_id) = parse_resolve_target(&uri)?;',
+  '        let hex = file_id_hex.trim();',
+  '        if hex.len() != 40 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {',
+  '            return Err(Error::from_reason("file id must be 40 hex characters"));',
+  '        }',
+  '        let raw: Vec<u8> = (0..hex.len())',
+  '            .step_by(2)',
+  '            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap_or(0))',
+  '            .collect();',
+  '        Ok(AsyncTask::new(AudioKeyTask {',
+  '            session: self.session.clone(),',
+  '            track_id,',
+  '            file_id: FileId::from_raw(&raw),',
+  '        }))',
+  '    }',
+  '',
+  METHOD_ANCHOR,
+].join('\n');
+
 const countOf = (text, part) => text.split(part).length - 1;
 
 function replaceOnce(text, anchor, replacement, what) {
@@ -63,10 +120,13 @@ function replaceOnce(text, anchor, replacement, what) {
   return text.replace(anchor, () => replacement);
 }
 
-/** The package's src/lib.rs with the `proxy` option. */
+/** The package's src/lib.rs with the `proxy` option and `requestAudioKeyAsync`. */
 function patchLibRs(text) {
   if (text.includes('pub proxy: Option<String>')) throw new Error('librespot-proxy patch: the sources already have a proxy option');
-  return replaceOnce(replaceOnce(text, OPTIONS_ANCHOR, OPTIONS_PATCHED, 'the options of createSession'), SESSION_ANCHOR, SESSION_PATCHED, 'the creation of the session');
+  let patched = replaceOnce(text, OPTIONS_ANCHOR, OPTIONS_PATCHED, 'the options of createSession');
+  patched = replaceOnce(patched, SESSION_ANCHOR, SESSION_PATCHED, 'the creation of the session');
+  patched = replaceOnce(patched, TASK_ANCHOR, TASK_ADDED, 'the doc line of the session-token task');
+  return replaceOnce(patched, METHOD_ANCHOR, METHOD_ADDED, 'the doc line of getTokens');
 }
 
 /** The package's Cargo.toml with the `url` crate the patched code names (already a dependency of librespot, so the lock file does not move). */

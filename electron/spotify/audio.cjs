@@ -109,14 +109,15 @@ function openLibrespotSession({ accessToken, deviceId, proxy }) {
 
 // `accessToken()` resolves to the account's token; `deviceId()` names this installation to
 // Spotify; `fetch` reaches the CDN; `playbackProxy()` resolves to the HTTP proxy address the playback component connects through (or
-// null); `openSession({ accessToken, deviceId, proxy })` resolves to
-// `{ resolveAudioFileAsync({ uri, bitrate }), close() }`.
+// null); `findFile(trackId, bitrate)` resolves to `{ playableId, fileId, format, cdnUrl }` found with the app's own requests
+// (fileLookup.cjs), used where the component's own cannot connect; `openSession({ accessToken, deviceId, proxy })` resolves to
+// `{ resolveAudioFileAsync({ uri, bitrate }), requestAudioKeyAsync?(uri, fileIdHex), close() }`.
 // A URL is honoured only when its key was issued here during this run, so page content cannot
 // make the app fetch an arbitrary id.
 // `disk` is the store of kept files (`audioFiles.cjs`); without one nothing is kept.
 // `onKept(limitBytes)` is called after a file was written, with the size the cache is to stay under.
 function createSpotifyAudio({
-  accessToken, deviceId, fetch, playbackProxy = async () => null, openSession = openLibrespotSession, now = Date.now, quietLimitMs = QUIET_LIMIT_MS,
+  accessToken, deviceId, fetch, playbackProxy = async () => null, findFile = null, openSession = openLibrespotSession, now = Date.now, quietLimitMs = QUIET_LIMIT_MS,
   randomKey = () => crypto.randomBytes(16).toString('hex'),
   log = (...args) => console.log(...args), warn = (...args) => console.warn(...args),
   disk = null, onKept = () => {},
@@ -131,6 +132,9 @@ function createSpotifyAudio({
   // with one and then lasts as long as Spotify keeps it.
   let held = null;
   let opening = null;
+  // Set once the component's own requests to Spotify could not connect while the app's can find the file (`findFile`) and the
+  // component can give the key alone: from then on the file is found by the app, until the sign-in or the proxy setting changes.
+  let ownLookup = false;
   // Bumped by clear(): what was asked for the previous account is not kept or handed out.
   let generation = 0;
   const sessionChanged = spotifyError('auth-required', 'Spotify session changed');
@@ -185,16 +189,34 @@ function createSpotifyAudio({
   // several Spotify servers (spclient, from apresolve) and moves to the next after three failures on one, ten tries per request; where
   // some of those servers cannot be reached, a request may use up its tries before it gets to one that can. So it is asked again on
   // the same connection, which goes on from the server it got to; a new connection would begin the list again.
+  // The file and its address found with the app's own requests (fileLookup.cjs), the key alone asked of the component.
+  const findOwn = async (connection, trackId, bitrate) => {
+    const found = await findFile(trackId, bitrate);
+    try {
+      const keyHex = await connection.session.requestAudioKeyAsync(`spotify:track:${found.playableId}`, found.fileId);
+      return { cdnUrl: found.cdnUrl, keyHex, format: found.format };
+    } catch (error) {
+      if (error instanceof SpotifyError) throw error;
+      throw spotifyError(toErrorResult(error).error.code === 'network' ? 'network' : 'unavailable', 'Spotify did not give the key of the track', String(error?.message ?? error));
+    }
+  };
   const CONNECT_FAILURE = /\(Connect\b|error trying to connect|tunnel|ECONNREFUSED|connection (?:refused|reset)/i;
   const locate = async (trackId, bitrate) => {
     let connectFailures = 0;
     for (;;) {
       const kept = held;
       const connection = await connect();
+      const canFindOwn = typeof findFile === 'function' && typeof connection.session.requestAudioKeyAsync === 'function';
+      if (ownLookup && canFindOwn) return within(findOwn(connection, trackId, bitrate), 'locating the file');
       try {
         return await within(connection.session.resolveAudioFileAsync({ uri: `spotify:track:${trackId}`, bitrate }), 'locating the file');
       } catch (error) {
         const said = String(error?.message ?? error);
+        if (CONNECT_FAILURE.test(said) && canFindOwn && !ownLookup) {
+          ownLookup = true;
+          warn(`[Spotify] The playback component's own requests to Spotify fail (${said.replace(/[\w.~+/=%-]{40,}/g, '<long>').slice(0, 300)}); the app finds the files itself from now on`);
+          continue;
+        }
         // The component could not connect to what it asks Spotify for (the HTTP side of it): that is the network, not a track Spotify lacks.
         if (CONNECT_FAILURE.test(said)) {
           connectFailures += 1;
@@ -468,6 +490,7 @@ function createSpotifyAudio({
     // The files on disk stay: they are the same for every account, and none opens without one.
     clear() {
       generation += 1;
+      ownLookup = false;
       keys.clear();
       files.clear();
       pending.clear();

@@ -152,6 +152,30 @@ describe('Spotify audio', () => {
         expect(stuck.session.resolveAudioFileAsync).toHaveBeenCalledTimes(3);
     });
 
+    it('finds the file with the app\'s own requests once the component\'s cannot connect, and asks the component for the key alone', async () => {
+        const base = setup();
+        const refused = 'failed to load audio item: Error { kind: Unavailable, error: hyper_util::client::legacy::Error(Connect, Custom { kind: InvalidData, error: InvalidCertificate(UnknownIssuer) }) }';
+        const session = {
+            resolveAudioFileAsync: vi.fn(async () => { throw new Error(refused); }),
+            requestAudioKeyAsync: vi.fn(async () => KEY.toString('hex')),
+            close: vi.fn(async () => {}),
+        };
+        const findFile = vi.fn(async () => ({ playableId: 'alternativeId0000000000', fileId: 'a'.repeat(40), format: 'OGG_VORBIS_320', cdnUrl: 'https://cdn.test/file?n=1' }));
+        const audio = createSpotifyAudio({
+            accessToken: async () => 'access-private', deviceId: () => 'device', fetch: base.fetch, openSession: async () => session, findFile,
+            quietLimitMs: 30, log: () => {}, warn: () => {},
+        });
+        await expect(audio.issue(TRACK, 320)).resolves.toMatchObject({ url: expect.stringMatching(/^folia-spotify:\/\/audio\//) });
+        expect(findFile).toHaveBeenCalledWith(TRACK, 320);
+        expect(session.requestAudioKeyAsync).toHaveBeenCalledWith('spotify:track:alternativeId0000000000', 'a'.repeat(40));
+        expect(session.resolveAudioFileAsync).toHaveBeenCalledTimes(1);
+
+        // The next track goes straight to the app's own lookup.
+        await audio.issue(TRACK, 160).catch(() => {});
+        expect(session.resolveAudioFileAsync).toHaveBeenCalledTimes(1);
+        expect(findFile).toHaveBeenCalledTimes(2);
+    });
+
     it('hands out a new address each time and locates the file once', async () => {
         const { audio, sessions, openSession } = setup();
         const first = await audio.issue(TRACK, 320);
