@@ -12,6 +12,7 @@ import { isStageRemoteMode } from '../../services/stageMode';
 import { useKitReducedMotion } from '../modal/settings/kit/motion';
 import { getSongUnavailableLabel, isSongUnavailable } from '../../services/onlineMusic/songAvailability';
 import { getSongArtistLabel } from '../../services/onlineMusic/songMetadata';
+import { queueMixesPlatforms, withPlatform } from '../shared/songPlatform';
 import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
 import { queueIndexOfKey } from '../../utils/playbackNeighbors';
 import { EmptyState } from './shell/EmptyState';
@@ -100,7 +101,7 @@ const QueueRow = ({
                         </span>
                     )}
                 </div>
-                <div className="truncate text-xs leading-[17px] text-[color:var(--st-t3)]">{getSongArtistLabel(song)}</div>
+                <div className="truncate text-xs leading-[17px] text-[color:var(--st-t3)]">{withPlatform(getSongArtistLabel(song), song, queueMixesPlatforms(playQueue))}</div>
             </div>
             {/* No width until the pointer or the keyboard is on the row, so a long name has the whole row. Tab changes the panel's tab, so the keyboard does not walk into a row: the actions are the pointer's, as before. */}
             <div className="st-t-fast flex w-0 shrink-0 items-center gap-0.5 overflow-hidden opacity-0 transition-opacity group-focus-within:ml-2 group-focus-within:w-auto group-focus-within:opacity-100 group-hover:ml-2 group-hover:w-auto group-hover:opacity-100">

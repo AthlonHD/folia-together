@@ -1,4 +1,5 @@
 import AudioQualityBadge from './shared/AudioQualityBadge';
+import SongPlatformBadge from './shared/SongPlatformBadge';
 import PassthroughChainBadge from './shared/PassthroughChainBadge';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -532,7 +533,7 @@ const ExpandedView: React.FC<ExpandedViewProps> = ({
                         {currentSong?.name || noTrackText}
                     </div>
                 )}
-                <div className="mt-0.5 flex min-w-0 items-center justify-center gap-1"><AudioQualityBadge color={primaryColor} className="shrink-0" /><PassthroughChainBadge color={primaryColor} className="min-w-0" /></div>
+                <div className="mt-0.5 flex min-w-0 items-center justify-center gap-1"><SongPlatformBadge color={primaryColor} className="shrink-0" /><AudioQualityBadge color={primaryColor} className="shrink-0" /><PassthroughChainBadge color={primaryColor} className="min-w-0" /></div>
             </div>
 
             {/* Row 3: Loop Button, Play Button, Lyrics Button */}

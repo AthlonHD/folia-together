@@ -3,6 +3,7 @@ import { ListEnd, ListPlus, Trash2 } from 'lucide-react';
 import type { RowComponentProps } from 'react-window';
 import { getSongUnavailableLabel, isSongUnavailable } from '../../services/onlineMusic/songAvailability';
 import { getSongArtistLabel } from '../../services/onlineMusic/songMetadata';
+import { useQueueMixesPlatforms, withPlatform } from '../shared/songPlatform';
 import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
 import type { CommandPaletteMatch } from './types';
 
@@ -46,6 +47,8 @@ const CommandPaletteQueueRow = ({
     onMoveSongToNext,
     onRemoveSong,
 }: RowComponentProps<CommandPaletteQueueRowProps>): React.ReactElement | null => {
+    // Before any early return: a hook is called on every render.
+    const mixedPlatforms = useQueueMixesPlatforms();
     const match = matches[index];
     const song = match?.command.queueSong;
     const queueIndex = match?.command.queueIndex;
@@ -93,7 +96,7 @@ const CommandPaletteQueueRow = ({
                                 </span>
                             )}
                         </span>
-                        <span className="block truncate text-xs opacity-45">{getSongArtistLabel(song)}</span>
+                        <span className="block truncate text-xs opacity-45">{withPlatform(getSongArtistLabel(song), song, mixedPlatforms)}</span>
                         {match.queueReasons && match.queueReasons.length > 0 && (
                             <span className="absolute bottom-1.5 right-[7.5rem] flex gap-1">
                                 {match.queueReasons.map(reason => (

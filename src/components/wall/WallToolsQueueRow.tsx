@@ -4,6 +4,7 @@ import { GripVertical, ListEnd, ListPlus, Trash2 } from 'lucide-react';
 import type { SongResult } from '../../types';
 import { getSongUnavailableLabel, isSongUnavailable } from '../../services/onlineMusic/songAvailability';
 import { getSongArtistLabel } from '../../services/onlineMusic/songMetadata';
+import { queueMixesPlatforms, withPlatform } from '../shared/songPlatform';
 import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
 import { queueRowShift } from './queueDragGeometry';
 import type { QueueDrag } from './useQueueDragReorder';
@@ -114,7 +115,7 @@ export function WallToolsQueueRow({
                             <span className="lattice-tools-island-tag">{getSongUnavailableLabel(song, labels.unavailable)}</span>
                         )}
                     </span>
-                    <span className="lattice-tools-island-artist">{getSongArtistLabel(song)}</span>
+                    <span className="lattice-tools-island-artist">{withPlatform(getSongArtistLabel(song), song, queueMixesPlatforms(playQueue))}</span>
                 </span>
             </button>
             {rowActions.length > 0 && (
