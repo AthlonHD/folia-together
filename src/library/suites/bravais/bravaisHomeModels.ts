@@ -41,6 +41,7 @@ export type BravaisHomeToolId =
     | 'refresh-navidrome'
     | 'refresh-explore'
     | 'queue'
+    | 'cross-playlists'
     | 'player'
     | 'stage'
     | 'settings';

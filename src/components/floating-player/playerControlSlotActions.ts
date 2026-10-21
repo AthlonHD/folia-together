@@ -1,4 +1,4 @@
-import { ChartBar, Crosshair, Heart, ListMusic, PanelsTopLeft, Repeat, Shuffle, SkipBack, SkipForward, Timer, Volume2 } from 'lucide-react';
+import { ChartBar, Crosshair, Heart, Library, ListMusic, PanelsTopLeft, Repeat, Shuffle, SkipBack, SkipForward, Timer, Volume2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { PlayerControlSlotActionId } from '../../types/playerControlSlots';
 import type { LoopDisplayMode } from '../../utils/loopDisplayMode';
@@ -64,6 +64,7 @@ export const PLAYER_CONTROL_SLOT_OPTIONS: readonly { id: PlayerControlSlotAction
     { id: 'lyrics-timeline', icon: ChartBar, labelKey: 'options.playerControlSlotAction_lyricsTimeline' },
     { id: 'volume', icon: Volume2, labelKey: 'options.playerControlSlotAction_volume' },
     { id: 'queue', icon: ListMusic, labelKey: 'options.playerControlSlotAction_queue' },
+    { id: 'cross-playlists', icon: Library, labelKey: 'options.playerControlSlotAction_crossPlaylists' },
     { id: 'song-wall', icon: PanelsTopLeft, labelKey: 'options.playerControlSlotAction_songWall' },
     { id: 'sleep-timer', icon: Timer, labelKey: 'options.playerControlSlotAction_sleepTimer' },
     { id: 'locate', icon: Crosshair, labelKey: 'options.playerControlSlotAction_locate' },
@@ -145,6 +146,15 @@ export const resolvePlayerControlSlot = (
                 disabled: !context.canInvokeCommandById('queue'),
                 onActivate: () => context.invokeCommandById('queue'),
                 labelKey: 'options.playerControlSlotAction_queue',
+            };
+        case 'cross-playlists':
+            return {
+                icon: Library,
+                filled: false,
+                active: false,
+                disabled: !context.canInvokeCommandById('open-cross-playlists'),
+                onActivate: () => context.invokeCommandById('open-cross-playlists'),
+                labelKey: 'options.playerControlSlotAction_crossPlaylists',
             };
         case 'song-wall':
             return {

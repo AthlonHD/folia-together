@@ -1,6 +1,8 @@
 import type { CommandPaletteCommand } from '../types';
 import { defineCommand, createToggleCommand, createHomeTabCommand } from '../commandFactories';
 import { omni } from '../../../services/onlineMusic/omni';
+import { isStageRemoteMode } from '../../../services/stageMode';
+import { useCrossPlaylistStore } from '../../app/crossPlaylist/crossPlaylistStore';
 
 // src/components/command-palette/commands/navigationCommands.ts
 // Commands in the `navigation` group: moving between home tabs, the player, and window-level views.
@@ -41,6 +43,19 @@ export const navigationCommands: CommandPaletteCommand[] = [
         execute: (_input, context) => context.navigation.toggleBrowserFullscreen(),
     },
     createHomeTabCommand('playlist', 'Open playlists', 'Open playlist home tab', ['playlist', 'playlists', '歌单']),
+    {
+        id: 'open-cross-playlists',
+        group: 'navigation',
+        title: 'Cross-platform playlists',
+        description: 'Open the playlists that hold songs from any platform',
+        keywords: ['cross platform playlist', 'mixed playlist', 'my playlists', 'playlist', '歌单', '混合歌单', '自建歌单', '我的歌单'],
+        // 跨平台歌单存在这台设备上,遥控端没有自己的
+        isAvailable: () => !isStageRemoteMode(),
+        execute: () => {
+            useCrossPlaylistStore.getState().open();
+            return true;
+        },
+    },
     createHomeTabCommand('local', 'Open local music', 'Open local music tab', ['local music', 'local', '本地', '本地音乐']),
     createHomeTabCommand('albums', 'Open albums', 'Open albums tab', ['albums', 'album', '专辑']),
     createHomeTabCommand('navidrome', 'Open Navidrome', 'Open Navidrome tab', ['navidrome', 'navi', '服务器']),

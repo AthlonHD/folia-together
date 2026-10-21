@@ -3,7 +3,9 @@ import type { SongResult } from '../../../types';
 import { getFromCache, saveToCache } from '../../../services/db';
 import {
     addSongsToPlaylist,
+    applySourceSnapshot,
     createCrossPlaylist,
+    linkSource,
     markPlaylistDeleted,
     mergePlaylists,
     moveEntryInPlaylist,
@@ -11,10 +13,13 @@ import {
     parseExportedPlaylists,
     removeEntryFromPlaylist,
     renamePlaylist,
+    sourceIdOf,
+    unlinkSource,
     serializePlaylists,
     visiblePlaylists,
     type CrossPlaylist,
 } from './crossPlaylistModel';
+import { fetchPlaylistSongs } from './crossPlaylistSourceFetch';
 import {
     createSyncGroup,
     CrossSyncError,
@@ -62,6 +67,23 @@ const sameSet = (a: readonly CrossPlaylist[], b: readonly CrossPlaylist[]): bool
     a.length === b.length && a.every(item => b.some(other => other.id === item.id && other.updatedAt === item.updatedAt))
 );
 
+export interface ImportRequest {
+    items: Array<{ providerId: string; collectionId: string; name: string }>;
+    /** An existing playlist to merge into, or null for a new playlist (named after the platform playlist) for each. */
+    targetPlaylistId: string | null;
+    /** Keep following the platform playlists, so a refresh brings in what they get later. */
+    follow: boolean;
+    onProgress?: (done: number, total: number, name: string) => void;
+}
+
+export interface ImportOutcome {
+    name: string;
+    playlistId: string | null;
+    added: number;
+    removed: number;
+    error?: string;
+}
+
 interface CrossPlaylistState {
     /** Every playlist, deleted ones too (as marks); the window shows `visiblePlaylists` of it. */
     playlists: CrossPlaylist[];
@@ -90,6 +112,14 @@ interface CrossPlaylistState {
     addSongs: (playlistId: string, songs: readonly SongResult[]) => Promise<{ added: number; skipped: number }>;
     removeEntry: (playlistId: string, entryId: string) => Promise<void>;
     moveEntry: (playlistId: string, entryId: string, toIndex: number) => Promise<void>;
+    /** `playlistId|sourceId` of the followed playlists being read from their platform right now. */
+    refreshing: string[];
+    /** Merges platform playlists of the signed-in accounts into one (an existing one, or a new one for each); with `follow` they are followed. */
+    importAccountPlaylists: (request: ImportRequest) => Promise<ImportOutcome[]>;
+    /** Reads one followed platform playlist again and brings the difference in. */
+    refreshSource: (playlistId: string, sourceId: string) => Promise<{ added: number; removed: number }>;
+    refreshAllSources: (playlistId: string) => Promise<{ added: number; removed: number; failed: number }>;
+    unlinkPlaylistSource: (playlistId: string, sourceId: string) => Promise<void>;
     exportText: () => string;
     importText: (text: string) => Promise<{ ok: boolean; added: number; updated: number }>;
 }
@@ -248,6 +278,75 @@ export const useCrossPlaylistStore = create<CrossPlaylistState>((set, get) => {
         },
         moveEntry: async (playlistId, entryId, toIndex) => {
             await updatePlaylist(playlistId, playlist => moveEntryInPlaylist(playlist, entryId, toIndex));
+        },
+        refreshing: [],
+        importAccountPlaylists: async ({ items, targetPlaylistId, follow, onProgress }) => {
+            await get().load();
+            const outcomes: ImportOutcome[] = [];
+            let targetId = targetPlaylistId;
+            for (const [index, item] of items.entries()) {
+                onProgress?.(index, items.length, item.name);
+                try {
+                    const songs = await fetchPlaylistSongs(item.providerId, item.collectionId, item.name);
+                    // A new playlist for each one picked; into an existing one, every one goes there.
+                    let playlistId = targetId;
+                    if (!playlistId) playlistId = (await get().create(item.name)).id;
+                    const sourceId = sourceIdOf(item.providerId, item.collectionId);
+                    let result = { added: 0, removed: 0 };
+                    await updatePlaylist(playlistId, playlist => {
+                        if (follow) {
+                            const outcome = applySourceSnapshot(linkSource(playlist, item), sourceId, songs);
+                            result = { added: outcome.added, removed: outcome.removed };
+                            return outcome.playlist;
+                        }
+                        const outcome = addSongsToPlaylist(playlist, songs);
+                        result = { added: outcome.added, removed: 0 };
+                        return outcome.playlist;
+                    });
+                    outcomes.push({ name: item.name, playlistId, ...result });
+                } catch (error) {
+                    outcomes.push({ name: item.name, playlistId: null, added: 0, removed: 0, error: error instanceof Error ? error.message : String(error) });
+                }
+            }
+            onProgress?.(items.length, items.length, '');
+            return outcomes;
+        },
+        refreshSource: async (playlistId, sourceId) => {
+            await get().load();
+            const source = get().playlists.find(playlist => playlist.id === playlistId && playlist.deletedAt === undefined)?.sources?.find(item => item.id === sourceId);
+            if (!source) return { added: 0, removed: 0 };
+            const mark = `${playlistId}|${sourceId}`;
+            set(state => ({ refreshing: state.refreshing.includes(mark) ? state.refreshing : [...state.refreshing, mark] }));
+            try {
+                const songs = await fetchPlaylistSongs(source.providerId, source.collectionId, source.name);
+                let result = { added: 0, removed: 0 };
+                await updatePlaylist(playlistId, playlist => {
+                    const outcome = applySourceSnapshot(playlist, sourceId, songs);
+                    result = { added: outcome.added, removed: outcome.removed };
+                    return outcome.playlist;
+                });
+                return result;
+            } finally {
+                set(state => ({ refreshing: state.refreshing.filter(item => item !== mark) }));
+            }
+        },
+        refreshAllSources: async (playlistId) => {
+            const sources = get().playlists.find(playlist => playlist.id === playlistId)?.sources ?? [];
+            const total = { added: 0, removed: 0, failed: 0 };
+            for (const source of sources) {
+                try {
+                    const result = await get().refreshSource(playlistId, source.id);
+                    total.added += result.added;
+                    total.removed += result.removed;
+                } catch {
+                    total.failed += 1;
+                }
+            }
+            return total;
+        },
+        unlinkPlaylistSource: async (playlistId, sourceId) => {
+            await get().load();
+            await updatePlaylist(playlistId, playlist => unlinkSource(playlist, sourceId));
         },
         exportText: () => serializePlaylists(get().playlists),
         importText: async (text) => {

@@ -85,6 +85,8 @@ export interface LibraryHomeData {
     onOpenSettings?: (initialTab?: 'help' | 'options') => void;
     /** `source`: what the wall shows (the app's LatticeSource in stores/useAppViewStore); the play queue when left out. */
     onOpenLattice?: (source?: 'queue' | 'explore') => void;
+    /** Opens the window of the cross-platform playlists (kept on this device; the app leaves it out where there are none, on a remote controller). */
+    onOpenCrossPlaylists?: () => void;
     navidromeEnabled?: boolean;
     onPlayAll?: (songs: SongResult[], from?: GridViewCollectionDescriptor) => void;
     onAddAllToQueue?: (songs: SongResult[], options?: { suppressToast?: boolean }) => number | void;

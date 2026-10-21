@@ -5,6 +5,7 @@ import {
     EyeOff,
     FolderTree,
     ListFilter,
+    ListMusic,
     MonitorPlay,
     MoreHorizontal,
     PanelsTopLeft,
@@ -51,6 +52,8 @@ const TOOL_ICONS: Record<BravaisHomeToolId, React.ComponentType<{ 'aria-hidden'?
     'refresh-explore': RefreshCw,
     // 进 Lattice（播放队列）：与 grid 首页 Grid3D 的 Lattice 入口同一个图标（home-lattice-pill）。
     queue: PanelsTopLeft,
+    // 跨平台歌单:与 grid 首页、播放队列面板里的入口同一个图标。
+    'cross-playlists': ListMusic,
     player: Disc3,
     stage: MonitorPlay,
     settings: Settings,
@@ -59,7 +62,7 @@ const TOOL_ICONS: Record<BravaisHomeToolId, React.ComponentType<{ 'aria-hidden'?
 /** 工具格里固定的三格（加「⋯」共四格），按这个顺序；舞台（有时）单独一行排在最前。 */
 const DOCK_TOOLS: readonly BravaisHomeToolId[] = ['stage', 'search', 'settings', 'queue'];
 /** 「⋯」里分隔线之后的 app 级入口。 */
-const APP_TOOLS: ReadonlySet<BravaisHomeToolId> = new Set(['player']);
+const APP_TOOLS: ReadonlySet<BravaisHomeToolId> = new Set(['cross-playlists', 'player']);
 
 /** 把工具分成工具格里的（固定顺序）、「⋯」里本页签的、「⋯」里 app 级的（后两组保持原顺序）。 */
 export const splitHomeTools = (tools: readonly BravaisHomeTool[]) => ({

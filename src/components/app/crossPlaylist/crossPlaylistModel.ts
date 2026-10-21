@@ -19,6 +19,27 @@ export interface CrossPlaylistEntry {
     addedAt: number;
     /** The song as it was when it was added: enough to show it and to play it, without asking the platform first. */
     song: SongResult;
+    /** The linked playlists (ids of `CrossPlaylist.sources`) this entry came from, while they still hold the song. */
+    from?: string[];
+    /** The song was also put here by hand: it stays when the linked playlists it came from no longer hold it. */
+    manual?: boolean;
+}
+
+/**
+ * A playlist of a platform account that this playlist follows: its songs were merged in, and a refresh brings in the ones it got since and
+ * takes out the ones that left it (a song put here by hand, or taken out here by hand, is not touched by that).
+ */
+export interface CrossPlaylistSource {
+    /** `providerId:collectionId`: also what `CrossPlaylistEntry.from` names. */
+    id: string;
+    providerId: string;
+    collectionId: string;
+    name: string;
+    trackCount?: number;
+    linkedAt: number;
+    syncedAt?: number;
+    /** Song keys taken out of this playlist by hand: a refresh does not bring them back. */
+    excluded?: string[];
 }
 
 export interface CrossPlaylist {
@@ -27,6 +48,8 @@ export interface CrossPlaylist {
     createdAt: number;
     updatedAt: number;
     entries: CrossPlaylistEntry[];
+    /** Platform playlists this one follows. */
+    sources?: CrossPlaylistSource[];
     /** Set when the playlist was deleted: it is kept as a mark, and not shown. */
     deletedAt?: number;
 }
@@ -81,9 +104,10 @@ export const addSongsToPlaylist = (
     songs: readonly SongResult[],
     now = Date.now(),
 ): { playlist: CrossPlaylist; added: number; skipped: number } => {
-    const known = new Set(playlist.entries.map(entry => crossSongKey(entry.providerId, entry.mediaId)));
+    const known = new Map(playlist.entries.map((entry, index) => [crossSongKey(entry.providerId, entry.mediaId), index]));
     const entries = [...playlist.entries];
     let skipped = 0;
+    let changed = false;
     for (const song of songs) {
         const identity = onlineIdentityOf(song);
         if (!identity) {
@@ -91,20 +115,39 @@ export const addSongsToPlaylist = (
             continue;
         }
         const key = crossSongKey(identity.providerId, identity.mediaId);
-        if (known.has(key)) {
+        const at = known.get(key);
+        if (at !== undefined) {
             skipped += 1;
+            // Put here by hand now: it stays even if the linked playlist it came from drops it.
+            const existing = entries[at];
+            if (existing.from?.length && !existing.manual) {
+                entries[at] = { ...existing, manual: true };
+                changed = true;
+            }
             continue;
         }
-        known.add(key);
+        known.set(key, entries.length);
         entries.push({ id: createCrossId('xe'), providerId: identity.providerId, mediaId: identity.mediaId, addedAt: now, song: toStoredSong(song) });
+        changed = true;
     }
     const added = entries.length - playlist.entries.length;
-    return { playlist: added > 0 ? touch(playlist, now, entries) : playlist, added, skipped };
+    return { playlist: changed ? touch(playlist, now, entries) : playlist, added, skipped };
 };
 
 export const removeEntryFromPlaylist = (playlist: CrossPlaylist, entryId: string, now = Date.now()): CrossPlaylist => {
+    const removed = playlist.entries.find(entry => entry.id === entryId);
+    if (!removed) return playlist;
     const entries = playlist.entries.filter(entry => entry.id !== entryId);
-    return entries.length === playlist.entries.length ? playlist : touch(playlist, now, entries);
+    const next = touch(playlist, now, entries);
+    if (!removed.from?.length || !playlist.sources) return next;
+    // A refresh of a playlist it came from would bring it back: it is told to leave it out.
+    const key = crossSongKey(removed.providerId, removed.mediaId);
+    return {
+        ...next,
+        sources: playlist.sources.map(source => (
+            removed.from!.includes(source.id) && !source.excluded?.includes(key) ? { ...source, excluded: [...(source.excluded ?? []), key] } : source
+        )),
+    };
 };
 
 export const moveEntryInPlaylist = (playlist: CrossPlaylist, entryId: string, toIndex: number, now = Date.now()): CrossPlaylist => {
@@ -125,6 +168,99 @@ export const renamePlaylist = (playlist: CrossPlaylist, name: string, now = Date
 /** The playlist is marked deleted and emptied; the mark is what keeps another copy of it from bringing it back. */
 export const markPlaylistDeleted = (playlist: CrossPlaylist, now = Date.now()): CrossPlaylist => ({ ...playlist, entries: [], updatedAt: now, deletedAt: now });
 
+export const sourceIdOf = (providerId: string, collectionId: string | number): string => `${providerId}:${collectionId}`;
+
+/** Starts following a platform playlist (or updates what is known of one already followed). Nothing is brought in yet: see `applySourceSnapshot`. */
+export const linkSource = (
+    playlist: CrossPlaylist,
+    source: { providerId: string; collectionId: string | number; name: string },
+    now = Date.now(),
+): CrossPlaylist => {
+    const id = sourceIdOf(source.providerId, source.collectionId);
+    const sources = playlist.sources ?? [];
+    const existing = sources.find(item => item.id === id);
+    const next: CrossPlaylistSource = existing
+        ? { ...existing, name: source.name }
+        : { id, providerId: source.providerId, collectionId: String(source.collectionId), name: source.name, linkedAt: now };
+    return { ...playlist, updatedAt: now, sources: existing ? sources.map(item => (item.id === id ? next : item)) : [...sources, next] };
+};
+
+/** Stops following a platform playlist. The songs it brought stay, as the playlist's own. */
+export const unlinkSource = (playlist: CrossPlaylist, sourceId: string, now = Date.now()): CrossPlaylist => {
+    if (!playlist.sources?.some(source => source.id === sourceId)) return playlist;
+    const entries = playlist.entries.map(entry => {
+        if (!entry.from?.includes(sourceId)) return entry;
+        const from = entry.from.filter(id => id !== sourceId);
+        return { ...entry, from: from.length ? from : undefined, manual: true };
+    });
+    const sources = playlist.sources.filter(source => source.id !== sourceId);
+    return { ...playlist, entries, updatedAt: now, sources: sources.length ? sources : undefined };
+};
+
+/**
+ * Brings what a followed platform playlist holds now into the playlist: songs it got since are added at the end (in its order), songs it
+ * no longer holds are taken out unless they were put here by hand or also come from another followed playlist, and a song taken out here by
+ * hand is not brought back. `songs` is everything the platform playlist holds; songs of no online platform are ignored.
+ */
+export const applySourceSnapshot = (
+    playlist: CrossPlaylist,
+    sourceId: string,
+    songs: readonly SongResult[],
+    now = Date.now(),
+): { playlist: CrossPlaylist; added: number; removed: number } => {
+    const source = playlist.sources?.find(item => item.id === sourceId);
+    if (!source) return { playlist, added: 0, removed: 0 };
+
+    const upstream = new Map<string, SongResult>();
+    for (const song of songs) {
+        const identity = onlineIdentityOf(song);
+        if (identity) upstream.set(crossSongKey(identity.providerId, identity.mediaId), song);
+    }
+    const excluded = new Set(source.excluded ?? []);
+    const present = new Set<string>();
+    const kept: CrossPlaylistEntry[] = [];
+    let removed = 0;
+    for (const entry of playlist.entries) {
+        const key = crossSongKey(entry.providerId, entry.mediaId);
+        present.add(key);
+        const holds = upstream.has(key);
+        const from = entry.from ?? [];
+        if (holds && !from.includes(sourceId)) {
+            // A song that was here before (nothing brought it) was put here by hand: it stays whatever the platform playlist does.
+            kept.push({ ...entry, from: [...from, sourceId], ...(from.length === 0 ? { manual: true } : {}) });
+        } else if (!holds && from.includes(sourceId)) {
+            const rest = from.filter(id => id !== sourceId);
+            if (rest.length === 0 && !entry.manual) {
+                removed += 1;
+                continue;
+            }
+            kept.push({ ...entry, from: rest.length ? rest : undefined });
+        } else {
+            kept.push(entry);
+        }
+    }
+    let added = 0;
+    for (const [key, song] of upstream) {
+        if (present.has(key) || excluded.has(key)) continue;
+        const identity = onlineIdentityOf(song)!;
+        kept.push({ id: createCrossId('xe'), providerId: identity.providerId, mediaId: identity.mediaId, addedAt: now, song: toStoredSong(song), from: [sourceId] });
+        added += 1;
+    }
+    const sources = (playlist.sources ?? []).map(item => (
+        item.id === sourceId
+            ? {
+                ...item,
+                syncedAt: now,
+                trackCount: upstream.size,
+                // A song that left the platform playlist no longer needs the note that it must not come back.
+                excluded: item.excluded?.filter(key => upstream.has(key)),
+            }
+            : item
+    ));
+    const changed = added > 0 || removed > 0 || kept.some((entry, index) => entry !== playlist.entries[index]);
+    return { playlist: { ...playlist, entries: kept, sources, updatedAt: changed ? now : playlist.updatedAt }, added, removed };
+};
+
 /** What each platform contributes to a playlist, in the order they first appear: `[['one', 12], ['two', 3]]`. */
 export const countByProvider = (playlist: CrossPlaylist): Array<[string, number]> => {
     const counts = new Map<string, number>();
@@ -139,13 +275,34 @@ const normalizeEntry = (value: unknown): CrossPlaylistEntry | null => {
     const song = value.song as unknown as SongResult;
     const identity = onlineIdentityOf(song);
     if (!identity) return null;
-    return {
+    const entry: CrossPlaylistEntry = {
         id: typeof value.id === 'string' && value.id ? value.id : createCrossId('xe'),
         providerId: identity.providerId,
         mediaId: identity.mediaId,
         addedAt: typeof value.addedAt === 'number' ? value.addedAt : Date.now(),
         song,
     };
+    const from = Array.isArray(value.from) ? value.from.filter((id): id is string => typeof id === 'string' && id.length > 0) : [];
+    if (from.length) entry.from = from;
+    if (value.manual === true) entry.manual = true;
+    return entry;
+};
+
+const normalizeSource = (value: unknown): CrossPlaylistSource | null => {
+    if (!isRecord(value) || typeof value.providerId !== 'string' || !value.providerId) return null;
+    if (typeof value.collectionId !== 'string' && typeof value.collectionId !== 'number') return null;
+    const source: CrossPlaylistSource = {
+        id: sourceIdOf(value.providerId, value.collectionId),
+        providerId: value.providerId,
+        collectionId: String(value.collectionId),
+        name: typeof value.name === 'string' ? value.name : String(value.collectionId),
+        linkedAt: typeof value.linkedAt === 'number' ? value.linkedAt : Date.now(),
+    };
+    if (typeof value.trackCount === 'number') source.trackCount = value.trackCount;
+    if (typeof value.syncedAt === 'number') source.syncedAt = value.syncedAt;
+    const excluded = Array.isArray(value.excluded) ? value.excluded.filter((key): key is string => typeof key === 'string') : [];
+    if (excluded.length) source.excluded = excluded;
+    return source;
 };
 
 /** One playlist from stored or imported data, or null when it is not one. Entries that are not songs of an online platform are dropped, and a song is kept once. */
@@ -169,6 +326,12 @@ export const normalizePlaylist = (value: unknown): CrossPlaylist | null => {
         updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : createdAt,
         entries,
     };
+    const sources: CrossPlaylistSource[] = [];
+    for (const raw of Array.isArray(value.sources) ? value.sources : []) {
+        const source = normalizeSource(raw);
+        if (source && !sources.some(item => item.id === source.id)) sources.push(source);
+    }
+    if (sources.length) playlist.sources = sources;
     if (typeof value.deletedAt === 'number') playlist.deletedAt = value.deletedAt;
     return playlist;
 };

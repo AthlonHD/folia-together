@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Loader2, Settings, PanelsTopLeft } from 'lucide-react';
+import { Search, Loader2, Settings, PanelsTopLeft, ListMusic } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { resolveSearchSource, useSearchNavigationStore } from '../../../../stores/useSearchNavigationStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -79,6 +79,8 @@ interface Grid3DProps {
     onOpenSettings?: (initialTab?: 'help' | 'options') => void;
     /** `source`: what the wall shows; the play queue when left out. */
     onOpenLattice?: (source?: LatticeSource) => void;
+    /** 跨平台歌单的窗口(宿主在遥控端不给)。 */
+    onOpenCrossPlaylists?: () => void;
     navidromeEnabled?: boolean;
     onPlayAll?: (songs: SongResult[]) => void;
     onAddAllToQueue?: (songs: SongResult[]) => void;
@@ -118,6 +120,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         theme,
         onOpenSettings,
         onOpenLattice,
+        onOpenCrossPlaylists,
         navidromeEnabled = false,
         onOpenGridView,
         stageEnabled = false,
@@ -436,6 +439,24 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                                     已经有五个内容 tab，多一个常驻文字就把胶囊撑得太长。点击始终直达。
                                     在「探索」页签上它打开的是同一面墙，铺的是探索页的条目（探索拼贴）：
                                     探索页有条目可铺时出现，不看有没有在播歌曲。 */}
+                                {/* 跨平台歌单(任何平台的歌放进同一个歌单):和旁边的队列拼贴一样只占一个图标,悬停才展开名字。 */}
+                                {onOpenCrossPlaylists && (
+                                    <button
+                                        onClick={() => onOpenCrossPlaylists()}
+                                        data-testid="home-cross-playlists-pill"
+                                        title={t('crossPlaylist.open')}
+                                        aria-label={t('crossPlaylist.open')}
+                                        className={`group relative inline-flex items-center justify-center px-3 py-1.5 rounded-full text-xs md:text-sm font-medium transition-colors duration-300 whitespace-nowrap ${navPillInactiveText}`}
+                                    >
+                                        <ListMusic size={14} className="relative z-10 shrink-0" />
+                                        <span
+                                            aria-hidden="true"
+                                            className="relative z-10 max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-1.5 group-hover:max-w-28 group-hover:opacity-100 group-focus-visible:ml-1.5 group-focus-visible:max-w-28 group-focus-visible:opacity-100"
+                                        >
+                                            {t('crossPlaylist.open')}
+                                        </span>
+                                    </button>
+                                )}
                                 {onOpenLattice && (opensExploreWall ? hasExploreWall : currentTrack) && (
                                     <button
                                         onClick={() => onOpenLattice(opensExploreWall ? 'explore' : 'queue')}

@@ -34,7 +34,7 @@ export type BravaisHomeChrome = {
 
 type ChromeProps = Pick<
     LibraryHomeSurfaceProps,
-    | 'onSearchCommitted' | 'onOpenLattice' | 'onBackToPlayer' | 'onOpenStagePlayer' | 'stageEnabled' | 'stageIsActive' | 'onOpenSettings'
+    | 'onSearchCommitted' | 'onOpenLattice' | 'onOpenCrossPlaylists' | 'onBackToPlayer' | 'onOpenStagePlayer' | 'stageEnabled' | 'stageIsActive' | 'onOpenSettings'
     | 'localSongs' | 'localLibraryCatalog'
     | 'extraTabs'
 >;
@@ -120,9 +120,10 @@ export const useBravaisHomeChrome = ({
         },
     }), [searchOpen, t]);
 
-    const { onOpenLattice, onBackToPlayer, onOpenStagePlayer, stageEnabled, stageIsActive, onOpenSettings } = props;
+    const { onOpenLattice, onOpenCrossPlaylists, onBackToPlayer, onOpenStagePlayer, stageEnabled, stageIsActive, onOpenSettings } = props;
     const stageActive = Boolean(stageIsActive);
     const hasLattice = Boolean(onOpenLattice);
+    const hasCrossPlaylists = Boolean(onOpenCrossPlaylists);
     const hasStage = Boolean(onOpenStagePlayer && stageEnabled);
     const hasSettings = Boolean(onOpenSettings);
     // 「回到播放页」与左上角返回同一个判断：有当前歌曲才显示（没有歌时去的是空的播放页）。
@@ -132,6 +133,7 @@ export const useBravaisHomeChrome = ({
     const appTools = useMemo<BravaisHomeTool[]>(() => {
         const tools: BravaisHomeTool[] = [];
         if (hasLattice) tools.push({ id: 'queue', label: t('home.lattice'), run: () => latest.current.props.onOpenLattice?.() });
+        if (hasCrossPlaylists) tools.push({ id: 'cross-playlists', label: t('crossPlaylist.open'), run: () => latest.current.props.onOpenCrossPlaylists?.() });
         if (hasPlayer) tools.push({ id: 'player', label: t('libraryBravaisHome.backToPlayer'), run: () => latest.current.props.onBackToPlayer() });
         // fb11：舞台开着时它单独占工具格最上面一行（图标 + 短名「舞台」），active 与 grid 的 data-stage-active 同义。
         if (hasStage) tools.push({ id: 'stage', label: t('libraryBravaisHome.stagePlayer'), shortLabel: t('libraryBravaisHome.stageShort'), active: stageActive, run: () => latest.current.props.onOpenStagePlayer?.() });
@@ -143,7 +145,7 @@ export const useBravaisHomeChrome = ({
             run: () => latest.current.props.onOpenSettings?.('help'),
         });
         return tools;
-    }, [hasLattice, hasPlayer, hasSettings, hasStage, stageActive, t, updateAvailable]);
+    }, [hasCrossPlaylists, hasLattice, hasPlayer, hasSettings, hasStage, stageActive, t, updateAvailable]);
 
     const scan = scanning ? t('libraryBravaisHome.scanProgress', { percent: scanPercent }) : null;
 

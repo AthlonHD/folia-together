@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { SongResult } from '../../../src/types';
 import {
     addSongsToPlaylist,
+    applySourceSnapshot,
+    linkSource,
+    unlinkSource,
     canHoldInCrossPlaylist,
     countByProvider,
     createCrossPlaylist,
@@ -150,5 +153,95 @@ describe('the exported file', () => {
         ]);
         expect(playlists).toHaveLength(1);
         expect(playlists[0].entries).toHaveLength(1);
+    });
+});
+
+describe('following a platform playlist', () => {
+    const src = (providerId: string, collectionId: string) => ({ providerId, collectionId, name: `${providerId} list` });
+    const followed = () => {
+        const base = createCrossPlaylist('Mine', 1);
+        return linkSource(base, src('netease', '77'), 2);
+    };
+    const sourceId = 'netease:77';
+    const keys = (playlist: ReturnType<typeof createCrossPlaylist>) => playlist.entries.map(entry => `${entry.providerId}:${entry.mediaId}`);
+
+    it('brings in what the platform playlist holds and notes where each song came from', () => {
+        const result = applySourceSnapshot(followed(), sourceId, [online('netease', '1'), online('netease', '2')], 10);
+        expect(result.added).toBe(2);
+        expect(result.removed).toBe(0);
+        expect(keys(result.playlist)).toEqual(['netease:1', 'netease:2']);
+        expect(result.playlist.entries.every(entry => entry.from?.includes(sourceId))).toBe(true);
+        expect(result.playlist.sources?.[0]).toMatchObject({ syncedAt: 10, trackCount: 2 });
+    });
+
+    it('a refresh adds the songs it got since and takes out the ones that left', () => {
+        const first = applySourceSnapshot(followed(), sourceId, [online('netease', '1'), online('netease', '2')], 10).playlist;
+        const second = applySourceSnapshot(first, sourceId, [online('netease', '2'), online('netease', '3')], 20);
+        expect(second.added).toBe(1);
+        expect(second.removed).toBe(1);
+        expect(keys(second.playlist)).toEqual(['netease:2', 'netease:3']);
+    });
+
+    it('keeps a song that was put here by hand when the platform playlist drops it', () => {
+        const base = addSongsToPlaylist(followed(), [online('qq', 'mine')], 3).playlist;
+        const first = applySourceSnapshot(base, sourceId, [online('netease', '1'), online('qq', 'mine')], 10).playlist;
+        const second = applySourceSnapshot(first, sourceId, [], 20);
+        expect(keys(second.playlist)).toEqual(['qq:mine']);
+        expect(second.removed).toBe(1);
+    });
+
+    it('a song added by hand that the platform playlist already brought stays when it leaves', () => {
+        const first = applySourceSnapshot(followed(), sourceId, [online('netease', '1')], 10).playlist;
+        const kept = addSongsToPlaylist(first, [online('netease', '1')], 15);
+        expect(kept.added).toBe(0);
+        expect(kept.playlist.entries[0].manual).toBe(true);
+        const after = applySourceSnapshot(kept.playlist, sourceId, [], 20);
+        expect(keys(after.playlist)).toEqual(['netease:1']);
+    });
+
+    it('does not bring back a song that was taken out here by hand', () => {
+        const first = applySourceSnapshot(followed(), sourceId, [online('netease', '1'), online('netease', '2')], 10).playlist;
+        const without = removeEntryFromPlaylist(first, first.entries[0].id, 12);
+        expect(without.sources?.[0].excluded).toEqual(['netease:1']);
+        const again = applySourceSnapshot(without, sourceId, [online('netease', '1'), online('netease', '2')], 20);
+        expect(keys(again.playlist)).toEqual(['netease:2']);
+        // once the platform playlist drops it too, the note is dropped
+        const gone = applySourceSnapshot(again.playlist, sourceId, [online('netease', '2')], 30);
+        expect(gone.playlist.sources?.[0].excluded ?? []).toEqual([]);
+    });
+
+    it('a song two followed playlists hold stays until both drop it', () => {
+        const both = linkSource(followed(), src('qq', 'L'), 3);
+        const a = applySourceSnapshot(both, sourceId, [online('netease', '1')], 10).playlist;
+        const b = applySourceSnapshot(a, 'qq:L', [online('netease', '1')], 11).playlist;
+        expect(b.entries[0].from).toEqual([sourceId, 'qq:L']);
+        const droppedByFirst = applySourceSnapshot(b, sourceId, [], 20);
+        expect(keys(droppedByFirst.playlist)).toEqual(['netease:1']);
+        const droppedByBoth = applySourceSnapshot(droppedByFirst.playlist, 'qq:L', [], 30);
+        expect(keys(droppedByBoth.playlist)).toEqual([]);
+    });
+
+    it('stops following and keeps the songs as its own', () => {
+        const first = applySourceSnapshot(followed(), sourceId, [online('netease', '1')], 10).playlist;
+        const unlinked = unlinkSource(first, sourceId, 15);
+        expect(unlinked.sources).toBeUndefined();
+        expect(unlinked.entries[0]).toMatchObject({ manual: true });
+        // a refresh of something that is no longer followed does nothing
+        expect(applySourceSnapshot(unlinked, sourceId, [], 20).playlist).toBe(unlinked);
+    });
+
+    it('ignores songs of no online platform and leaves the time alone when nothing changed', () => {
+        const first = applySourceSnapshot(followed(), sourceId, [online('netease', '1'), local], 10).playlist;
+        expect(keys(first)).toEqual(['netease:1']);
+        const same = applySourceSnapshot(first, sourceId, [online('netease', '1')], 99);
+        expect(same.added + same.removed).toBe(0);
+        expect(same.playlist.updatedAt).toBe(first.updatedAt);
+    });
+
+    it('survives being stored and read back', () => {
+        const first = applySourceSnapshot(followed(), sourceId, [online('netease', '1')], 10).playlist;
+        const read = normalizePlaylists(JSON.parse(JSON.stringify([first])));
+        expect(read[0].sources?.[0].id).toBe(sourceId);
+        expect(read[0].entries[0].from).toEqual([sourceId]);
     });
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Cloud, Download, ListPlus, Play, Plus, Trash2, Upload, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Cloud, CloudDownload, Download, Link2Off, ListPlus, Play, Plus, RefreshCw, Trash2, Upload, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { SongResult } from '../../../types';
@@ -7,6 +7,8 @@ import ThemedDialog from '../../shared/ThemedDialog';
 import ConfirmDialog from '../../shared/ConfirmDialog';
 import TextInputDialog from '../../shared/TextInputDialog';
 import CrossPlaylistSyncDialog from './CrossPlaylistSyncDialog';
+import CrossPlaylistImportDialog from './CrossPlaylistImportDialog';
+import PlaylistSelectionDialog from '../../shared/PlaylistSelectionDialog';
 import { Button } from '../../modal/settings/kit';
 import { ArrowLeft } from 'lucide-react';
 import { omni } from '../../../services/onlineMusic/omni';
@@ -51,6 +53,7 @@ const downloadText = (filename: string, text: string) => {
 };
 
 const ROW_HEIGHT = 'min-h-14';
+const STALE_SOURCE_MS = 10 * 60 * 1000;
 
 export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight, onPlaySong, onPlayAll, onAddAllToQueue }) => {
     const { t } = useTranslation();
@@ -64,12 +67,18 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
         rename: state.rename,
         remove: state.remove,
         removeEntry: state.removeEntry,
+        refreshing: state.refreshing,
+        addSongs: state.addSongs,
+        refreshSource: state.refreshSource,
+        refreshAllSources: state.refreshAllSources,
+        unlinkPlaylistSource: state.unlinkPlaylistSource,
         moveEntry: state.moveEntry,
         exportText: state.exportText,
         importText: state.importText,
     })));
     const playQueue = usePlaybackStore(state => state.playQueue);
     const lists = useMemo(() => visiblePlaylists(store.playlists), [store.playlists]);
+    const refreshPlaylistRef = useRef<(playlist: CrossPlaylist, silent?: boolean) => Promise<void>>(async () => {});
     const current = store.openPlaylistId ? lists.find(playlist => playlist.id === store.openPlaylistId) ?? null : null;
 
     const [creating, setCreating] = useState<null | { songs: SongResult[] }>(null);
@@ -77,6 +86,10 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
     const [confirmDelete, setConfirmDelete] = useState(false);
     const importInputRef = useRef<HTMLInputElement>(null);
     const [syncOpen, setSyncOpen] = useState(false);
+    // The platform playlists of the accounts: pick some to merge in (into the open playlist, or a new one each).
+    const [importOpen, setImportOpen] = useState(false);
+    // The play queue merged into one of the playlists: which one is asked.
+    const [queuePickerOpen, setQueuePickerOpen] = useState(false);
     const syncConfig = useCrossPlaylistStore(state => state.syncConfig);
     const syncState = useCrossPlaylistStore(state => state.syncState);
 
@@ -101,7 +114,18 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
         if (store.isOpen && store.openPlaylistId && !current) store.openPlaylist(null);
     }, [store, current]);
 
+    // A followed playlist that has not been read from its platform for a while is read when it is opened.
+    const openedId = current?.id ?? null;
+    const openedHasStaleSource = current?.sources?.some(source => !source.syncedAt || Date.now() - source.syncedAt > STALE_SOURCE_MS) ?? false;
+    useEffect(() => {
+        if (!store.isOpen || !openedId || !openedHasStaleSource) return;
+        const playlist = useCrossPlaylistStore.getState().playlists.find(item => item.id === openedId);
+        if (playlist) void refreshPlaylistRef.current(playlist, true);
+    }, [store.isOpen, openedId, openedHasStaleSource]);
+
     if (!store.isOpen) return null;
+
+    refreshPlaylistRef.current = (playlist, silent) => refreshPlaylist(playlist, silent);
 
     const handlePlayAll = (playlist: CrossPlaylist) => {
         const { songs, skipped } = playableSongs(playlist);
@@ -121,6 +145,32 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
         }
         onAddAllToQueue(songs, skipped > 0 ? { suppressToast: true } : undefined);
         if (skipped > 0) setStatusMessage({ type: 'info', text: t('crossPlaylist.queuedSome', { count: songs.length, skipped }) });
+    };
+
+    const addQueueTo = async (playlistId: string) => {
+        const songs = playQueue.filter(canHoldInCrossPlaylist);
+        const name = lists.find(playlist => playlist.id === playlistId)?.name ?? '';
+        if (songs.length === 0) {
+            setStatusMessage({ type: 'info', text: t('crossPlaylist.queueEmpty') });
+            return;
+        }
+        const { added, skipped } = await store.addSongs(playlistId, songs);
+        // Songs the queue has that the playlist already holds are counted, not added twice.
+        setStatusMessage({
+            type: added > 0 ? 'success' : 'info',
+            text: skipped > 0 ? t('crossPlaylist.addedSome', { name, added, skipped }) : t('crossPlaylist.added', { name }),
+        });
+    };
+
+    const refreshPlaylist = async (playlist: CrossPlaylist, silent = false) => {
+        const result = await store.refreshAllSources(playlist.id);
+        if (silent && result.added === 0 && result.removed === 0 && result.failed === 0) return;
+        setStatusMessage({
+            type: result.failed > 0 ? 'error' : 'success',
+            text: result.failed > 0
+                ? t('crossPlaylist.refreshFailed', { count: result.failed })
+                : t('crossPlaylist.refreshed', { added: result.added, removed: result.removed }),
+        });
     };
 
     const handleImport = async (file: File | undefined) => {
@@ -144,9 +194,47 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
                 <Button icon={ArrowLeft} variant="quiet" onClick={() => store.openPlaylist(null)}>{t('crossPlaylist.back')}</Button>
                 <Button icon={Play} onClick={() => handlePlayAll(current)} disabled={current.entries.length === 0}>{t('crossPlaylist.playAll')}</Button>
                 <Button icon={ListPlus} variant="quiet" onClick={() => handleAddToQueue(current)} disabled={current.entries.length === 0}>{t('crossPlaylist.addToQueue')}</Button>
+                <Button icon={ListPlus} variant="quiet" onClick={() => void addQueueTo(current.id)} disabled={!playQueue.some(canHoldInCrossPlaylist)}>{t('crossPlaylist.addQueueHere')}</Button>
+                <Button icon={CloudDownload} variant="quiet" onClick={() => setImportOpen(true)}>{t('crossPlaylist.fromAccountHere')}</Button>
                 <Button variant="quiet" onClick={() => setRenaming(true)}>{t('crossPlaylist.rename')}</Button>
                 <Button icon={Trash2} variant="quiet" onClick={() => setConfirmDelete(true)}>{t('crossPlaylist.delete')}</Button>
             </div>
+            {current.sources && current.sources.length > 0 && (
+                <div className="mb-3 shrink-0 rounded-xl bg-[var(--st-card)] px-3 py-2 shadow-[0_0_0_1px_var(--st-line)]">
+                    <div className="mb-1 flex items-center gap-2 text-xs text-[color:var(--st-t2)]">
+                        <span className="flex-1">{t('crossPlaylist.followedTitle')}</span>
+                        <Button icon={RefreshCw} variant="quiet" onClick={() => void refreshPlaylist(current)} disabled={store.refreshing.some(mark => mark.startsWith(`${current.id}|`))}>{t('crossPlaylist.refreshAll')}</Button>
+                    </div>
+                    {current.sources.map(source => {
+                        const busy = store.refreshing.includes(`${current.id}|${source.id}`);
+                        return (
+                            <div key={source.id} className="flex min-h-9 items-center gap-2 text-[13px]">
+                                <span className="min-w-0 flex-1 truncate">
+                                    {source.name}
+                                    <span className="ml-2 text-xs text-[color:var(--st-t3)]">
+                                        {providerLabel(source.providerId)}
+                                        {typeof source.trackCount === 'number' && ` · ${t('crossPlaylist.songCount', { count: source.trackCount })}`}
+                                        {` · ${busy ? t('crossPlaylist.refreshing') : source.syncedAt ? t('crossPlaylist.syncedAt', { time: new Date(source.syncedAt).toLocaleString() }) : t('crossPlaylist.neverRefreshed')}`}
+                                    </span>
+                                </span>
+                                <button
+                                    type="button"
+                                    className={rowButton}
+                                    title={t('crossPlaylist.refresh')}
+                                    aria-label={t('crossPlaylist.refresh')}
+                                    disabled={busy}
+                                    onClick={() => void store.refreshSource(current.id, source.id)
+                                        .then(result => setStatusMessage({ type: 'success', text: t('crossPlaylist.refreshed', result) }))
+                                        .catch(() => setStatusMessage({ type: 'error', text: t('crossPlaylist.refreshFailed', { count: 1 }) }))}
+                                >
+                                    <RefreshCw size={15} className={busy ? 'animate-spin' : undefined} />
+                                </button>
+                                <button type="button" className={rowButton} title={t('crossPlaylist.unfollow')} aria-label={t('crossPlaylist.unfollow')} onClick={() => void store.unlinkPlaylistSource(current.id, source.id)}><Link2Off size={15} /></button>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
             {current.entries.length === 0 ? (
                 <div className="py-10 text-center text-[13px] text-[color:var(--st-t3)]">{t('crossPlaylist.listEmpty')}</div>
             ) : (
@@ -182,6 +270,8 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
         <div className="flex min-h-0 flex-1 flex-col">
             <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
                 <Button icon={Plus} onClick={() => setCreating({ songs: [] })}>{t('crossPlaylist.create')}</Button>
+                <Button icon={CloudDownload} variant="quiet" onClick={() => setImportOpen(true)}>{t('crossPlaylist.fromAccount')}</Button>
+                <Button icon={ListPlus} variant="quiet" onClick={() => setQueuePickerOpen(true)} disabled={lists.length === 0 || !playQueue.some(canHoldInCrossPlaylist)}>{t('crossPlaylist.addQueueTo')}</Button>
                 <Button
                     variant="quiet"
                     onClick={() => {
@@ -200,7 +290,7 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
                     {syncConfig ? (syncState === 'error' ? `${t('crossPlaylist.sync')} ⚠` : `${t('crossPlaylist.sync')} ✓`) : t('crossPlaylist.sync')}
                 </Button>
                 <Button icon={Download} variant="quiet" onClick={handleExport} disabled={lists.length === 0}>{t('crossPlaylist.export')}</Button>
-                <Button icon={Upload} variant="quiet" onClick={() => importInputRef.current?.click()}>{t('crossPlaylist.import')}</Button>
+                <Button icon={Upload} variant="quiet" onClick={() => importInputRef.current?.click()}>{t('crossPlaylist.importFile')}</Button>
                 <input ref={importInputRef} type="file" accept="application/json,.json" className="hidden" onChange={event => { void handleImport(event.target.files?.[0]); event.target.value = ''; }} />
             </div>
             {lists.length === 0 ? (
@@ -245,6 +335,18 @@ export const CrossPlaylistHost: React.FC<CrossPlaylistHostProps> = ({ isDaylight
             >
                 {body}
             </ThemedDialog>
+
+            <CrossPlaylistImportDialog isOpen={importOpen} onClose={() => setImportOpen(false)} isDaylight={isDaylight} initialTargetId={current?.id ?? null} />
+
+            <PlaylistSelectionDialog
+                isOpen={queuePickerOpen}
+                onClose={() => setQueuePickerOpen(false)}
+                isDaylight={isDaylight}
+                title={t('crossPlaylist.addQueueTo')}
+                description={t('crossPlaylist.addQueueToHint', { count: playQueue.filter(canHoldInCrossPlaylist).length })}
+                playlists={lists.map(playlist => ({ id: playlist.id, name: playlist.name, description: t('crossPlaylist.songCount', { count: playlist.entries.length }) }))}
+                onSelect={playlistId => addQueueTo(String(playlistId))}
+            />
 
             <CrossPlaylistSyncDialog isOpen={syncOpen} onClose={() => setSyncOpen(false)} isDaylight={isDaylight} />
 

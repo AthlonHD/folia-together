@@ -6,6 +6,8 @@ import type { ProviderAccountSummary } from '../../../types/onlineMusic';
 import type { LibraryAccountController } from '../../../library/core/account/account.contract';
 import { openSettings } from '../../../stores/useSettingsModalStore';
 import { noteQueueStarted } from '../playing-song-locator/playingSongLocator';
+import { isStageRemoteMode } from '../../../services/stageMode';
+import { useCrossPlaylistStore } from '../crossPlaylist/crossPlaylistStore';
 
 // src/components/app/home/buildHomeModel.ts
 
@@ -129,6 +131,8 @@ export const buildHomeModel = ({
             },
             onBackToPlayer: navigateToPlayer,
             onOpenLattice: navigateToLattice,
+            // 跨平台歌单存在这台设备上,遥控端没有自己的
+            onOpenCrossPlaylists: isStageRemoteMode() ? undefined : () => useCrossPlaylistStore.getState().open(),
             onTogglePlayback: togglePlayback,
             onEnterPlaybackView: enterPlaybackView,
             onRefreshUser: () => refreshOnlineProviderPlaylists(),

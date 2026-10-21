@@ -10,6 +10,16 @@ vi.mock('../../../src/services/db', () => ({
     saveToCache: async (key: string, data: unknown) => { disk.set(key, JSON.parse(JSON.stringify(data))); },
 }));
 
+const platformLists = new Map<string, SongResult[]>();
+vi.mock('../../../src/components/app/crossPlaylist/crossPlaylistSourceFetch', () => ({
+    fetchPlaylistSongs: async (providerId: string, collectionId: string) => {
+        const songs = platformLists.get(`${providerId}:${collectionId}`);
+        if (!songs) throw new Error('not found');
+        return songs;
+    },
+    listAccountPlaylists: () => [],
+}));
+
 const song = (providerId: string, mediaId: string): SongResult => ({
     id: 1,
     name: `${providerId}-${mediaId}`,
@@ -98,5 +108,75 @@ describe('cross-platform playlist store', () => {
         // importing the same file again changes nothing
         expect(await other.getState().importText(text)).toEqual({ ok: true, added: 0, updated: 0 });
         expect(await other.getState().importText('junk')).toEqual({ ok: false, added: 0, updated: 0 });
+    });
+
+    it('merges platform playlists into a new playlist for each one, following them', async () => {
+        platformLists.clear();
+        platformLists.set('netease:77', [song('netease', '1'), song('netease', '2')]);
+        platformLists.set('qq:L', [song('qq', 'a')]);
+        const store = await loadStore();
+        const outcomes = await store.getState().importAccountPlaylists({
+            items: [{ providerId: 'netease', collectionId: '77', name: 'Road' }, { providerId: 'qq', collectionId: 'L', name: 'Liked' }],
+            targetPlaylistId: null,
+            follow: true,
+        });
+        expect(outcomes.map(outcome => [outcome.name, outcome.added])).toEqual([['Road', 2], ['Liked', 1]]);
+        expect(store.getState().playlists.map(playlist => playlist.name)).toEqual(['Road', 'Liked']);
+        expect(store.getState().playlists[0].sources?.[0].id).toBe('netease:77');
+    });
+
+    it('merges several into one existing playlist and a refresh brings the difference', async () => {
+        platformLists.clear();
+        platformLists.set('netease:77', [song('netease', '1')]);
+        platformLists.set('qq:L', [song('qq', 'a'), song('netease', '1')]);
+        const store = await loadStore();
+        const mine = await store.getState().create('Mine', [song('kugou', 'h')]);
+        const outcomes = await store.getState().importAccountPlaylists({
+            items: [{ providerId: 'netease', collectionId: '77', name: 'N' }, { providerId: 'qq', collectionId: 'L', name: 'Q' }],
+            targetPlaylistId: mine.id,
+            follow: true,
+        });
+        expect(outcomes.map(outcome => outcome.added)).toEqual([1, 1]);
+        const entries = () => store.getState().playlists[0].entries.map(entry => `${entry.providerId}:${entry.mediaId}`);
+        expect(entries()).toEqual(['kugou:h', 'netease:1', 'qq:a']);
+
+        platformLists.set('netease:77', [song('netease', '1'), song('netease', '9')]);
+        const refreshed = await store.getState().refreshSource(mine.id, 'netease:77');
+        expect(refreshed).toEqual({ added: 1, removed: 0 });
+        expect(entries()).toEqual(['kugou:h', 'netease:1', 'qq:a', 'netease:9']);
+        expect(store.getState().refreshing).toEqual([]);
+
+        platformLists.set('qq:L', [song('netease', '1')]);
+        const all = await store.getState().refreshAllSources(mine.id);
+        expect(all).toEqual({ added: 0, removed: 1, failed: 0 });
+        expect(entries()).toEqual(['kugou:h', 'netease:1', 'netease:9']);
+    });
+
+    it('without following it only adds the songs, and a platform playlist that cannot be read is reported', async () => {
+        platformLists.clear();
+        platformLists.set('netease:77', [song('netease', '1')]);
+        const store = await loadStore();
+        const mine = await store.getState().create('Mine');
+        const outcomes = await store.getState().importAccountPlaylists({
+            items: [{ providerId: 'netease', collectionId: '77', name: 'N' }, { providerId: 'qq', collectionId: 'gone', name: 'Gone' }],
+            targetPlaylistId: mine.id,
+            follow: false,
+        });
+        expect(outcomes[0]).toMatchObject({ added: 1 });
+        expect(outcomes[1].error).toBeTruthy();
+        expect(store.getState().playlists[0].sources).toBeUndefined();
+        expect(store.getState().playlists[0].entries).toHaveLength(1);
+    });
+
+    it('stops following and keeps the songs', async () => {
+        platformLists.clear();
+        platformLists.set('netease:77', [song('netease', '1')]);
+        const store = await loadStore();
+        await store.getState().importAccountPlaylists({ items: [{ providerId: 'netease', collectionId: '77', name: 'N' }], targetPlaylistId: null, follow: true });
+        const id = store.getState().playlists[0].id;
+        await store.getState().unlinkPlaylistSource(id, 'netease:77');
+        platformLists.set('netease:77', []);
+        expect(await store.getState().refreshSource(id, 'netease:77')).toEqual({ added: 0, removed: 0 });
+        expect(store.getState().playlists[0].entries).toHaveLength(1);
     });
 });

@@ -10,6 +10,9 @@ import type { SongResult } from '../../../src/types';
 // test/unit/crossPlaylist/crossPlaylistSync.test.ts
 // Two devices and the real server module: pairing with a code, then changes travelling both ways.
 
+// Each boot loads a fresh copy of the store (and what it imports): slow when the whole suite runs at once.
+vi.setConfig({ testTimeout: 30_000 });
+
 const require = createRequire(import.meta.url);
 const { createPlaylistSync } = require('../../../server/stage-relay/playlistSync.cjs') as typeof import('../../../server/stage-relay/playlistSync.cjs');
 
