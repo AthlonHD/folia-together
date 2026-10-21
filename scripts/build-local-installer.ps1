@@ -1,4 +1,4 @@
-# scripts/build-local-installer.ps1
+﻿# scripts/build-local-installer.ps1
 # 在本机一键打出 Windows 安装包(安装版 + 免安装版),步骤与 .github/workflows/together-installer.yml 一致。
 # 用法(在仓库根目录的 PowerShell 里):
 #   powershell -ExecutionPolicy Bypass -File scripts\build-local-installer.ps1
