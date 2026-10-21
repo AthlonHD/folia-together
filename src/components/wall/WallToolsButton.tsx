@@ -141,11 +141,12 @@ export function WallToolsSurface({ idPrefix, label, isDaylight, destination, ent
     const common = useWallToolsCommonActions({ queueIslandId });
     const showQueueIsland = isOpen && common.queueIslandShown && host !== null;
     const rows = isOpen ? (typeof entries === 'function' ? entries() : entries) : [];
-    // 快捷排的固定顺序：洗牌、主题、队列、去处、播放器；缺的跳过。
+    // 快捷排的固定顺序：洗牌、主题、队列、去处、播放器；缺的跳过。排是 6 格，还有空格才在末尾加跨平台歌单。
     const quick: WallToolsQuickAction[] = isOpen
         ? [common.shuffle, common.theme, common.queue, resolveSlot(destination), common.openPlayer]
             .filter((action): action is WallToolsQuickAction => action !== null)
         : [];
+    if (isOpen && common.crossPlaylists && quick.length < 6) quick.push(common.crossPlaylists);
     // 叠色开关两边都有（颜色与强度的细调仍在设置页与命令面板）。
     const tintRow: WallToolsEntry = {
         kind: 'toggle',

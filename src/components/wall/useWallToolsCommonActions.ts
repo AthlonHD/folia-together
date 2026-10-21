@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import { Disc3, ListMusic, Shuffle, Sparkles, Volume1, Volume2, VolumeX } from 'lucide-react';
+import { Disc3, Library, ListMusic, Shuffle, Sparkles, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { isStageRemoteMode } from '../../services/stageMode';
+import { useCrossPlaylistStore } from '../app/crossPlaylist/crossPlaylistStore';
 import { useAudioSettingsStore } from '../../stores/useAudioSettingsStore';
 import { useLatticeSettingsStore } from '../../stores/useLatticeSettingsStore';
 import { usePlaybackStore } from '../../stores/usePlaybackStore';
@@ -13,6 +15,7 @@ import { useWallToolsHost, type WallToolsHostSnapshot } from './wallToolsHost';
 // 播放器三格跳过，队列格照画但禁用，音量照常读写音量 store、只是拖动时不预览。
 // 队列格开合面板上方的队列浮岛（WallToolsQueueIsland）：开合记在 useLatticeSettingsStore.wallToolsQueueIslandOpen，
 // 私人 FM 下禁用、浮岛不显示（偏好保留，FM 结束后照旧展开）。
+// 跨平台歌单入口只在快捷排还有空格时出现(Lattice 少一格定位;Bravais 六格已满,它的入口在「⋯」里)。
 // 每面墙只给和场景有关的 locate / destination 两格与自己的 entries，由 WallToolsSurface 按固定顺序拼起来。
 
 const NO_HOST_SNAPSHOT: WallToolsHostSnapshot = { themeGeneration: 'unavailable', canShuffleQueue: false };
@@ -33,6 +36,8 @@ export type WallToolsCommonActions = {
     theme: WallToolsQuickAction | null;
     queue: WallToolsQuickAction;
     openPlayer: WallToolsQuickAction | null;
+    /** 打开跨平台歌单窗口;没有宿主(探针)和遥控端(歌单在本机)时没有。 */
+    crossPlaylists: WallToolsQuickAction | null;
     volume: WallToolsEntry;
     /** 队列浮岛此刻该不该显示（面板打开时）：有宿主、不在私人 FM、偏好是展开。 */
     queueIslandShown: boolean;
@@ -104,6 +109,13 @@ export const useWallToolsCommonActions = ({ queueIslandId }: { queueIslandId: st
         onSelect: host.openPlayer,
     } : null;
 
+    const crossPlaylists: WallToolsQuickAction | null = host && !isStageRemoteMode() ? {
+        id: 'cross-playlists',
+        icon: Library,
+        label: t('crossPlaylist.open'),
+        onSelect: () => useCrossPlaylistStore.getState().open(),
+    } : null;
+
     const volumeEntry: WallToolsEntry = {
         kind: 'slider',
         id: 'volume',
@@ -127,5 +139,5 @@ export const useWallToolsCommonActions = ({ queueIslandId }: { queueIslandId: st
         },
     };
 
-    return { shuffle, theme, queue, openPlayer, volume: volumeEntry, queueIslandShown };
+    return { shuffle, theme, queue, openPlayer, crossPlaylists, volume: volumeEntry, queueIslandShown };
 };
