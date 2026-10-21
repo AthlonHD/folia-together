@@ -36,6 +36,8 @@ const FILE_TTL_MS = 10 * 60 * 1000;
 // The CDN's answer has to begin within this time, and a read that was asked for has to bring
 // bytes within it; a connection can go quiet without closing.
 const QUIET_LIMIT_MS = 30 * 1000;
+// A connection through a proxy that has not come up in this time is given up for a direct one.
+const PROXY_ATTEMPT_MS = 15 * 1000;
 // The statuses by which the CDN says an address is no longer good.
 const REFUSED = new Set([401, 403, 404, 410]);
 
@@ -112,10 +114,10 @@ function createSpotifyAudio({
   const sessionChanged = spotifyError('auth-required', 'Spotify session changed');
 
   // A step Spotify never answers must not keep a track loading for good.
-  const within = (step, what) => {
+  const within = (step, what, limitMs = quietLimitMs) => {
     let limit;
     return Promise.race([step, new Promise((_, reject) => {
-      limit = setTimeout(() => reject(spotifyError('network', 'Spotify did not answer', `${what} took over ${quietLimitMs}ms`)), quietLimitMs);
+      limit = setTimeout(() => reject(spotifyError('network', 'Spotify did not answer', `${what} took over ${limitMs}ms`)), limitMs);
     })]).finally(() => clearTimeout(limit));
   };
 
@@ -125,13 +127,31 @@ function createSpotifyAudio({
       const startedIn = generation;
       const startedAt = now();
       const attempt = (async () => {
-        const making = Promise.all([accessToken(), playbackProxy()]).then(([token, proxy]) => openSession({ accessToken: token, deviceId: deviceId(), ...(proxy ? { proxy } : {}) }));
-        const session = await within(making, 'connecting').catch(error => {
-          // A connection that is there only after the wait for it ended is not kept.
-          making.then(closeQuietly, () => {});
+        const [token, proxy] = await Promise.all([accessToken(), Promise.resolve(playbackProxy()).catch(() => null)]);
+        // One connection attempt, with or without the proxy. A connection that is there only after the wait for it ended is not kept.
+        const tryConnect = (through, limitMs) => {
+          const making = Promise.resolve(openSession({ accessToken: token, deviceId: deviceId(), ...(through ? { proxy: through } : {}) }));
+          return within(making, 'connecting', limitMs).catch(error => {
+            making.then(closeQuietly, () => {});
+            throw error;
+          });
+        };
+        log(`[Spotify] Playback connecting ${proxy ? `through the proxy ${proxy.replace(/\/\/[^@/]*@/, '//')}` : 'directly'}`);
+        let session;
+        try {
+          try {
+            session = await tryConnect(proxy, proxy ? Math.min(quietLimitMs, PROXY_ATTEMPT_MS) : quietLimitMs);
+          } catch (error) {
+            // A proxy that does not let Spotify's playback connection through (it may allow only the usual web ports) must not leave every
+            // track silent where the connection could be made without it: tried once more directly, and said.
+            if (!proxy || startedIn !== generation) throw error;
+            warn(`[Spotify] Playback could not connect through the proxy (${describeError(error)}); trying directly`);
+            session = await tryConnect(null, quietLimitMs);
+          }
+        } catch (error) {
           if (error instanceof SpotifyError) throw error;
           throw spotifyError(toErrorResult(error).error.code === 'network' ? 'network' : 'unavailable', 'Spotify playback could not connect', error?.message);
-        });
+        }
         if (startedIn !== generation) {
           closeQuietly(session);
           throw sessionChanged;

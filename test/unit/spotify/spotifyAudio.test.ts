@@ -120,6 +120,23 @@ describe('Spotify audio', () => {
         expect(proxied.openSession).toHaveBeenCalledWith({ accessToken: 'access-private', deviceId: 'device' });
     });
 
+    it('connects directly when the connection through the proxy fails, and says so', async () => {
+        const base = setup();
+        const warnings: string[] = [];
+        const good = { resolveAudioFileAsync: vi.fn(), close: vi.fn(async () => {}) };
+        const open = vi.fn(async (options: { proxy?: string }) => {
+            if (options.proxy) throw new Error('proxy refused the connection');
+            return good;
+        });
+        const audio = createSpotifyAudio({
+            accessToken: async () => 'access-private', deviceId: () => 'device', fetch: base.fetch, openSession: open, playbackProxy: async () => 'http://127.0.0.1:7890',
+            quietLimitMs: 30, log: () => {}, warn: (...args: unknown[]) => { warnings.push(args.join(' ')); },
+        });
+        await audio.issue(TRACK, 320).catch(() => {});
+        expect(open.mock.calls.map(([options]) => options.proxy)).toEqual(['http://127.0.0.1:7890', undefined]);
+        expect(warnings.some(line => /through the proxy/.test(line))).toBe(true);
+    });
+
     it('hands out a new address each time and locates the file once', async () => {
         const { audio, sessions, openSession } = setup();
         const first = await audio.issue(TRACK, 320);
