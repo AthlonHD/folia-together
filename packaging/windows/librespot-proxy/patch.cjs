@@ -75,7 +75,8 @@ function patchCargoToml(text) {
   return replaceOnce(text, 'serde_json = "1"\n', 'serde_json = "1"\nurl = "2"\n', 'the serde_json dependency');
 }
 
-/** Whether a folder of prebuilds holds the build with the proxy (the build step puts this file next to the addon). */
-const PROXY_MARKER = '.folia-proxy';
+/** Whether a folder of prebuilds holds the build with the proxy (the build step puts this file next to the addon; the app reads it to say
+ * in its log which build it plays with). No leading dot: packaging may leave dot files out. */
+const PROXY_MARKER = 'folia-proxy.txt';
 
 module.exports = { patchLibRs, patchCargoToml, PROXY_MARKER };

@@ -1,4 +1,6 @@
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const { parseRangeHeader } = require('../transcode/protocol.cjs');
 const { SpotifyError, describeError, plainWords, spotifyError, toErrorResult } = require('./errors.cjs');
 const { CLIENT_ID } = require('./signIn.cjs');
@@ -73,12 +75,32 @@ function closeQuietly(session) {
 
 // Connects the playback component to Spotify as the account. It is a native module with a build
 // for some systems only; where there is none, Spotify cannot be played.
+// Whether the installed playback component is the build with the proxy option: the build step leaves `folia-proxy.txt` beside it
+// (packaging/windows/librespot-proxy). Read once, for the log; null where it cannot be told.
+let proxyBuild;
+function hasProxyBuild() {
+  if (proxyBuild !== undefined) return proxyBuild;
+  try {
+    const packageDir = path.dirname(require.resolve('@lox-audioserver/node-librespot/package.json'));
+    const abi = process.platform === 'win32' ? `win32-${process.arch}-msvc` : process.platform === 'darwin' ? `darwin-${process.arch}` : `${process.platform}-${process.arch}-gnu`;
+    proxyBuild = fs.existsSync(path.join(packageDir, 'prebuilds', abi, 'folia-proxy.txt'));
+  } catch {
+    proxyBuild = null;
+  }
+  return proxyBuild;
+}
+
 function openLibrespotSession({ accessToken, deviceId, proxy }) {
   let librespot;
   try {
     librespot = require('@lox-audioserver/node-librespot');
   } catch (error) {
     throw spotifyError('unavailable', 'Spotify playback is not available on this system', `${process.platform}-${process.arch}: ${error?.message}`);
+  }
+  if (proxy) {
+    const patched = hasProxyBuild();
+    if (patched === false) console.warn('[Spotify] This playback component is the build without the proxy option: the proxy is not used, playback connects directly');
+    else if (patched) console.log('[Spotify] Playback component: the build with the proxy option');
   }
   // `proxy` (an HTTP proxy address) is an option of the patched build only (packaging/windows/librespot-proxy); the upstream binding
   // ignores it, so where there is no patched build the connection stays direct.
