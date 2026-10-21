@@ -32,6 +32,23 @@ if (-not $SkipRust -and -not (Get-Command cargo -ErrorAction SilentlyContinue)) 
     throw '没找到 cargo(Rust)。先装 rustup 和 MSVC 生成工具,或加 -SkipRust 跳过 Rust 组件'
 }
 
+# 分析模型的运行时(MNN)要用 CMake 3.24 以上从源码编译;没有就用 winget 装一份
+function Find-CMake([switch]$Refresh) {
+    # winget 刚装完的程序不在当前窗口的 PATH 里,重新读一遍系统和用户的 PATH
+    if ($Refresh) { $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User') }
+    foreach ($dir in "$env:ProgramFiles\CMake\bin", "${env:ProgramFiles(x86)}\CMake\bin") {
+        if ((Test-Path "$dir\cmake.exe") -and ($env:Path -notlike "*$dir*")) { $env:Path += ";$dir" }
+    }
+    return [bool](Get-Command cmake -ErrorAction SilentlyContinue)
+}
+if (-not (Find-CMake)) {
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { throw '没找到 cmake,也没有 winget。请到 https://cmake.org/download/ 装 CMake(勾选加入 PATH)后重跑' }
+    Write-Host '没找到 CMake,用 winget 安装...' -ForegroundColor Yellow
+    winget install --id Kitware.CMake -e --silent --accept-package-agreements --accept-source-agreements
+    if (-not (Find-CMake -Refresh)) { throw 'CMake 装完仍找不到,请重开一个 PowerShell 窗口后重跑' }
+}
+Write-Host "CMake: $(cmake --version | Select-Object -First 1)"
+
 Write-Host "分支: $(git rev-parse --abbrev-ref HEAD)  提交: $(git rev-parse --short HEAD)"
 
 if ($ReinstallDeps -or -not (Test-Path 'node_modules\.bin\tsc.cmd')) {
