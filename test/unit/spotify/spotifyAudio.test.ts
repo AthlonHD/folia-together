@@ -120,21 +120,60 @@ describe('Spotify audio', () => {
         expect(proxied.openSession).toHaveBeenCalledWith({ accessToken: 'access-private', deviceId: 'device' });
     });
 
-    it('connects directly when the connection through the proxy fails, and says so', async () => {
+    it('asks again on the same connection when the component could not connect to a Spotify server, and calls it the network, not the track', async () => {
         const base = setup();
-        const warnings: string[] = [];
-        const good = { resolveAudioFileAsync: vi.fn(), close: vi.fn(async () => {}) };
-        const open = vi.fn(async (options: { proxy?: string }) => {
-            if (options.proxy) throw new Error('proxy refused the connection');
-            return good;
-        });
+        const refused = 'failed to load audio item: Error { kind: Unavailable, error: hyper_util::client::legacy::Error(Connect, Custom { kind: Other }) }';
+        const make = (failures: number) => {
+            let left = failures;
+            const session = {
+                resolveAudioFileAsync: vi.fn(async () => {
+                    if (left > 0) { left -= 1; throw new Error(refused); }
+                    return { cdnUrl: 'https://cdn.test/file?n=1', keyHex: KEY.toString('hex'), format: 'OGG_VORBIS_320' };
+                }),
+                close: vi.fn(async () => {}),
+            };
+            const open = vi.fn(async () => session);
+            const audio = createSpotifyAudio({
+                accessToken: async () => 'access-private', deviceId: () => 'device', fetch: base.fetch, openSession: open, quietLimitMs: 30, log: () => {}, warn: () => {},
+            });
+            return { audio, open, session };
+        };
+
+        // Two failures, then a server that answers: one connection, three requests.
+        const recovers = make(2);
+        await expect(recovers.audio.issue(TRACK, 320)).resolves.toMatchObject({ url: expect.stringMatching(/^folia-spotify:\/\/audio\//) });
+        expect(recovers.open).toHaveBeenCalledTimes(1);
+        expect(recovers.session.resolveAudioFileAsync).toHaveBeenCalledTimes(3);
+        expect(recovers.session.close).not.toHaveBeenCalled();
+
+        // Never reached: the network's failure, not "Spotify has no audio for this track".
+        const stuck = make(Infinity);
+        await expect(stuck.audio.issue(TRACK, 320)).rejects.toMatchObject({ code: 'network' });
+        expect(stuck.session.resolveAudioFileAsync).toHaveBeenCalledTimes(3);
+    });
+
+    it('finds the file with the app\'s own requests once the component\'s cannot connect, and asks the component for the key alone', async () => {
+        const base = setup();
+        const refused = 'failed to load audio item: Error { kind: Unavailable, error: hyper_util::client::legacy::Error(Connect, Custom { kind: InvalidData, error: InvalidCertificate(UnknownIssuer) }) }';
+        const session = {
+            resolveAudioFileAsync: vi.fn(async () => { throw new Error(refused); }),
+            requestAudioKeyAsync: vi.fn(async () => KEY.toString('hex')),
+            close: vi.fn(async () => {}),
+        };
+        const findFile = vi.fn(async () => ({ playableId: 'alternativeId0000000000', fileId: 'a'.repeat(40), format: 'OGG_VORBIS_320', cdnUrl: 'https://cdn.test/file?n=1' }));
         const audio = createSpotifyAudio({
-            accessToken: async () => 'access-private', deviceId: () => 'device', fetch: base.fetch, openSession: open, playbackProxy: async () => 'http://127.0.0.1:7890',
-            quietLimitMs: 30, log: () => {}, warn: (...args: unknown[]) => { warnings.push(args.join(' ')); },
+            accessToken: async () => 'access-private', deviceId: () => 'device', fetch: base.fetch, openSession: async () => session, findFile,
+            quietLimitMs: 30, log: () => {}, warn: () => {},
         });
-        await audio.issue(TRACK, 320).catch(() => {});
-        expect(open.mock.calls.map(([options]) => options.proxy)).toEqual(['http://127.0.0.1:7890', undefined]);
-        expect(warnings.some(line => /through the proxy/.test(line))).toBe(true);
+        await expect(audio.issue(TRACK, 320)).resolves.toMatchObject({ url: expect.stringMatching(/^folia-spotify:\/\/audio\//) });
+        expect(findFile).toHaveBeenCalledWith(TRACK, 320);
+        expect(session.requestAudioKeyAsync).toHaveBeenCalledWith('spotify:track:alternativeId0000000000', 'a'.repeat(40));
+        expect(session.resolveAudioFileAsync).toHaveBeenCalledTimes(1);
+
+        // The next track goes straight to the app's own lookup.
+        await audio.issue(TRACK, 160).catch(() => {});
+        expect(session.resolveAudioFileAsync).toHaveBeenCalledTimes(1);
+        expect(findFile).toHaveBeenCalledTimes(2);
     });
 
     it('hands out a new address each time and locates the file once', async () => {

@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const { createSpotifyAudio } = require('./audio.cjs');
 const { createSpotifyAudioFiles } = require('./audioFiles.cjs');
 const { createSpotifyImages, isImageRequest } = require('./images.cjs');
+const { createSpotifyFileLookup } = require('./fileLookup.cjs');
 const { SpotifyError, describeError, lineReason, plainWords, spotifyError, statusError, toErrorResult } = require('./errors.cjs');
 const { createSpotifySessionRepository, publicAccountId } = require('./session.cjs');
 const { createSpotifySignIn } = require('./signIn.cjs');
@@ -252,9 +253,12 @@ function createSpotifyApiBridge({
     return made;
   };
   const images = createSpotifyImages({ fetch, warn });
+  const fileLookup = createSpotifyFileLookup({ call, spclientUrl: SPCLIENT_URL });
   const audioFiles = audioDirectory ? createSpotifyAudioFiles({ directory: audioDirectory }) : null;
   const audio = createSpotifyAudio({
-    accessToken: () => accessToken(), deviceId, fetch, playbackProxy, now, log, warn, disk: audioFiles, onKept: onAudioKept,
+    accessToken: () => accessToken(), deviceId, fetch, playbackProxy, now,
+    // Where the component's own requests to Spotify fail, the file is found with the app's requests (fileLookup.cjs).
+    findFile: (trackId, bitrate) => fileLookup.find(trackId, bitrate), log, warn, disk: audioFiles, onKept: onAudioKept,
     ...(openSession ? { openSession } : {}),
   });
 

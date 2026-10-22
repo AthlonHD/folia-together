@@ -1,4 +1,6 @@
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const { parseRangeHeader } = require('../transcode/protocol.cjs');
 const { SpotifyError, describeError, plainWords, spotifyError, toErrorResult } = require('./errors.cjs');
 const { CLIENT_ID } = require('./signIn.cjs');
@@ -36,8 +38,8 @@ const FILE_TTL_MS = 10 * 60 * 1000;
 // The CDN's answer has to begin within this time, and a read that was asked for has to bring
 // bytes within it; a connection can go quiet without closing.
 const QUIET_LIMIT_MS = 30 * 1000;
-// A connection through a proxy that has not come up in this time is given up for a direct one.
-const PROXY_ATTEMPT_MS = 15 * 1000;
+// How many times a track is asked for on one connection when the component could not connect to the Spotify server it asked.
+const LOCATE_CONNECT_ATTEMPTS = 3;
 // The statuses by which the CDN says an address is no longer good.
 const REFUSED = new Set([401, 403, 404, 410]);
 
@@ -73,12 +75,32 @@ function closeQuietly(session) {
 
 // Connects the playback component to Spotify as the account. It is a native module with a build
 // for some systems only; where there is none, Spotify cannot be played.
+// Whether the installed playback component is the build with the proxy option: the build step leaves `folia-proxy.txt` beside it
+// (packaging/windows/librespot-proxy). Read once, for the log; null where it cannot be told.
+let proxyBuild;
+function hasProxyBuild() {
+  if (proxyBuild !== undefined) return proxyBuild;
+  try {
+    const packageDir = path.dirname(require.resolve('@lox-audioserver/node-librespot/package.json'));
+    const abi = process.platform === 'win32' ? `win32-${process.arch}-msvc` : process.platform === 'darwin' ? `darwin-${process.arch}` : `${process.platform}-${process.arch}-gnu`;
+    proxyBuild = fs.existsSync(path.join(packageDir, 'prebuilds', abi, 'folia-proxy.txt'));
+  } catch {
+    proxyBuild = null;
+  }
+  return proxyBuild;
+}
+
 function openLibrespotSession({ accessToken, deviceId, proxy }) {
   let librespot;
   try {
     librespot = require('@lox-audioserver/node-librespot');
   } catch (error) {
     throw spotifyError('unavailable', 'Spotify playback is not available on this system', `${process.platform}-${process.arch}: ${error?.message}`);
+  }
+  if (proxy) {
+    const patched = hasProxyBuild();
+    if (patched === false) console.warn('[Spotify] This playback component is the build without the proxy option: the proxy is not used, playback connects directly');
+    else if (patched) console.log('[Spotify] Playback component: the build with the proxy option');
   }
   // `proxy` (an HTTP proxy address) is an option of the patched build only (packaging/windows/librespot-proxy); the upstream binding
   // ignores it, so where there is no patched build the connection stays direct.
@@ -87,14 +109,15 @@ function openLibrespotSession({ accessToken, deviceId, proxy }) {
 
 // `accessToken()` resolves to the account's token; `deviceId()` names this installation to
 // Spotify; `fetch` reaches the CDN; `playbackProxy()` resolves to the HTTP proxy address the playback component connects through (or
-// null); `openSession({ accessToken, deviceId, proxy })` resolves to
-// `{ resolveAudioFileAsync({ uri, bitrate }), close() }`.
+// null); `findFile(trackId, bitrate)` resolves to `{ playableId, fileId, format, cdnUrl }` found with the app's own requests
+// (fileLookup.cjs), used where the component's own cannot connect; `openSession({ accessToken, deviceId, proxy })` resolves to
+// `{ resolveAudioFileAsync({ uri, bitrate }), requestAudioKeyAsync?(uri, fileIdHex), close() }`.
 // A URL is honoured only when its key was issued here during this run, so page content cannot
 // make the app fetch an arbitrary id.
 // `disk` is the store of kept files (`audioFiles.cjs`); without one nothing is kept.
 // `onKept(limitBytes)` is called after a file was written, with the size the cache is to stay under.
 function createSpotifyAudio({
-  accessToken, deviceId, fetch, playbackProxy = async () => null, openSession = openLibrespotSession, now = Date.now, quietLimitMs = QUIET_LIMIT_MS,
+  accessToken, deviceId, fetch, playbackProxy = async () => null, findFile = null, openSession = openLibrespotSession, now = Date.now, quietLimitMs = QUIET_LIMIT_MS,
   randomKey = () => crypto.randomBytes(16).toString('hex'),
   log = (...args) => console.log(...args), warn = (...args) => console.warn(...args),
   disk = null, onKept = () => {},
@@ -109,15 +132,18 @@ function createSpotifyAudio({
   // with one and then lasts as long as Spotify keeps it.
   let held = null;
   let opening = null;
+  // Set once the component's own requests to Spotify could not connect while the app's can find the file (`findFile`) and the
+  // component can give the key alone: from then on the file is found by the app, until the sign-in or the proxy setting changes.
+  let ownLookup = false;
   // Bumped by clear(): what was asked for the previous account is not kept or handed out.
   let generation = 0;
   const sessionChanged = spotifyError('auth-required', 'Spotify session changed');
 
   // A step Spotify never answers must not keep a track loading for good.
-  const within = (step, what, limitMs = quietLimitMs) => {
+  const within = (step, what) => {
     let limit;
     return Promise.race([step, new Promise((_, reject) => {
-      limit = setTimeout(() => reject(spotifyError('network', 'Spotify did not answer', `${what} took over ${limitMs}ms`)), limitMs);
+      limit = setTimeout(() => reject(spotifyError('network', 'Spotify did not answer', `${what} took over ${quietLimitMs}ms`)), quietLimitMs);
     })]).finally(() => clearTimeout(limit));
   };
 
@@ -128,30 +154,14 @@ function createSpotifyAudio({
       const startedAt = now();
       const attempt = (async () => {
         const [token, proxy] = await Promise.all([accessToken(), Promise.resolve(playbackProxy()).catch(() => null)]);
-        // One connection attempt, with or without the proxy. A connection that is there only after the wait for it ended is not kept.
-        const tryConnect = (through, limitMs) => {
-          const making = Promise.resolve(openSession({ accessToken: token, deviceId: deviceId(), ...(through ? { proxy: through } : {}) }));
-          return within(making, 'connecting', limitMs).catch(error => {
-            making.then(closeQuietly, () => {});
-            throw error;
-          });
-        };
         log(`[Spotify] Playback connecting ${proxy ? `through the proxy ${proxy.replace(/\/\/[^@/]*@/, '//')}` : 'directly'}`);
-        let session;
-        try {
-          try {
-            session = await tryConnect(proxy, proxy ? Math.min(quietLimitMs, PROXY_ATTEMPT_MS) : quietLimitMs);
-          } catch (error) {
-            // A proxy that does not let Spotify's playback connection through (it may allow only the usual web ports) must not leave every
-            // track silent where the connection could be made without it: tried once more directly, and said.
-            if (!proxy || startedIn !== generation) throw error;
-            warn(`[Spotify] Playback could not connect through the proxy (${describeError(error)}); trying directly`);
-            session = await tryConnect(null, quietLimitMs);
-          }
-        } catch (error) {
+        const making = Promise.resolve(openSession({ accessToken: token, deviceId: deviceId(), ...(proxy ? { proxy } : {}) }));
+        const session = await within(making, 'connecting').catch(error => {
+          // A connection that is there only after the wait for it ended is not kept.
+          making.then(closeQuietly, () => {});
           if (error instanceof SpotifyError) throw error;
           throw spotifyError(toErrorResult(error).error.code === 'network' ? 'network' : 'unavailable', 'Spotify playback could not connect', error?.message);
-        }
+        });
         if (startedIn !== generation) {
           closeQuietly(session);
           throw sessionChanged;
@@ -174,14 +184,46 @@ function createSpotifyAudio({
 
   // Where a track's file is and what opens it. Spotify may have closed a connection that was
   // made earlier, so a failure on one is tried once more on a new connection.
+  //
+  // A request of the component that could not connect (`Connect` in what it says) is not about the track. The component asks one of
+  // several Spotify servers (spclient, from apresolve) and moves to the next after three failures on one, ten tries per request; where
+  // some of those servers cannot be reached, a request may use up its tries before it gets to one that can. So it is asked again on
+  // the same connection, which goes on from the server it got to; a new connection would begin the list again.
+  // The file and its address found with the app's own requests (fileLookup.cjs), the key alone asked of the component.
+  const findOwn = async (connection, trackId, bitrate) => {
+    const found = await findFile(trackId, bitrate);
+    try {
+      const keyHex = await connection.session.requestAudioKeyAsync(`spotify:track:${found.playableId}`, found.fileId);
+      return { cdnUrl: found.cdnUrl, keyHex, format: found.format };
+    } catch (error) {
+      if (error instanceof SpotifyError) throw error;
+      throw spotifyError(toErrorResult(error).error.code === 'network' ? 'network' : 'unavailable', 'Spotify did not give the key of the track', String(error?.message ?? error));
+    }
+  };
+  const CONNECT_FAILURE = /\(Connect\b|error trying to connect|tunnel|ECONNREFUSED|connection (?:refused|reset)/i;
   const locate = async (trackId, bitrate) => {
+    let connectFailures = 0;
     for (;;) {
       const kept = held;
       const connection = await connect();
+      const canFindOwn = typeof findFile === 'function' && typeof connection.session.requestAudioKeyAsync === 'function';
+      if (ownLookup && canFindOwn) return within(findOwn(connection, trackId, bitrate), 'locating the file');
       try {
         return await within(connection.session.resolveAudioFileAsync({ uri: `spotify:track:${trackId}`, bitrate }), 'locating the file');
       } catch (error) {
         const said = String(error?.message ?? error);
+        if (CONNECT_FAILURE.test(said) && canFindOwn && !ownLookup) {
+          ownLookup = true;
+          warn(`[Spotify] The playback component's own requests to Spotify fail (${said.replace(/[\w.~+/=%-]{40,}/g, '<long>').slice(0, 300)}); the app finds the files itself from now on`);
+          continue;
+        }
+        // The component could not connect to what it asks Spotify for (the HTTP side of it): that is the network, not a track Spotify lacks.
+        if (CONNECT_FAILURE.test(said)) {
+          connectFailures += 1;
+          warn(`[Spotify] Locating ${trackId} could not connect (${connectFailures}/${LOCATE_CONNECT_ATTEMPTS}): ${said.replace(/[\w.~+/=%-]{40,}/g, '<long>').slice(0, 700)}`);
+          if (connectFailures < LOCATE_CONNECT_ATTEMPTS && connection === held) continue;
+          throw spotifyError('network', 'Spotify playback could not reach Spotify', said);
+        }
         const aboutTheTrack = /track is unavailable|no audio files available/i.test(said);
         if (aboutTheTrack || connection !== kept) {
           // A new connection that cannot load the track's entry: Spotify has no such track.
@@ -448,6 +490,7 @@ function createSpotifyAudio({
     // The files on disk stay: they are the same for every account, and none opens without one.
     clear() {
       generation += 1;
+      ownLookup = false;
       keys.clear();
       files.clear();
       pending.clear();
