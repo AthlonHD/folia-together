@@ -100,6 +100,7 @@ import { useElectronVideoExportController } from './hooks/useElectronVideoExport
 import { useElectronWindowPlaybackHandoff } from './components/app/playback/restore/useElectronWindowPlaybackHandoff';
 import { useMediaSessionBridge } from './hooks/useMediaSessionBridge';
 import { usePlayerChromeAutoHide } from './hooks/usePlayerChromeAutoHide';
+import { useMacWallpaperHitRegions } from './hooks/useMacWallpaperHitRegions';
 import { useIdleCursorHide } from './hooks/useIdleCursorHide';
 import { usePlaybackAudioBridge } from './components/app/playback/bridges/usePlaybackAudioBridge';
 import { usePassthroughPlayback } from './components/app/passthrough/usePassthroughPlayback';
@@ -184,6 +185,7 @@ import { usePlayerBottomBarPositioningEntry } from './hooks/usePlayerBottomBarPo
 import { PlayerBottomBarLayoutContext } from './components/floating-player/PlayerBottomBarLayoutContext';
 import { useFoliumHostBridge } from './mods/runtime/hostBridge';
 import { useFoliumHostActions } from './mods/runtime/hostActions';
+import { refreshPrefetchAfterQueueEdit } from './services/prefetchService';
 import { FoliumStageLayerSlot } from './mods/folium/registries/stageLayers';
 import { errorFields } from './utils/errorText';
 import { runsOnWindows } from './utils/platform';
@@ -433,6 +435,8 @@ export default function App() {
         preventDisplaySleepDuringPlayback,
         wallpaperMode,
     } = useDesktopSettingsStore(useShallow(selectDesktopSettingsSnapshot));
+    // macOS wallpaper mode: click catchers over the controls, so Stage Manager ignores those clicks.
+    useMacWallpaperHitRegions(wallpaperMode);
     const {
         stageTrackPillMode,
         stageTrackPillOnHome,
@@ -1385,6 +1389,7 @@ export default function App() {
         syncOutputGain,
         getTargetPlaybackVolume,
         getCoverUrl,
+        isTransitionAudible: automix.isTransitionAudible,
     });
 
     // 桌面版直通模式:曲目的声音交给 WASAPI 独占播放器,<audio> 退为静音的传输时钟。
@@ -2157,6 +2162,8 @@ export default function App() {
         isLiked: commandPaletteContext.playback.isSongLiked,
         controlsDisabled: isNowPlayingControlDisabled,
         isLyricsLoading,
+        persistQueue: persistLastPlaybackCache,
+        refreshQueuePrefetch: (song, previous, next) => refreshPrefetchAfterQueueEdit(song, previous, next, audioQuality, user?.id),
     });
 
     const visualizerRendererModel = useVisualizerRendererModel({

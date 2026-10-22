@@ -54,6 +54,8 @@ const neteaseDeliveredOf = (raw: { level?: unknown; br?: unknown; type?: unknown
         ...(codec ? { codec } : {}),
     };
 };
+// How many ids one `/song/detail` request of `playback.getSongDetails` carries.
+export const NETEASE_SONG_DETAIL_BATCH = 50;
 
 const mapQuality = (quality: AudioQualityPreference): string => {
     if (quality === 'standard') return 'standard';
@@ -147,7 +149,9 @@ const normalizeCollection = (raw: any, type = 'playlist'): ProviderCollection =>
         providerId: 'netease',
         id: raw?.id ?? 0,
         name: raw?.name || '',
-        type: raw?.type || (raw?.specialType === 'cloud' ? 'cloud' : type),
+        // 网易云的专辑对象自己带一个 `type`，是它的发行类型（「专辑」「EP/Single」这类），不是集合的种类：
+        // 按专辑或歌手读到的就是专辑或歌手。别的照旧取 raw.type，已经正规化过的歌单再读一遍不变。
+        type: type === 'album' || type === 'artist' ? type : raw?.type || (raw?.specialType === 'cloud' ? 'cloud' : type),
         coverUrl: raw?.coverUrl || raw?.coverImgUrl || raw?.picUrl,
         description: raw?.description || raw?.briefDesc || raw?.briefDescription || raw?.copywriter,
         trackCount: raw?.trackCount ?? raw?.size,
@@ -364,22 +368,30 @@ export const neteaseProvider: OnlineMusicProvider = {
             const raw = response?.songs?.[0];
             return raw ? normalizeNeteaseSong(raw) : null;
         },
+        // `/song/detail` takes many ids at once. Asked NETEASE_SONG_DETAIL_BATCH at a time, one
+        // request after another; its songs are matched to the ids by id, since it leaves out an id
+        // it has no song by. An id that is no number names no NetEase song: null, without asking.
+        // An answer with another code than 200 (the local backend's 502 where it cannot reach
+        // NetEase, NetEase refusing or limiting the request) says nothing of which songs exist: the
+        // whole call rejects, as getAudioSource does, instead of answering null for every id.
         async getSongDetails(ids) {
-            const numericIds = ids.map(toNeteaseId);
-            const byId = new Map<string, UnifiedSong>();
-            // 每批 100 首：id 放在 URL 里，太多会超长
-            for (let index = 0; index < numericIds.length; index += 100) {
-                const response = await neteaseApi.getSongDetail(numericIds.slice(index, index + 100));
+            const numericIds = ids.map(id => {
+                const numericId = Number(id);
+                return Number.isFinite(numericId) && String(id).trim() !== '' ? numericId : null;
+            });
+            const asked = [...new Set(numericIds.filter((id): id is number => id !== null))];
+            const found = new Map<number, UnifiedSong>();
+            for (let start = 0; start < asked.length; start += NETEASE_SONG_DETAIL_BATCH) {
+                const response = await neteaseApi.getSongDetail(asked.slice(start, start + NETEASE_SONG_DETAIL_BATCH));
+                if (isRefusedNeteaseAnswer(response)) throw neteaseAnswerError(response, 'the song details');
                 for (const raw of response?.songs ?? []) {
-                    const song = normalizeNeteaseSong(raw);
-                    byId.set(String(song.id), song);
+                    const songId = Number(raw?.id);
+                    if (Number.isFinite(songId)) found.set(songId, normalizeNeteaseSong(raw));
                 }
             }
-            return numericIds.flatMap(id => {
-                const song = byId.get(String(id));
-                return song ? [song] : [];
-            });
+            return numericIds.map(id => (id === null ? null : found.get(id) ?? null));
         },
+        songDetailsPerRequest: NETEASE_SONG_DETAIL_BATCH,
         async getAudioSource(song, quality) {
             // 单次请求一档音质(上游的写法):按响应形态分类失败原因,只剩试听时标成 preview。
             const attempt = async (level: string) => {
@@ -630,6 +642,10 @@ export const neteaseProvider: OnlineMusicProvider = {
         },
         async getAlbumDetail(id, existingCollection) {
             const response = await neteaseApi.getAlbum(toNeteaseId(id));
+            // A refusing answer (the local backend's 502, NetEase's -462) says nothing of whether the album
+            // is there: it fails, rather than handing back the collection asked with, which an id alone
+            // makes nameless and a caller reads as no such album.
+            if (isRefusedNeteaseAnswer(response)) throw neteaseAnswerError(response, 'the album detail');
             const rawAlbum = response?.album;
             if (!rawAlbum) return existingCollection || null;
 
@@ -664,6 +680,8 @@ export const neteaseProvider: OnlineMusicProvider = {
         },
         async getArtistDetail(id) {
             const response = await neteaseApi.getArtistDetail(toNeteaseId(id));
+            // As for the album: a refusal is a failure, not "no such artist".
+            if (isRefusedNeteaseAnswer(response)) throw neteaseAnswerError(response, 'the artist detail');
             const artist = response?.data?.artist;
             if (!artist) return null;
             return {

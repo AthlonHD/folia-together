@@ -100,6 +100,11 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.on('wallpaper-input-monitor-requested', listener);
         return () => ipcRenderer.removeListener('wallpaper-input-monitor-requested', listener);
     },
+    onWallpaperAccessibilitySuggested: (callback) => {
+        const listener = () => callback();
+        ipcRenderer.on('wallpaper-accessibility-suggested', listener);
+        return () => ipcRenderer.removeListener('wallpaper-accessibility-suggested', listener);
+    },
     getWallpaperDisplays: () => ipcRenderer.invoke('wallpaper-displays-get'),
     setWallpaperDisplay: (displayId) => ipcRenderer.invoke('wallpaper-display-set', displayId),
     onWallpaperDisplaysChanged: (callback) => {
@@ -107,6 +112,7 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.on('wallpaper-displays-changed', listener);
         return () => ipcRenderer.removeListener('wallpaper-displays-changed', listener);
     },
+    setWallpaperHitRegions: (rects) => ipcRenderer.send('wallpaper-hit-regions', rects),
     setPlaybackDisplaySleepBlockingActive: (active) => ipcRenderer.invoke('playback-display-sleep-set-active', active),
     setAppLocale: (localeKey) => ipcRenderer.invoke('set-app-locale', localeKey),
     getCacheDirectory: () => ipcRenderer.invoke('get-cache-directory'),

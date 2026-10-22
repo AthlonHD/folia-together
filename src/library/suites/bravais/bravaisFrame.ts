@@ -74,6 +74,18 @@ export const computeBravaisFrame = ({ center, view, anchorX, openWidth, contentW
     };
 };
 
+/**
+ * 空墙说明（BravaisWallHint）占的横向区间（屏幕 px）：缝两侧较宽的那一边，一样宽时取右边；缝不在屏上（没有层、
+ * 合拢、折叠）时是整个视口。缝随墙移动、开合，这个区间每帧跟着变（useBravaisFrame 写到说明的 left / width 上）。
+ */
+export const wallHintSpan = (frame: BravaisFrame, viewWidth: number): { left: number; width: number } => {
+    if (!frame.seam.visible) return { left: 0, width: viewWidth };
+    const seamLeft = Math.min(viewWidth, Math.max(0, frame.seam.x - frame.seam.width / 2));
+    const seamRight = Math.min(viewWidth, Math.max(0, frame.seam.x + frame.seam.width / 2));
+    const rightRoom = viewWidth - seamRight;
+    return rightRoom >= seamLeft ? { left: seamRight, width: rightRoom } : { left: 0, width: seamLeft };
+};
+
 /** 缝贴着视口边时从多远开始收窄：海报贴边不收（它就该占满左边），其余沿用墙的边距。 */
 export const seamEdgeFor = (poster: boolean) => (poster ? 0 : SEAM_EDGE_MARGIN);
 

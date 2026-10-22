@@ -23,7 +23,7 @@ import { clearQqSession, getQqRemoteApiBase, getQqTransportAvailability, hasQqSe
 import { canRunLoginSelfCheck, runLoginSelfCheck } from '../loginSelfCheck';
 import { diagnosticLine, formatDiagnosticClock } from '../login/loginDiagnosticReport';
 import { collectQqLoginDiagnostics } from './qqLoginDiagnostics';
-import { getQqSongDetail, requestQqSongDetail } from './qqSongDetail';
+import { getQqSongDetailById, getQqSongDetails, QQ_SONG_DETAILS_PER_REQUEST, requestQqSongDetail } from './qqSongDetail';
 import { qqRecommendations } from './qqRecommendations';
 import { searchQqSongs } from './qqSearch';
 import { getQqSubscriptionStatus, qqMutations } from './qqMutations';
@@ -1079,7 +1079,9 @@ export const qqProvider: OnlineMusicProvider = {
         // 本 Fork:QQ 的后端只有 128 / 320 / flac 三档,没有 Hi-Res:选了更高的就是 FLAC。
         audioQualityLevels: ['standard', 'high', 'lossless'],
         audioQualityLabels: { standard: '128k', high: '320k', lossless: 'FLAC' },
-        getSongDetail: getQqSongDetail,
+        getSongDetail: getQqSongDetailById,
+        getSongDetails: getQqSongDetails,
+        songDetailsPerRequest: QQ_SONG_DETAILS_PER_REQUEST,
         getAudioSource,
     },
     lyrics: { getLyrics },

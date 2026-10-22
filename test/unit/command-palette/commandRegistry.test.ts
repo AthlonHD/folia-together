@@ -62,6 +62,8 @@ const createContext = (overrides: CommandPaletteContextOverrides = {}): CommandP
             setReplayGainMode: vi.fn(),
             openAudioEqualizer: vi.fn(),
             applyAudioSoundPreset: vi.fn(),
+            hasModEqualizerCurve: () => false,
+            releaseModEqualizerCurve: vi.fn(),
             runAutoMatchBestLyric: vi.fn(async () => true),
             toggleCurrentSongPureMusicMark: vi.fn(async () => true),
             canToggleCurrentSongPureMusicMark: true,

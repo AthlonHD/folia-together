@@ -17,6 +17,7 @@ import { resolveCurrentLayer, useBravaisStageStore } from './bravaisStageStore';
 import BravaisSeam from './BravaisSeam';
 import BravaisStageChrome from './BravaisStageChrome';
 import BravaisWall from './BravaisWall';
+import BravaisWallHint from './BravaisWallHint';
 import { useBravaisCamera } from './useBravaisCamera';
 import { useBravaisChromeActions } from './useBravaisChromeActions';
 import { useBravaisDisplay } from './useBravaisDisplay';
@@ -79,6 +80,7 @@ import './bravaisSeamLooks.css';
 // 缝的开口目标是 0（合上）、透光档墙面之下垫一层实色 veil（窗关上）、墙不接指针与键盘、根节点挂 data-wall-handoff；
 // 回来时会话结束才算落定；fb3 的正在播放那首在缝开始张开时就展开（2026-10-10）。工具按钮在离开途中仍认领 dock，
 // Lattice 后认领、盖在上面。
+// 空墙说明（BravaisWallHint）：首页的来源因为还没连在线平台、还没导入本地文件夹而空着时，墙面上画一段背景字（wall.hint）。
 
 const expandBounds = (bounds: { left: number; right: number; top: number; bottom: number }, by: number) => ({
     left: bounds.left - by,
@@ -126,7 +128,8 @@ const BravaisStage: React.FC<LibrarySuiteStageProps> = ({
     const seamRef = useRef<HTMLDivElement>(null);
     const seamContentRef = useRef<HTMLDivElement>(null);
     const tabRef = useRef<HTMLButtonElement>(null);
-    const frameRefs = useMemo(() => ({ left: leftRef, right: rightRef, seam: seamRef, seamContent: seamContentRef, tab: tabRef }), []);
+    const hintRef = useRef<HTMLDivElement>(null);
+    const frameRefs = useMemo(() => ({ left: leftRef, right: rightRef, seam: seamRef, seamContent: seamContentRef, tab: tabRef, hint: hintRef }), []);
     const { stateRef: frameRef, renderFrame } = useBravaisFrame(frameRefs);
     const { wallLook, seamLook } = useBravaisWallLook(reportPlayerOcclusion, reportPlayerBackdrop);
     const view = useBravaisViewport(rootRef);
@@ -444,6 +447,16 @@ const BravaisStage: React.FC<LibrarySuiteStageProps> = ({
     const backStep = resolveBackStep(display?.layer ?? layer, panelFor, hasCurrentSong);
     const back = useMemo(() => (backStep ? { step: backStep, run: runBack } : null), [backStep, runBack]);
 
+    // 空墙说明（层描述的 wall.hint）：跟着显示着的那一层走（换页签时随整墙出场 / 入场换），层里有条目就不画，交接时藏起；
+    // 没有说明时淡出，淡出途中留着上一条的文字。显示出来的那一刻按此刻的缝写一次横向区间（之后每帧由 renderFrame 写）。
+    const wallHint = display && display.layer.items.length === 0 ? display.layer.wall?.hint ?? null : null;
+    const lastWallHintRef = useRef(wallHint);
+    if (wallHint) lastWallHintRef.current = wallHint;
+    const wallHintShown = wallHint !== null && !handoff.role;
+    useLayoutEffect(() => {
+        if (wallHintShown) renderFrame();
+    }, [renderFrame, wallHintShown]);
+
     // 点墙面空白处（不是磁贴）收起聚焦卡；拖动后的残余点击已被 onClickCapture 吞掉。
     const onFieldClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
         if (event.target instanceof Element && event.target.closest('.bravais-tile')) return;
@@ -559,6 +572,7 @@ const BravaisStage: React.FC<LibrarySuiteStageProps> = ({
                     rightRef={rightRef}
                     plates={plates}
                 />
+                <BravaisWallHint ref={hintRef} hint={wallHint ?? lastWallHintRef.current} shown={wallHintShown} />
             </div>
             <BravaisSeam
                 seamRef={seamRef}

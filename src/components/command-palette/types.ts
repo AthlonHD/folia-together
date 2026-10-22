@@ -186,6 +186,17 @@ export type CommandPalettePlaybackContext = {
     canAddCurrentSongToPlaylist: boolean;
     openAudioEqualizer: () => void;
     applyAudioSoundPreset: (modeId: AudioEqualizerModeId) => void;
+    /**
+     * Whether a mod's equalizer curve is kept, playing or on hold (Folium 1.7 `folium.equalizer`).
+     *
+     * A function rather than a value because a mod puts a curve in place or takes it off with nothing
+     * re-rendering the app to say so: this context is memoised on the values it subscribes to, and the
+     * audio ones are only volume and mute. `isAvailable` is asked each time the palette opens, so a getter
+     * is read fresh.
+     */
+    hasModEqualizerCurve: () => boolean;
+    /** Takes a mod's equalizer curve off (or discards one on hold), back to the listener's own sound. */
+    releaseModEqualizerCurve: () => void;
     runAutoMatchBestLyric: () => Promise<boolean>;
     /** Marks or unmarks the current local song as instrumental (no automatic lyric matching). */
     toggleCurrentSongPureMusicMark: () => Promise<boolean>;

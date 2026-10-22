@@ -1,11 +1,11 @@
 import { useCallback, useRef, type RefObject } from 'react';
 import { formatWorldTransform, type WallView, type WallViewCenter } from '../../../components/wall/wallView';
-import { computeBravaisFrame, posterSafeArea, withTilt } from './bravaisFrame';
+import { computeBravaisFrame, posterSafeArea, wallHintSpan, withTilt } from './bravaisFrame';
 
 // src/library/suites/bravais/useBravaisFrame.ts
 // stage 每帧要写的那几样（相机、缝的锚点与动画中的开口、缝内容的排版宽度、是否折叠）放在一个可变的 ref 里，
 // 相机与缝的动画只改它再调 renderFrame：直接写两个世界层的 transform、缝的位置与宽度、缝内容的透明度、
-// 边缘标签的显隐与侧别，不经过 React（frontend-runtime-guardrails：拖动、补间期间没有逐帧 setState）。
+// 边缘标签的显隐与侧别、空墙说明的横向区间，不经过 React（frontend-runtime-guardrails：拖动、补间期间没有逐帧 setState）。
 
 export type BravaisFrameState = {
     view: WallView | null;
@@ -28,6 +28,8 @@ export type BravaisFrameRefs = {
     seam: RefObject<HTMLDivElement | null>;
     seamContent: RefObject<HTMLDivElement | null>;
     tab: RefObject<HTMLButtonElement | null>;
+    /** 空墙说明（BravaisWallHint）：只在它显示着时写（data-bravais-wall-hint="shown"）。 */
+    hint: RefObject<HTMLDivElement | null>;
 };
 
 export const useBravaisFrame = (refs: BravaisFrameRefs) => {
@@ -56,7 +58,7 @@ export const useBravaisFrame = (refs: BravaisFrameRefs) => {
             poster: state.poster,
             tiltDeg: state.tiltDeg,
         });
-        const { left, right, seam, seamContent, tab } = refs;
+        const { left, right, seam, seamContent, tab, hint } = refs;
         if (left.current) left.current.style.transform = withTilt(formatWorldTransform(frame.left.x, frame.left.y, frame.scale), frame.tilt);
         if (right.current) right.current.style.transform = withTilt(formatWorldTransform(frame.right.x, frame.right.y, frame.scale), frame.tilt);
         const seamElement = seam.current;
@@ -82,6 +84,15 @@ export const useBravaisFrame = (refs: BravaisFrameRefs) => {
             const display = frame.tab.visible ? '' : 'none';
             if (tabElement.style.display !== display) tabElement.style.display = display;
             if (tabElement.dataset.side !== frame.tab.side) tabElement.dataset.side = frame.tab.side;
+        }
+        const hintElement = hint.current;
+        if (hintElement && hintElement.dataset.bravaisWallHint === 'shown') {
+            // 取整到像素：拖动时文字只在区间真的变宽 / 变窄一像素时重排。
+            const span = wallHintSpan(frame, state.view.width);
+            const hintLeft = `${Math.round(span.left)}px`;
+            const hintWidth = `${Math.round(span.width)}px`;
+            if (hintElement.style.left !== hintLeft) hintElement.style.left = hintLeft;
+            if (hintElement.style.width !== hintWidth) hintElement.style.width = hintWidth;
         }
     }, [refs]);
 
