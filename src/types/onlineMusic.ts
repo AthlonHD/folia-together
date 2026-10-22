@@ -120,6 +120,12 @@ export interface ProviderAudioSource {
      */
     preview?: boolean;
     /**
+     * Where the preview clip starts inside the song, in milliseconds. Only meaningful with `preview`;
+     * absent means the clip starts at the song's start. Playback reads it with the URL
+     * (`omni.previewClipStartMsOfAudioSource`) to line the lyrics up with the clip.
+     */
+    clipStartMs?: number;
+    /**
      * 本 Fork:平台实际给出的音质(而不是请求的那档),用来在播放条上如实显示。只填平台自己答出来的部分;
      * 平台不说就不填,界面也就不显示(不拿"请求的档位"冒充实际)。
      */

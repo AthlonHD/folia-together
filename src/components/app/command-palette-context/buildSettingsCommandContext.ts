@@ -116,6 +116,8 @@ export const buildSettingsCommandContext = (
             const wall = useLibraryWallLookStore.getState();
             wall.setBackdropBlur(!wall.backdropBlur);
         },
+        libraryWallSeamDirection: () => useLibraryWallLookStore.getState().seamDirection,
+        setLibraryWallSeamDirection: direction => useLibraryWallLookStore.getState().setSeamDirection(direction),
         ponderHintVisibility: ponder.ponderHintVisibility,
         setPonderHintVisibility: ponder.setPonderHintVisibility,
         togglePonderTouchButton: () => {

@@ -7138,11 +7138,11 @@ ipcMain.handle('lyric-api-set-enabled', (event, enabled) => {
   return lyricApi.setEnabled(Boolean(enabled));
 });
 
-ipcMain.handle('lyric-api-publish', (event, lyrics, offset) => {
+ipcMain.handle('lyric-api-publish', (event, lyrics, offset, clipStartMs) => {
   if (!isTrustedMainWindowContents(event.sender)) {
     return false;
   }
-  return lyricApi.publishLyricData(lyrics, offset);
+  return lyricApi.publishLyricData(lyrics, offset, clipStartMs);
 });
 
 ipcMain.handle('discord-presence-get-status', (event) => {

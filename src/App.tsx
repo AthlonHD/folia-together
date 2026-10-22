@@ -1729,6 +1729,7 @@ export default function App() {
         isElectronWindow,
         lyrics,
         offset: effectiveLyricTimelineOffsetMs,
+        audioSrc,
     });
     const canGenerateAITheme = Boolean((lyrics?.lines.length ?? 0) > 0 || currentSong?.isPureMusic);
     const generateCurrentSongTheme = useCallback(() => {

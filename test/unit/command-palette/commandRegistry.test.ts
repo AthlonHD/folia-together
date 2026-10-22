@@ -117,6 +117,8 @@ const createContext = (overrides: CommandPaletteContextOverrides = {}): CommandP
             setLibraryWallSeamStyle: vi.fn(),
             toggleLibraryWallBackdropLyrics: vi.fn(),
             toggleLibraryWallBackdropBlur: vi.fn(),
+            libraryWallSeamDirection: () => 'auto' as const,
+            setLibraryWallSeamDirection: vi.fn(),
             ponderHintVisibility: 'always' as const,
             setPonderHintVisibility: vi.fn(),
             togglePonderTouchButton: vi.fn(),

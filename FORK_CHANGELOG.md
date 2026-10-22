@@ -15,7 +15,7 @@
 
 ## [Unreleased]
 
-- 并入上游 main 至 bf7f24a5（上游版本仍是 v0.7.21）：Folium 1.7 的 `folium.omni`、`playback.replaceQueue`、`folium.equalizer`，播放队列被整表写入时的竞态修复，墙面快捷排新增「打开设置」，Bravais 墙面的背景说明等。
+- 并入上游 main 至 a8da4437（上游版本仍是 v0.7.21）：Folium 1.7 的 `folium.omni`、`playback.replaceQueue`、`folium.equalizer`，播放队列被整表写入时的竞态修复，墙面快捷排新增「打开设置」，Bravais 墙面的背景说明等。
 - 并入上游 main 至 f3a90708（上游版本仍是 v0.7.21）：Folium 1.7（模组命令可绑系统级全局快捷键、密钥类设置字段、`folium.account` 登录状态与事件、实验接口 `platform.raw`）、遥控小窗尺寸修复、Linux 上 MNN 的编译修复等。
 
 ## [1.7.1] - 2026-10-21
