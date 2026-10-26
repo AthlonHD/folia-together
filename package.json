@@ -16,7 +16,7 @@
     "url": "https://github.com/AthlonHD/folia-together/issues"
   },
   "private": true,
-  "version": "0.7.21",
+  "version": "0.7.22",
   "foliaReleaseChannel": "internal",
   "license": "AGPL-3.0",
   "type": "module",
@@ -226,6 +226,12 @@
       ],
       "include": "build/installer.nsh"
     },
+    "rpm": {
+      "fpm": [
+        "--rpm-rpmbuild-define",
+        "_build_id_links none"
+      ]
+    },
     "linux": {
       "artifactName": "${name}-${version}-linux-${arch}.${ext}",
       "target": [
@@ -265,6 +271,7 @@
     "koffi": "^3.3.1",
     "kugoumusicapi": "https://github.com/MakcRe/KuGouMusicApi/archive/refs/tags/v1.6.0.tar.gz",
     "music-metadata": "^11.16.1",
+    "qishui-music-api": "0.2.2",
     "ws": "^8.21.3",
     "youtubei.js": "18.1.0"
   },

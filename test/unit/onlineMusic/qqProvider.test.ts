@@ -8,13 +8,15 @@ const clearSessionMock = vi.hoisted(() => vi.fn());
 const writeSessionValueMock = vi.hoisted(() => vi.fn());
 const searchQQSongsMock = vi.hoisted(() => vi.fn());
 const fetchQQLyricsMock = vi.hoisted(() => vi.fn());
-const transportState = vi.hoisted(() => ({ hasSession: true }));
+const transportState = vi.hoisted(() => ({ hasSession: true, parked: false }));
 
 vi.mock('@/services/onlineMusic/qq/qqTransport', async importOriginal => ({
     ...await importOriginal<typeof import('@/services/onlineMusic/qq/qqTransport')>(),
     getQqTransportAvailability: () => ({ configured: true }),
     getQqRemoteApiBase: () => 'https://qq.example.test',
     hasQqSession: () => transportState.hasSession,
+    hasUsableQqSession: () => transportState.hasSession,
+    isQqSessionParked: async () => transportState.parked,
     clearQqSession: clearSessionMock,
     requestQq: requestMock,
     requestQqMusicu: musicuMock,
@@ -22,6 +24,13 @@ vi.mock('@/services/onlineMusic/qq/qqTransport', async importOriginal => ({
 
 vi.mock('@/services/onlineMusic/providerStorage', () => ({
     writeProviderSessionValue: writeSessionValueMock,
+}));
+
+// 登录确认后的续期在后台接着问后端（qqSessionRefresh.ts，有它自己的测试）；这里不让它占 requestMock 排好的回答。
+vi.mock('@/services/onlineMusic/qq/qqSessionRefresh', () => ({
+    keepQqSessionFresh: () => { },
+    stopQqSessionRefresh: () => { },
+    resetQqSessionRefresh: () => { },
 }));
 
 vi.mock('@/services/onlineMusic/qq/qqLyricProvider', () => ({
@@ -291,6 +300,25 @@ describe('qqProvider', () => {
         expect(normalizeQqCollection(PLAYLIST_ITEM).isLiked).toBe(true);
         expect(normalizeQqCollection({ tid: 8, dirId: 202, dirName: '自建歌单', songNum: 1 }).isLiked).toBeUndefined();
         expect(normalizeQqCollection({ dissid: 9, dirId: 201, name: '别人的我喜欢', songnum: 1 }).isLiked).toBeUndefined();
+    });
+
+    it('keeps the owned playlist update time in milliseconds across account cache hydration', () => {
+        const collection = normalizeQqCollection({ ...PLAYLIST_ITEM, updateTime: 1792948021 });
+        expect(collection.updatedAt).toBe(1792948021000);
+        expect(normalizeQqCollection(collection)).toEqual(collection);
+        expect(normalizeQqCollection({ ...PLAYLIST_ITEM, updatedAt: 1792948021000, updateTime: 1 }).updatedAt)
+            .toBe(1792948021000);
+        expect(normalizeQqCollection({ tid: 8, dirId: 1, dirName: '自建歌单', songNum: 0, updateTime: '1792948025' }).updatedAt)
+            .toBe(1792948025000);
+    });
+
+    it('does not treat an empty liked folder or a favourite ordering time as a collection version', () => {
+        expect(normalizeQqCollection({ ...PLAYLIST_ITEM, songNum: 0, updateTime: 1792948021 }).updatedAt).toBeUndefined();
+        expect(normalizeQqCollection({ ...PLAYLIST_ITEM, songNum: 0, updatedAt: 1792948021000 }).updatedAt).toBeUndefined();
+        expect(normalizeQqCollection({ tid: 9, name: '收藏歌单', songnum: 3, orderTime: 1792948021 }).updatedAt).toBeUndefined();
+        for (const updateTime of [undefined, null, '', 0, -1, 'invalid', Infinity]) {
+            expect(normalizeQqCollection({ ...PLAYLIST_ITEM, updateTime }).updatedAt).toBeUndefined();
+        }
     });
 
     it('normalizes the playlist and profile payloads, including a profile without a display name', () => {
@@ -720,6 +748,22 @@ describe('qqProvider', () => {
         await expect(qqProvider.auth!.getLoginStatus()).resolves.toBeNull();
         await expect(qqProvider.auth!.getLoginStatus()).resolves.toBeNull();
         expect(requestMock).toHaveBeenCalledWith('login_status');
+    });
+
+    // 主进程这次没读出加密的登录仓库：后端里没有会话，不认这个 session 不等于登出，session 要留着。
+    it('reports the login status as unavailable, not anonymous, while the sign-in store could not be read', async () => {
+        transportState.parked = true;
+        try {
+            requestMock
+                .mockResolvedValueOnce({ code: 200, data: {} })
+                .mockRejectedValueOnce(new OnlineProviderError('auth-required', 'QQMusicApi login required', 'qq'));
+
+            await expect(qqProvider.auth!.getLoginStatus()).rejects.toMatchObject({ code: 'unavailable' });
+            await expect(qqProvider.auth!.getLoginStatus()).rejects.toMatchObject({ code: 'unavailable' });
+            expect(clearSessionMock).not.toHaveBeenCalled();
+        } finally {
+            transportState.parked = false;
+        }
     });
 
     it('propagates non-auth login status failures', async () => {

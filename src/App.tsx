@@ -93,6 +93,8 @@ import { resolveActiveProviderSummary } from './library/core/account/accountRule
 import { useAppPreferences } from './hooks/useAppPreferences';
 import { useElectronPlaybackBridge } from './components/app/playback/bridges/useElectronPlaybackBridge';
 import { useElectronDisplaySleepBlocker } from './hooks/useElectronDisplaySleepBlocker';
+import { useBackgroundLyricHold } from './components/app/backgroundThrottling/useBackgroundLyricHold';
+import { readLiveLyricTime, useBackgroundLyricHoldStore } from './components/app/backgroundThrottling/backgroundLyricHoldStore';
 import { useSleepTimer } from './hooks/useSleepTimer';
 import { useProviderNotices } from './components/app/useProviderNotices';
 import { useLocalLibraryAutoScan } from './hooks/useLocalLibraryAutoScan';
@@ -503,6 +505,9 @@ export default function App() {
         preventDisplaySleepDuringPlayback,
         playerState === PlayerState.PLAYING,
     );
+    useBackgroundLyricHold();
+    // The app.overlay mod layers read the same lyric clock and line the hold keeps still: paused with it.
+    const backgroundLyricHeld = useBackgroundLyricHoldStore(state => state.held);
 
     const visualizerTunings = useVisualizerTunings();
 
@@ -1714,8 +1719,10 @@ export default function App() {
         refreshObsBrowserSourceStatus,
     } = useObsBrowserSourcePublisher({
         isElectronWindow,
+        audioRef,
+        getDisplayAudioElement: automix.getDisplayElement,
         stageSource,
-        coverUrl,
+        coverUrl: displayCoverUrl,
         offsetMs: effectiveLyricTimelineOffsetMs,
         theme: visualizerTheme,
         subtitleTheme: visualizerSubtitleTheme,
@@ -2117,7 +2124,8 @@ export default function App() {
             return;
         }
 
-        const playbackTime = Math.max(0, lyricTimeSec + currentTime.get() - lyricCurrentTime.get());
+        // Not lyricCurrentTime itself: 后台节流 holds that still while the window is hidden and playback runs on.
+        const playbackTime = Math.max(0, lyricTimeSec + currentTime.get() - readLiveLyricTime());
         if (activePlaybackContext === 'stage' && stageActiveEntryKind === 'lyrics' && !audioSrc) {
             syncStageLyricsClock(playbackTime, duration, playerState, stageLyricsClockRef.current.startTimeSec);
             currentTime.set(playbackTime);
@@ -2882,6 +2890,7 @@ export default function App() {
                                 currentSong={displaySong}
                                 playerState={displayPlayerState}
                                 currentTime={currentTime}
+                                lyricCurrentTime={lyricCurrentTime}
                                 playbackDuration={displayDuration}
                                 canTogglePlayback={canToggleCurrentPlayback}
                                 queue={playQueue}
@@ -2940,7 +2949,7 @@ export default function App() {
                 slot="app.overlay"
                 theme={theme}
                 isDaylight={isDaylight}
-                paused={displayPlayerState !== PlayerState.PLAYING}
+                paused={displayPlayerState !== PlayerState.PLAYING || backgroundLyricHeld}
                 className="fixed inset-0 pointer-events-none z-[1000]"
             />
 

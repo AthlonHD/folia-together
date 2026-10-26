@@ -30,7 +30,7 @@ Lyrics Reimagined // 辞曲新境 —— 一台机器放歌，一群人遥控
 
 ## 项目简介
 
-Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器（上游项目：[chthollyphile/folia-major](https://github.com/chthollyphile/folia-major)），支持网易云、QQ 音乐、酷狗、Navidrome 和本地音乐库，通过智能歌词匹配、AI 生成配色主题以及多种全屏歌词动画，提供独特的听歌体验。
+Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器（上游项目：[chthollyphile/folia-major](https://github.com/chthollyphile/folia-major)），支持网易云、QQ 音乐、酷狗、Navidrome 和本地音乐库，桌面端还支持波点音乐、YouTube Music、Spotify 和汽水音乐，通过智能歌词匹配、AI 生成配色主题以及多种全屏歌词动画，提供独特的听歌体验。
 
 **本仓库（[AthlonHD/folia-together](https://github.com/AthlonHD/folia-together)）是它的长期维护 Fork**，开发分支为 `stage-remote`。在保留上游全部播放与歌词能力的基础上，围绕三个方向做了扩展：
 

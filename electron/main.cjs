@@ -14,6 +14,14 @@ const { createModSystem } = require('./modSystem/modSystem.cjs');
 const { MOD_PROTOCOL_PRIVILEGED_SCHEME } = require('./modSystem/modProtocol.cjs');
 const { createWindowPlaybackHandoffStore } = require('./windowPlaybackHandoff.cjs');
 const { applyTileMemoryBudget } = require('./tileMemoryBudget.cjs');
+const { BACKGROUND_THROTTLING_SETTING_KEY, createBackgroundThrottling } = require('./backgroundThrottling.cjs');
+const {
+  GPU_PREFERENCE_SETTING_KEY,
+  applyGpuPreference,
+  createActiveGpuReader,
+  logGpuPreference,
+  normalizeGpuPreference,
+} = require('./gpuPreference.cjs');
 const {
   REMOTE_CONTROL_HIDE_TITLEBAR_SETTING_KEY,
   REMOTE_CONTROL_CLICK_THROUGH_SETTING_KEY,
@@ -54,6 +62,8 @@ const {
 const { createKugouApiBridge } = require('./kugou/kugouApiBridge.cjs');
 const { createExternalUrlOpener } = require('./externalUrlPolicy.cjs');
 const { createSenderGuardedHandler } = require('./ipcAccessGuard.cjs');
+const { createQishuiApiBridge } = require('./qishui/qishuiApiBridge.cjs');
+const { createQishuiMediaPolicy } = require('./qishui/mediaCors.cjs');
 const { createBodianApiBridge } = require('./bodian/bodianApiBridge.cjs');
 const { createBodianMediaPolicy } = require('./bodian/mediaCors.cjs');
 const { createYtmApiBridge } = require('./ytm/ytmApiBridge.cjs');
@@ -85,7 +95,7 @@ const { resolveCacheLimit, selectEvictions } = require('./audioCachePrune.cjs');
 const { removeAudioCacheFileOfSize } = require('./audioCacheRemove.cjs');
 const { createAnalysisHost } = require('./analysis/host.cjs');
 const { createDebugHost, runtimeLine } = require('./debug/debugHost.cjs');
-const { createCrashLog, installCrashHandlers } = require('./debug/crashLog.cjs');
+const { createCrashLog, installCrashHandlers, flushPageStorage } = require('./debug/crashLog.cjs');
 const { measureLeftovers, removeDownloadedLeftovers } = require('./analysis/modelPaths.cjs');
 const { resolveLinuxPasswordStore } = require('./linuxPasswordStore.cjs');
 const { resolveLinuxVulkanChoice, logLinuxVulkanChoice } = require('./linuxVulkan.cjs');
@@ -95,15 +105,15 @@ const { createTranscodeService } = require('./transcode/service.cjs');
 const { TRANSCODE_PROTOCOL_SCHEME } = require('./transcode/protocol.cjs');
 const { sanitizeDualTheme: sanitizeGeneratedDualTheme } = require('../shared/themeSanitizer.cjs');
 const {
-  detectOpenAICompatibleProvider,
-  normalizeOpenAIChatCompletionsUrl,
+  aiProviderLabel,
   runAiConnectionTest,
   runAiJsonCompletion,
   runGeminiThemeCompletion,
 } = require('./aiTextClient.cjs');
+const { registerAiModelDiscovery } = require('./ai/modelDiscoveryIpc.cjs');
 const { createAiCredentialStore, isAiCredentialKey, isReservedAiCredentialKey } = require('./aiCredentialStore.cjs');
 const {
-  SEGMENTATION_GEMINI_GENERATION_CONFIG,
+  SEGMENTATION_GEMINI_SCHEMA,
   SEGMENTATION_JSON_SCHEMA,
   SEGMENTATION_MAX_OUTPUT_TOKENS,
   SEGMENTATION_SCHEMA_NAME,
@@ -258,6 +268,9 @@ if (process.platform === 'darwin' && process.arch === 'x64') {
 }
 
 const store = new Store({ projectName: 'Folia' });
+// Before ready: the GPU process reads its switches when it starts.
+const gpuPreferenceApplied = applyGpuPreference({ app, store });
+const readActiveGpu = createActiveGpuReader(app);
 const transcodeService = createTranscodeService({
   app,
   protocol,
@@ -267,6 +280,10 @@ const transcodeService = createTranscodeService({
 // KuGou credentials stay inside the main process and are encrypted lazily after Electron is ready.
 // The bridge refuses Linux's plaintext `basic_text` fallback and degrades to an in-memory session.
 const kugouApiBridge = createKugouApiBridge({ store, safeStorage });
+const qishuiMediaPolicy = createQishuiMediaPolicy();
+const qishuiApiBridge = createQishuiApiBridge({ store, safeStorage, fetch: (url, options) => electronNet.fetch(url, options),
+  onAudioSource: url => qishuiMediaPolicy.register(url),
+});
 const bodianMediaPolicy = createBodianMediaPolicy();
 const bodianApiBridge = createBodianApiBridge({ store, safeStorage,
   onAudioSource: url => bodianMediaPolicy.register(url),
@@ -397,6 +414,18 @@ function resolveWindowToLayerPath() {
   return fs.existsSync(candidate) ? candidate : null;
 }
 
+// app.exit() does not wait for the pages' storage (localStorage, a sign-in among it) to reach the
+// disk: it is asked to be written first (crashLog.cjs `flushPageStorage`). That only asks, so the
+// exit is not held. `what` names the exit in the line that says the asking failed.
+const exitAfterAskingStorageWritten = (code, what) => {
+  try {
+    flushPageStorage();
+  } catch (error) {
+    console.error(`[Wallpaper] Failed to ask for the pages' storage to be written before the ${what}`, error);
+  }
+  app.exit(code);
+};
+
 // Enables wallpaper mode on Wayland: spawn windowtolayer wrapping a fresh Folia child, then the
 // old process exits once the wrapper has spawned. Spawn failure (ENOENT/EACCES) arrives on the
 // async 'error' event, never as a synchronous throw, so we revert the setting instead of crashing.
@@ -431,7 +460,7 @@ function launchWrappedSelf({ onError } = {}) {
       } catch (error) {
         console.error('[Mods] Failed to take up the start note', error);
       }
-      app.exit(0);
+      exitAfterAskingStorageWritten(0, 'restart');
     });
   });
 }
@@ -445,7 +474,8 @@ const wallpaperWatchdog = wallpaperWatchdogModule.createWallpaperWatchdog({
   execPath: () => process.execPath,
   argv: () => process.argv.slice(1),
   getPpid: () => process.ppid,
-  exit: (code) => app.exit(code),
+  // As at the restart above: the pages' storage is asked to be written before app.exit().
+  exit: (code) => exitAfterAskingStorageWritten(code, 'relaunch'),
   killFn: process.kill.bind(process),
   probeIntervalMs: 2000,
 });
@@ -1328,6 +1358,8 @@ function deferMacWallpaperEnterUntilFullScreenExit() {
 
 function notifyMacWallpaperModeChanged() {
   refreshTrayMenu();
+  // macOS switches wallpaper mode in place, not always through save-settings: every change ends here.
+  backgroundThrottling.refresh();
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('wallpaper-mode-changed', getPublicSettings());
   }
@@ -2411,6 +2443,16 @@ let mainWindowClickThroughUnlockHover = false;
 let mainWindowClickThroughUnlockHoverTimer = null;
 let mainWindowSkipTaskbarEnabled = false;
 let videoExportWindowRestoreState = null;
+// The 后台节流 switch; refresh() wherever one of its stand-down reasons can change.
+const backgroundThrottling = createBackgroundThrottling({
+  isEnabled: () => readStoredBoolean(BACKGROUND_THROTTLING_SETTING_KEY, false),
+  getStandDownReason: () => {
+    if (isWallpaperModeEnabled()) return 'wallpaper mode';
+    if (videoExportWindowRestoreState) return 'video export';
+    if (obsBrowserSourceClients.size > 0) return 'OBS browser source';
+    return null;
+  },
+});
 // Chromium's fragmented MP4 leaves the movie duration at the first fragment (#549); patch it
 // from the fragment timeline once recording ends.
 const videoExportFileWriter = createVideoExportFileWriter({ finalizeFile: finalizeVideoExportFile });
@@ -2594,9 +2636,11 @@ function getPublicSettings() {
     [VOICE_INPUT_PAUSE_ENABLED_SETTING_KEY]: readStoredBoolean(VOICE_INPUT_PAUSE_ENABLED_SETTING_KEY, false),
     [PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_SETTING_KEY]: readStoredBoolean(PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_SETTING_KEY, false),
     [MOD_SYSTEM_ENABLED_SETTING_KEY]: readStoredBoolean(MOD_SYSTEM_ENABLED_SETTING_KEY, false),
+    [BACKGROUND_THROTTLING_SETTING_KEY]: readStoredBoolean(BACKGROUND_THROTTLING_SETTING_KEY, false),
     [UPDATE_CHANNEL_SETTING_KEY]: getCurrentReleaseChannel().id,
     'enable_player_page_native_blur': store.get('enable_player_page_native_blur') === true,
     'wallpaper_attach_mode': process.platform === 'win32' ? wallpaperWindowsAttachMode : null,
+    [GPU_PREFERENCE_SETTING_KEY]: normalizeGpuPreference(store.get(GPU_PREFERENCE_SETTING_KEY)),
     [WALLPAPER_MODE_SETTING_KEY]: isWallpaperModeEnabled(),
     [WALLPAPER_ENTRY_CONFIRMED_SETTING_KEY]: readStoredBoolean(WALLPAPER_ENTRY_CONFIRMED_SETTING_KEY, false),
     [WALLPAPER_MAC_AUTOHIDE_DOCK_SETTING_KEY]: readStoredBoolean(WALLPAPER_MAC_AUTOHIDE_DOCK_SETTING_KEY, true),
@@ -2653,6 +2697,7 @@ function buildObsBrowserSourceStatus() {
 }
 
 function broadcastObsBrowserSourceStatus() {
+  backgroundThrottling.refresh();
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('obs-browser-source-status-changed', buildObsBrowserSourceStatus());
   }
@@ -3553,7 +3598,7 @@ function setupCorsBypassHandlers() {
         hostname === 'kugou.com' ||
         hostname.endsWith('.kugou.com') ||
         // Bodian audio and cover CDNs may omit CORS headers needed by Web Audio and canvas/WebGL.
-        bodianMediaPolicy.allows(details);
+        bodianMediaPolicy.allows(details) || qishuiMediaPolicy.allows(details);
     } catch (error) {
       isTargetDomain = false;
     }
@@ -3568,7 +3613,7 @@ function setupCorsBypassHandlers() {
     callback({ cancel: false, responseHeaders });
   });
 
-  ses.webRequest.onBeforeRedirect(details => bodianMediaPolicy.followRedirect(details));
+  ses.webRequest.onBeforeRedirect(details => { bodianMediaPolicy.followRedirect(details); qishuiMediaPolicy.followRedirect(details); });
 
   ses.webRequest.onErrorOccurred({ urls: ['*://*.kugou.com/*'] }, details => {
     const requestInfo = getKugouMediaRequestInfo(details);
@@ -4275,7 +4320,9 @@ function getGeminiResponseSchema() {
 }
 
 const THEME_JSON_SCHEMA_NAME = 'dual_theme';
-const THEME_MAX_OUTPUT_TOKENS = 4096;
+// What the theme's answer needs. Attempts that cannot switch reasoning off get room for it on top
+// (shared/ai/aiTasks.mjs), so this no longer depends on the provider.
+const THEME_MAX_OUTPUT_TOKENS = 8192;
 const THEME_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -5224,9 +5271,14 @@ function pollRemoteControlPointer() {
 }
 
 // Dragged past the outer left edge of the screens, the idle look's cover would be cut off. On
-// Windows the move can be held there as it happens; elsewhere a move cannot be refused.
+// Windows the move can be held there as it happens; elsewhere a move cannot be refused. With the
+// cover collapsed only the card in use is held, so it can reach the edge.
 function keepRemoteControlCoverOnScreen(win, event, newBounds) {
-  const x = clampRemoteControlWindowX(newBounds, screen.getAllDisplays().map(display => display.bounds));
+  const x = clampRemoteControlWindowX(
+    newBounds,
+    screen.getAllDisplays().map(display => display.bounds),
+    remoteControlExpandCoverEnabled,
+  );
   if (x !== newBounds.x) {
     // Windows then keeps the window where this puts it, and the drag slides along the edge.
     event.preventDefault();
@@ -5234,6 +5286,20 @@ function keepRemoteControlCoverOnScreen(win, event, newBounds) {
     // min === max === REMOTE_CONTROL_WINDOW_WIDTH/HEIGHT). Stating it on every move keeps the
     // window the size the page is laid out to, instead of leaving the platform to re-derive it.
     win.setBounds({ x, y: newBounds.y, width: REMOTE_CONTROL_WINDOW_WIDTH, height: REMOTE_CONTROL_WINDOW_HEIGHT });
+  }
+}
+
+// Switching the cover back on where the card was dragged to the edge: the strip left of the card
+// is off screen, so the window steps right until the cover fits, as a drag would have held it.
+function bringRemoteControlCoverOnScreen(win) {
+  if (process.platform !== 'win32' || !win || win.isDestroyed()) {
+    return;
+  }
+
+  const bounds = win.getBounds();
+  const x = clampRemoteControlWindowX(bounds, screen.getAllDisplays().map(display => display.bounds), true);
+  if (x !== bounds.x) {
+    win.setBounds({ x, y: bounds.y, width: REMOTE_CONTROL_WINDOW_WIDTH, height: REMOTE_CONTROL_WINDOW_HEIGHT });
   }
 }
 
@@ -5584,6 +5650,7 @@ function createWindow(options = {}) {
   }
 
   mainWindow = win;
+  backgroundThrottling.attach(win);
   ensureTray();
   setMainWindowSkipTaskbarEnabled(mainWindowSkipTaskbarEnabled);
   // Full initializer, not just applyMainWindowMouseIgnoreState(): when click-through is on at
@@ -5788,6 +5855,13 @@ app.whenReady().then(async () => {
 
   if (process.platform === 'win32') {
     app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
+  }
+  logGpuPreference(gpuPreferenceApplied);
+  if (process.platform === 'win32') {
+    // Late, so the DxDiag pass behind the read stays out of startup; the settings page may read it sooner.
+    setTimeout(() => {
+      readActiveGpu().catch(error => console.warn('[Gpu] Could not read the active adapter', error));
+    }, 10_000);
   }
 
   if (process.platform === 'linux' && typeof safeStorage.getSelectedStorageBackend === 'function') {
@@ -6073,22 +6147,26 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Set while a quit is held for a YouTube Music web sign-in (see before-quit).
-let isQuitHeldForYtmSignIn = false;
+// The bridges whose work under way holds a quit, each through its shutdown() (see before-quit).
+const quitHoldingBridges = [ytmApiBridge, spotifyApiBridge];
+// Set while a quit is held for such work (see before-quit).
+let isQuitHeldForAccounts = false;
 
 app.on('before-quit', (event) => {
-  // A YouTube Music web sign-in under way: its browser is ended, and its folder holds a whole
-  // Google session. The quit is held until that folder is removed, 3 seconds at most, and then
-  // asked for again; nothing below has run by then. A quit with no such sign-in is not held, and
-  // neither is one that arrives while another is held.
-  const ytmSignInGone = ytmApiBridge.shutdown();
-  if (ytmSignInGone && !isQuitHeldForYtmSignIn) {
-    isQuitHeldForYtmSignIn = true;
+  // Work of a bridge that must not be cut off: a web sign-in under way, whose ended browser leaves
+  // a folder holding a whole sign-in session to remove; a token renewal whose answer is not stored
+  // yet, as the next run may not be able to use the token it replaces. shutdown() answers a promise
+  // while there is such work, settled in 3 seconds at most. The quit is held until all have
+  // settled, and then asked for again; nothing below has run by then. A quit with no such work is
+  // not held, and neither is one that arrives while another is held.
+  const held = quitHoldingBridges.map(bridge => bridge.shutdown()).filter(Boolean);
+  if (held.length > 0 && !isQuitHeldForAccounts) {
+    isQuitHeldForAccounts = true;
     event.preventDefault();
-    void ytmSignInGone.then(() => app.quit());
+    void Promise.all(held).then(() => app.quit());
     return;
   }
-  isQuitHeldForYtmSignIn = false;
+  isQuitHeldForAccounts = false;
   transcodeService.dispose();
   videoExportFileWriter.disposeSync();
   void audioHelperIpc.shutdown();
@@ -6187,6 +6265,21 @@ ipcMain.handle('get-settings', () => {
   return getPublicSettings();
 });
 
+// The GPU choice this run started with and the adapter Chromium took; null off Windows, where the
+// setting is not offered, or when the asking page is not the main window.
+ipcMain.handle('gpu-preference-state', async (event) => {
+  if (process.platform !== 'win32' || !isTrustedMainWindowContents(event.sender)) {
+    return null;
+  }
+  let activeGpu = null;
+  try {
+    activeGpu = await readActiveGpu();
+  } catch (error) {
+    console.warn('[Gpu] Could not read the active adapter for the settings page', error);
+  }
+  return { applied: gpuPreferenceApplied.preference, source: gpuPreferenceApplied.source, activeGpu };
+});
+
 // The settings page's choice of the display wallpaper mode uses (see "Wallpaper display choice").
 ipcMain.handle('wallpaper-displays-get', (event) => {
   if (!isTrustedMainWindowContents(event.sender)) {
@@ -6211,6 +6304,14 @@ ipcMain.on('wallpaper-hit-regions', (event, rects) => {
   macWallpaperHitRects = Array.isArray(rects) ? rects.slice(0, MAX_HIT_PANELS) : [];
   syncMacWallpaperHitPanels();
 });
+
+// The 后台节流 switch as the main window sees it: in force (on, not standing down), and the window
+// minimised or hidden while it is.
+ipcMain.handle('background-throttling-get', (event) => (
+  isTrustedMainWindowContents(event.sender)
+    ? backgroundThrottling.getState()
+    : { active: false, hidden: false }
+));
 
 ipcMain.handle('playback-display-sleep-set-active', (event, active) => {
   if (!isTrustedMainWindowContents(event.sender)) {
@@ -6252,6 +6353,12 @@ ipcMain.handle('save-settings', (event, key, value) => {
     }
     nextValue = channel;
   }
+  if (key === GPU_PREFERENCE_SETTING_KEY) {
+    if (normalizeGpuPreference(value) !== value) {
+      return getPublicSettings();
+    }
+    console.info(`[Gpu] Preference set to ${value}; takes effect on the next launch`);
+  }
   if (
     key === MINIMIZE_TO_TRAY_SETTING_KEY ||
     key === CLOSE_TO_TRAY_SETTING_KEY ||
@@ -6266,6 +6373,7 @@ ipcMain.handle('save-settings', (event, key, value) => {
     key === VOICE_INPUT_PAUSE_ENABLED_SETTING_KEY ||
     key === PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_SETTING_KEY ||
     key === MOD_SYSTEM_ENABLED_SETTING_KEY ||
+    key === BACKGROUND_THROTTLING_SETTING_KEY ||
     key === WALLPAPER_MODE_SETTING_KEY ||
     key === WALLPAPER_ENTRY_CONFIRMED_SETTING_KEY ||
     key === WALLPAPER_FORWARD_MOUSE_SETTING_KEY ||
@@ -6275,6 +6383,10 @@ ipcMain.handle('save-settings', (event, key, value) => {
     nextValue = Boolean(value);
   }
   store.set(key, nextValue);
+
+  if (key === BACKGROUND_THROTTLING_SETTING_KEY || key === WALLPAPER_MODE_SETTING_KEY) {
+    backgroundThrottling.refresh();
+  }
 
   if (key === MOD_SYSTEM_ENABLED_SETTING_KEY && modSystem) {
     // Turning the switch off deactivates every running mod immediately rather
@@ -6444,6 +6556,9 @@ ipcMain.handle('save-settings', (event, key, value) => {
 
   if (key === REMOTE_CONTROL_EXPAND_COVER_SETTING_KEY) {
     remoteControlExpandCoverEnabled = Boolean(nextValue);
+    if (remoteControlExpandCoverEnabled) {
+      bringRemoteControlCoverOnScreen(remoteControlWindow);
+    }
     applyRemoteControlWindowPresentation(remoteControlWindow);
   }
 
@@ -6823,6 +6938,10 @@ const audioHelperIpc = registerAudioHelperIpc({
   appPath: app.getAppPath(),
 });
 
+ipcMain.handle('qishui-api-request', (event, operation, params) => {
+  if (!isTrustedMainWindowContents(event.sender)) return { ok: false, error: { code: 'unavailable', message: 'Untrusted Qishui request' } };
+  return qishuiApiBridge.request(operation, params);
+});
 ipcMain.handle('bodian-api-request', (event, operation, params) => {
   if (!isTrustedMainWindowContents(event.sender)) {
     return { ok: false, error: { code: 'unavailable', message: 'Untrusted Bodian request' } };
@@ -7503,6 +7622,7 @@ ipcMain.handle('video-export-prepare-window', (event, size) => {
       isMaximized: mainWindow.isMaximized(),
       isFullScreen: isMainWindowFullscreen(mainWindow),
     };
+    backgroundThrottling.refresh();
   }
 
   if (isMainWindowFullscreen(mainWindow)) {
@@ -7532,11 +7652,13 @@ ipcMain.handle('video-export-restore-window', (event) => {
 
   if (!mainWindow || mainWindow.isDestroyed() || !videoExportWindowRestoreState) {
     videoExportWindowRestoreState = null;
+    backgroundThrottling.refresh();
     return false;
   }
 
   const restoreState = videoExportWindowRestoreState;
   videoExportWindowRestoreState = null;
+  backgroundThrottling.refresh();
   mainWindow.setBounds(restoreState.bounds, true);
 
   if (restoreState.isFullScreen) {
@@ -7610,17 +7732,15 @@ ipcMain.handle('generate-theme', async (event, lyricsText, options = {}) => {
     if (provider === 'openai') {
       const systemPrompt = buildThemeSystemPrompt(true);
       const sourcePrompt = buildThemeSourcePrompt(snippet, isPureMusic, songTitle);
-      const apiUrl = normalizeOpenAIChatCompletionsUrl(store.get('OPENAI_API_URL'));
       const content = await runAiJsonCompletion({
         store: aiCredentials.settingsView,
+        task: 'theme',
         systemPrompt,
         sourcePrompt,
         schema: THEME_JSON_SCHEMA,
         schemaName: THEME_JSON_SCHEMA_NAME,
         customFetch,
-        maxTokens: detectOpenAICompatibleProvider(apiUrl) === 'openai'
-          ? THEME_MAX_OUTPUT_TOKENS
-          : 8192,
+        answerTokens: THEME_MAX_OUTPUT_TOKENS,
       });
 
       let jsonStr = content.trim();
@@ -7629,8 +7749,9 @@ ipcMain.handle('generate-theme', async (event, lyricsText, options = {}) => {
       }
       dualTheme = sanitizeGeneratedDualTheme(JSON.parse(jsonStr));
 
-      dualTheme.light.provider = 'OpenAI Compatible (Local)';
-      dualTheme.dark.provider = 'OpenAI Compatible (Local)';
+      const providerLabel = await aiProviderLabel(aiCredentials.settingsView);
+      dualTheme.light.provider = providerLabel;
+      dualTheme.dark.provider = providerLabel;
 
     } else {
       const systemPrompt = buildThemeSystemPrompt(true);
@@ -7642,6 +7763,7 @@ ipcMain.handle('generate-theme', async (event, lyricsText, options = {}) => {
         systemPrompt,
         sourcePrompt,
         responseSchema: getGeminiResponseSchema(),
+        answerTokens: THEME_MAX_OUTPUT_TOKENS,
         customFetch
       }));
 
@@ -7659,6 +7781,8 @@ ipcMain.handle('generate-theme', async (event, lyricsText, options = {}) => {
     throw new Error(e instanceof Error ? e.message : String(e));
   }
 });
+
+registerAiModelDiscovery({ ipcMain, aiCredentials, store, isTrustedMainWindowContents, fetchWithOptionalSystemProxy });
 
 // "Test connection" button in AI settings: sends "hello" using the values currently in the form
 // (not the saved ones, nothing is persisted) over the same fetch/proxy path as real AI requests.
@@ -7709,19 +7833,20 @@ ipcMain.handle('segment-lyrics', async (event, lines) => {
 
     rawResponse = await runAiJsonCompletion({
       store: aiCredentials.settingsView,
+      // Splitting text at word boundaries has nothing to reason about, and a reasoning model left
+      // to its own devices spends the whole budget thinking and returns nothing. The segmentation
+      // task is what tells each provider's adapter to switch reasoning off (on Gemini, the zero
+      // thinking budget of SEGMENTATION_GEMINI_GENERATION_CONFIG).
+      task: 'segmentation',
       systemPrompt: buildSegmentationSystemPrompt(),
       sourcePrompt: buildSegmentationSourcePrompt(sourceLines),
       schema: SEGMENTATION_JSON_SCHEMA,
       schemaName: SEGMENTATION_SCHEMA_NAME,
-      // Gemini takes its own dialect plus a zero thinking budget; see the config's comment for
-      // the measurements. Sending neither is what made this take 40s.
-      geminiGenerationConfig: SEGMENTATION_GEMINI_GENERATION_CONFIG,
+      // Gemini takes its own dialect; see the generation config's comment for the measurements.
+      // Sending neither the schema nor the zero thinking budget is what made this take 40s.
+      geminiSchema: SEGMENTATION_GEMINI_SCHEMA,
       customFetch,
-      maxTokens: SEGMENTATION_MAX_OUTPUT_TOKENS,
-      // Splitting text at word boundaries has nothing to reason about, and a reasoning model left
-      // to its own devices spends the whole budget thinking and returns nothing. Same reason the
-      // Gemini config sets thinkingBudget to 0.
-      disableReasoning: true,
+      answerTokens: SEGMENTATION_MAX_OUTPUT_TOKENS,
     });
 
     const { boundaries, rejections } = parseSegmentationResponse(rawResponse, sourceLines);

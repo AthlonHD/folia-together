@@ -159,6 +159,7 @@ const createContext = (overrides: CommandPaletteContextOverrides = {}): CommandP
             toggleVoiceInputPause: vi.fn(),
             togglePreventDisplaySleepDuringPlayback: vi.fn(),
             togglePassthrough: vi.fn(),
+            toggleBackgroundThrottling: vi.fn(),
             toggleWallpaperMode: vi.fn(),
             toggleCloseToTray: vi.fn(),
             toggleHideRemoteControlTitlebar: vi.fn(),
@@ -166,6 +167,8 @@ const createContext = (overrides: CommandPaletteContextOverrides = {}): CommandP
             unlockRemoteControl: vi.fn(),
             toggleObsKeepMainWindowAnimation: vi.fn(),
             toggleWallpaperMacAutohideDock: vi.fn(),
+            gpuPreference: () => 'auto',
+            setGpuPreference: vi.fn(),
             sleepTimerEnabled: false,
             setSleepTimerEnabled: vi.fn(),
             sleepTimerHours: 0,
@@ -875,6 +878,19 @@ describe('command palette registry', () => {
             expect(match.command.id).toBe('desktop-toggle-prevent-display-sleep');
             await match.command.execute('', context);
             expect(context.settings.togglePreventDisplaySleepDuringPlayback).toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('matches and executes the desktop background throttling toggle', async () => {
+        vi.stubGlobal('window', { electron: {} });
+        try {
+            const context = createContext();
+            const [match] = getCommandPaletteMatches('后台节流', context);
+            expect(match.command.id).toBe('desktop-toggle-background-throttling');
+            await match.command.execute('', context);
+            expect(context.settings.toggleBackgroundThrottling).toHaveBeenCalled();
         } finally {
             vi.unstubAllGlobals();
         }
