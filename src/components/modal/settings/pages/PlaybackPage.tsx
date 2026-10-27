@@ -17,12 +17,13 @@ import { HEARTBEAT_INTERVAL_OPTIONS } from '../../../../utils/heartbeatPlan';
 import AudioOutputDeviceRow from './AudioOutputDeviceRow';
 import PassthroughGroup, { PASSTHROUGH_OPTIONS } from './PassthroughGroup';
 import RemoteServerGroup, { REMOTE_SERVER_OPTIONS } from './RemoteServerGroup';
+import HifiSettings, { HIFI_OPTIONS } from './hifi/HifiSettings';
 import { useSettingsPage } from './settingsPageContext';
 
 // src/components/modal/settings/pages/PlaybackPage.tsx
-// The 播放控制 page: how one song hands over to the next (Folia transitions), where the sound goes
-// and how loud it is, what play and add-to-queue do, and (desktop app) the folded group of the
-// analysis models the full transition engine needs.
+// The 播放控制 page: (desktop app) which engine plays local and Navidrome songs, Web Audio or mpv,
+// with mpv's own settings under it (pages/hifi/); how one song hands over to the next (Folia
+// transitions), where the sound goes and how loud it is, what play and add-to-queue do.
 
 const TRANSITION: SettingsGroupDef = { id: 'transitionSettings', titleKey: 'options.transitionSettings' };
 const SOUND: SettingsGroupDef = { id: 'audioOutputSettings', titleKey: 'options.settingsHeadingSound' };
@@ -47,7 +48,7 @@ const O = {
     voiceInputPause: option(BEHAVIOR, 'voiceInputPause', 'options.voiceInputPause', { electronOnly: true, available: () => runsOnWindows() }),
 };
 
-export const OPTIONS: SettingsOptionDef[] = [...PLAY_TARGET_OPTIONS, ...Object.values(O), ...Object.values(PASSTHROUGH_OPTIONS), ...Object.values(REMOTE_SERVER_OPTIONS)];
+export const OPTIONS: SettingsOptionDef[] = [...PLAY_TARGET_OPTIONS, ...HIFI_OPTIONS, ...Object.values(O), ...Object.values(PASSTHROUGH_OPTIONS), ...Object.values(REMOTE_SERVER_OPTIONS)];
 
 /**
  * The pass an animation chip plays when it is switched on: a ten-second blend at 120 BPM, addressed
@@ -126,6 +127,7 @@ const PlaybackPage: React.FC = () => {
             <PlayTargetGroup />
             {/* 本 Fork:桌面版当遥控端,在独立窗口打开服务器的遥控页(自己不能被遥控) */}
             {isElectron && <RemoteServerGroup />}
+            {isElectron && <HifiSettings />}
             <Group def={TRANSITION}>
                 <Row option={O.transition}>
                     <Toggle checked={automix.enabled} onChange={automix.setEnabled} />
@@ -210,6 +212,7 @@ const PlaybackPage: React.FC = () => {
                         value={replayGainMode}
                         options={[
                             { value: 'off', label: t('localMusic.replayGainOff') },
+                            { value: 'auto', label: t('localMusic.replayGainAuto') },
                             { value: 'track', label: t('localMusic.replayGainTrack') },
                             { value: 'album', label: t('localMusic.replayGainAlbum') },
                         ]}

@@ -87,6 +87,7 @@
     "electronLanguages": [
       "en-US",
       "zh-CN",
+      "zh-TW",
       "id"
     ],
     "generateUpdatesFilesForAllChannels": true,
@@ -167,6 +168,12 @@
       }
     ],
     "mac": {
+      "electronLanguages": [
+        "en",
+        "zh_CN",
+        "zh_TW",
+        "id"
+      ],
       "extraResources": [
         {
           "from": "build/koffi/darwin_${arch}",
@@ -309,7 +316,6 @@
     "fake-indexeddb": "^6.2.5",
     "framer-motion": "^13.4.3",
     "i18next": "^26.4.2",
-    "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^1.48.0",
     "opencc-js": "^1.4.2",
     "pinyin-pro": "3.29.3",

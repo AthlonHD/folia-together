@@ -1,3 +1,5 @@
+import type { PlaybackRoute } from '../../../types/hifi';
+
 // src/components/app/presentation/buildPlayerViewFlags.ts
 import { isStageRemoteMode } from '../../../services/stageRemote';
 
@@ -13,6 +15,8 @@ export const buildPlayerViewFlags = ({
     stageActiveEntryKind,
     audioSrc,
     duration,
+    playbackRoute,
+    hasHifiTrack,
 }: {
     currentView: string;
     disableHomeDynamicBackground: boolean;
@@ -24,6 +28,10 @@ export const buildPlayerViewFlags = ({
     stageActiveEntryKind: string | null;
     audioSrc: string | null;
     duration: number;
+    /** Which engine sounds the current song. On 'hifi' audioSrc is always null: mpv plays it. */
+    playbackRoute: PlaybackRoute;
+    /** useHifiTrackStore has a current track (loading, ready, or the one mpv still holds). */
+    hasHifiTrack: boolean;
 }) => {
     const isPlayerView = currentView === 'player';
     return {
@@ -35,6 +43,6 @@ export const buildPlayerViewFlags = ({
         // 遥控模式本页没有音频源,播放/暂停交给服务器 Host:有曲目在播(镜像来的时长大于 0)就可以点
         canToggleCurrentPlayback: !isNowPlayingControlDisabled && (isStageRemoteMode()
             ? duration > 0
-            : Boolean(audioSrc || (activePlaybackContext === 'stage' && stageActiveEntryKind === 'lyrics' && duration > 0))),
+            : Boolean(audioSrc || (playbackRoute === 'hifi' && hasHifiTrack) || (activePlaybackContext === 'stage' && stageActiveEntryKind === 'lyrics' && duration > 0))),
     };
 };

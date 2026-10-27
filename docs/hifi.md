@@ -11,6 +11,12 @@
 
 ---
 
+## 与上游 mpv HiFi 的关系
+
+上游 mpv HiFi 与本 Fork 直通模式同时保留：mpv 用于本地 / Navidrome 歌曲；Windows 桌面版开启本 Fork 直通模式时，后续起播优先使用 helper。正在由 mpv 播放的歌曲继续使用 mpv，切歌时再按设置选择；mpv 播放期间 helper 停止，不再同步浏览器时钟。使用 mpv 时请先关闭本 Fork 直通模式。
+
+上游引擎的能力与限制见 [mpv HiFi 说明](../src/services/hifi/README.md)。
+
 ## 它做到了什么
 
 | | |

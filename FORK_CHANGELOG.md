@@ -15,6 +15,8 @@
 
 ## [Unreleased]
 
+- 并入上游 main 至 d828f8e2（上游版本仍为 v0.7.22）：mpv HiFi 引擎、智能音量平衡与歌词过滤规则、歌曲卡片位置调整、Tempera 墨染奥行、语言跟随系统与遥控窗口位置修复；保留本 Fork 的直通播放、服务器遥控与音质信息，Windows 直通模式在后续起播时优先于 mpv。
+
 - 并入上游 main 至 aecd330b（上游版本 v0.7.22）：新增汽水音乐平台、后台节流设置、Folium 1.7 的更多接口等；`package.json` 的上游版本号随之为 0.7.22（Fork 的 `foliaReleaseChannel` 保留）。
 - 并入上游 main 至 a8da4437（上游版本仍是 v0.7.21）：Folium 1.7 的 `folium.omni`、`playback.replaceQueue`、`folium.equalizer`，播放队列被整表写入时的竞态修复，墙面快捷排新增「打开设置」，Bravais 墙面的背景说明等。
 - 并入上游 main 至 f3a90708（上游版本仍是 v0.7.21）：Folium 1.7（模组命令可绑系统级全局快捷键、密钥类设置字段、`folium.account` 登录状态与事件、实验接口 `platform.raw`）、遥控小窗尺寸修复、Linux 上 MNN 的编译修复等。

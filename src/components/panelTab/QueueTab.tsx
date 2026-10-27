@@ -10,7 +10,7 @@ import { canHoldInCrossPlaylist } from '../app/crossPlaylist/crossPlaylistModel'
 import { useCrossPlaylistStore } from '../app/crossPlaylist/crossPlaylistStore';
 import { isStageRemoteMode } from '../../services/stageMode';
 import { useKitReducedMotion } from '../modal/settings/kit/motion';
-import { getSongUnavailableLabel, isSongUnavailable } from '../../services/onlineMusic/songAvailability';
+import { getSongTag, isSongUnavailable } from '../../services/onlineMusic/songAvailability';
 import { getSongArtistLabel } from '../../services/onlineMusic/songMetadata';
 import { queueMixesPlatforms, withPlatform } from '../shared/songPlatform';
 import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
@@ -60,6 +60,7 @@ type QueueRowProps = {
     onRemoveSong: QueueTabProps['onRemoveSong'];
     labels: {
         unavailable: string;
+        video: string;
         playNext: string;
         moveToEnd: string;
         remove: string;
@@ -82,6 +83,7 @@ const QueueRow = ({
     const song = playQueue[index];
     const isActive = currentSongKey === getPlaybackSongKey(song);
     const isUnavailable = isSongUnavailable(song);
+    const tag = getSongTag(song, labels);
 
     return (
         <div
@@ -95,9 +97,9 @@ const QueueRow = ({
             <div className={`min-w-0 flex-1 ${isUnavailable ? 'opacity-55' : ''}`}>
                 <div className="flex items-center gap-2 text-[13px] leading-[19px]">
                     <span className={`truncate ${isActive ? 'font-semibold' : ''}`}>{song.name}</span>
-                    {isUnavailable && (
+                    {tag && (
                         <span className="shrink-0 rounded bg-[var(--st-fill2)] px-[5px] py-px text-[11px] leading-[15px] text-[color:var(--st-t2)]">
-                            {getSongUnavailableLabel(song, labels.unavailable)}
+                            {tag}
                         </span>
                     )}
                 </div>
@@ -170,6 +172,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
         onRemoveSong,
         labels: {
             unavailable: t('status.songUnavailableTag'),
+            video: t('status.songVideoTag'),
             playNext: t('queue.playNext'),
             moveToEnd: t('queue.moveToEnd'),
             remove: t('queue.remove'),

@@ -30,7 +30,8 @@ type UsePassthroughPlaybackParams = {
 export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePassthroughPlaybackParams) {
     const { t } = useTranslation();
     const api = typeof window !== 'undefined' ? window.electron?.audioHelper : undefined;
-    const enabled = usePassthroughSettingsStore(state => state.passthroughEnabled) && Boolean(api) && runsOnWindows();
+    const playbackRoute = usePlaybackStore(state => state.playbackRoute);
+    const enabled = usePassthroughSettingsStore(state => state.passthroughEnabled) && Boolean(api) && runsOnWindows() && playbackRoute !== 'hifi';
     const deviceId = usePassthroughSettingsStore(state => state.passthroughDeviceId);
     const rateStrategy = usePassthroughSettingsStore(state => state.passthroughRateStrategy);
     const fixedRate = usePassthroughSettingsStore(state => state.passthroughFixedRate);
