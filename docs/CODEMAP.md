@@ -35,6 +35,7 @@
 | --- | --- |
 | 1024+ | `src/types.ts` |
 | 256+ | `src/types/onlineMusic.ts` |
+| 128+ | `src/stores/usePlaybackStore.ts` |
 | 128+ | `src/types/ponder.ts` |
 | 128+ | `src/utils/appPlaybackGuards.ts` |
 | 64+ | `src/components/command-palette/types.ts` |
@@ -45,7 +46,7 @@
 | 64+ | `src/services/db.ts` |
 | 64+ | `src/services/onlineMusic/omni.ts` |
 | 64+ | `src/stores/useAppViewStore.ts` |
-| 64+ | `src/stores/usePlaybackStore.ts` |
+| 64+ | `src/stores/useAudioSettingsStore.ts` |
 | 64+ | `src/stores/useStatusMessageStore.ts` |
 | 32+ | `dev/probes/definition.ts` |
 | 32+ | `src/components/modal/settings/kit/motion.ts` |
@@ -62,14 +63,16 @@
 | 32+ | `src/library/suites/bravais/bravaisLayer.ts` |
 | 32+ | `src/mods/types.ts` |
 | 32+ | `src/services/baseThemes.ts` |
+| 32+ | `src/services/onlineMusic/failure/onlineFailureCase.ts` |
 | 32+ | `src/services/onlineMusic/providerRegistry.ts` |
 | 32+ | `src/services/onlineMusic/songMetadata.ts` |
 | 32+ | `src/stores/motionSignals.ts` |
-| 32+ | `src/stores/useAudioSettingsStore.ts` |
 | 32+ | `src/stores/useCollectionNavigationStore.ts` |
 | 32+ | `src/stores/useOnlineProviderAccountStore.ts` |
+| 32+ | `src/stores/usePlayerChromeSettingsStore.ts` |
 | 32+ | `src/stores/useThemeSettingsStore.ts` |
 | 32+ | `src/stores/useVisualizerSettingsStore.ts` |
+| 32+ | `src/types/hifi.ts` |
 | 32+ | `src/types/localLibrary.ts` |
 | 32+ | `src/types/navidrome.ts` |
 | 32+ | `src/utils/coverUrl.ts` |
@@ -313,6 +316,8 @@
 
 下面这些边的依赖方向本身就是错的：
 
+- `src/components/wall/WallToolsQueueIslandHeader.tsx` → `src/components/app/crossPlaylist/crossPlaylistStore.ts`  —— wall 引擎不应依赖 Lattice（components/app）或资料库
+- `src/components/wall/useWallToolsCommonActions.ts` → `src/components/app/crossPlaylist/crossPlaylistStore.ts`  —— wall 引擎不应依赖 Lattice（components/app）或资料库
 - `src/stores/useVisualizerSettingsStore.ts` → `src/components/visualizer/registry.tsx`  —— store 不应依赖组件
 - `src/utils/heartbeatAdvance.ts` → `src/stores/usePlayQueueContextStore.ts`  —— 纯变换不应依赖 UI 或状态
 - `src/utils/heartbeatAvailability.ts` → `src/stores/usePlayQueueContextStore.ts`  —— 纯变换不应依赖 UI 或状态
@@ -326,6 +331,7 @@
 这些边命中了规则，但目标模块在运行时根本不含 UI（不传递依赖 react）。
 依赖方向没问题，是文件住在了 UI 目录（`src/components/`、`src/library/` 的 suites / app）下面。修法是移动文件，不是改依赖。
 
+- `src/components/wall/WallToolsQueueIslandHeader.tsx` → `src/components/app/crossPlaylist/crossPlaylistModel.ts`
 - `src/services/obs/visualSettingsConfig.ts` → `src/components/visualizer/tuningRegistry.ts`
 - `src/services/ponder/pagePonderTarget.ts` → `src/components/modal/settings/navigation/settingsAnchorModel.ts`
 - `src/services/sync/settingsSnapshot.ts` → `src/components/visualizer/tuningRegistry.ts`
