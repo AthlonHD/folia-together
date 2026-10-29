@@ -24,10 +24,29 @@ export const describeChain = (chain: PassthroughChain): string => {
 };
 
 /** Which of the chain's departures from the source apply, as translation-key suffixes. */
-export const chainDepartures = (chain: PassthroughChain): Array<'Resampled' | 'Truncated' | 'Downmixed'> => {
-    const found: Array<'Resampled' | 'Truncated' | 'Downmixed'> = [];
+export const chainDepartures = (chain: PassthroughChain): Array<'Resampled' | 'Truncated' | 'Downmixed' | 'ChannelsChanged' | 'SharedMixer'> => {
+    const found: Array<'Resampled' | 'Truncated' | 'Downmixed' | 'ChannelsChanged' | 'SharedMixer'> = [];
     if (chain.resampled) found.push('Resampled');
     if (chain.truncated) found.push('Truncated');
     if (chain.downmixed) found.push('Downmixed');
+    else if (chain.sourceChannels !== 2) found.push('ChannelsChanged');
+    if (!chain.exclusive) found.push('SharedMixer');
     return found;
+};
+
+/** Treat older helpers' claims conservatively; this only describes steady playback before the driver. */
+export const isSteadyPcmUnchanged = (chain: PassthroughChain): boolean => (
+    chain.bitPerfect && chain.exclusive && chain.sourceChannels === 2
+    && chain.sourceBits > 0 && chain.sourceBits <= 32
+    && !/f32|f64|float|double/i.test(chain.codec)
+    && chain.sourceRate > 0 && chain.sourceRate === chain.outputRate
+    && chain.outputValidBits >= chain.sourceBits
+    && !chain.resampled && !chain.truncated && !chain.downmixed
+);
+
+/** A nonempty explanation is required even when the helper cannot establish the source precision. */
+export const chainStatusKeys = (chain: PassthroughChain): string[] => {
+    if (isSteadyPcmUnchanged(chain)) return ['BitPerfect'];
+    const departures = chainDepartures(chain);
+    return departures.length ? departures : ['Unverified'];
 };

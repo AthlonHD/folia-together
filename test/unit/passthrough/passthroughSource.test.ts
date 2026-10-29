@@ -4,7 +4,7 @@ import {
     extensionForMime,
     startSecFor,
 } from '../../../src/components/app/passthrough/passthroughSource';
-import { chainDepartures, describeChain, describeFormats } from '../../../src/services/passthrough/formatChain';
+import { chainDepartures, chainStatusKeys, describeChain, describeFormats, isSteadyPcmUnchanged } from '../../../src/services/passthrough/formatChain';
 import { toFallbackReason } from '../../../src/services/passthrough/passthroughStatusStore';
 import type { PassthroughChain } from '../../../src/services/passthrough/types';
 
@@ -99,6 +99,35 @@ describe('chainDepartures', () => {
 describe('toFallbackReason', () => {
     it('keeps known codes and files the rest under open-failed', () => {
         expect(toFallbackReason('device-in-use')).toBe('device-in-use');
+        expect(toFallbackReason('unsupported-channels')).toBe('unsupported-channels');
+        expect(toFallbackReason('resample-failed')).toBe('resample-failed');
         expect(toFallbackReason('something-new')).toBe('open-failed');
+    });
+});
+
+describe('steady PCM integrity', () => {
+    it('accepts known unchanged stereo PCM, including lossless padding', () => {
+        expect(isSteadyPcmUnchanged(chain())).toBe(true);
+        expect(chainStatusKeys(chain({ sourceBits: 16 }))).toEqual(['BitPerfect']);
+    });
+
+    it('rejects an older helper claiming shared output or channel conversion is bit-exact', () => {
+        expect(isSteadyPcmUnchanged(chain({ exclusive: false }))).toBe(false);
+        expect(chainStatusKeys(chain({ exclusive: false }))).toEqual(['SharedMixer']);
+        expect(chainStatusKeys(chain({ sourceChannels: 1 }))).toEqual(['ChannelsChanged']);
+        expect(chainStatusKeys(chain({ sourceChannels: 6, downmixed: true }))).toEqual(['Downmixed']);
+    });
+
+    it('does not infer precision or unchanged samples from format metadata alone', () => {
+        expect(chainStatusKeys(chain({ sourceBits: 0, codec: 'mp3' }))).toEqual(['Unverified']);
+        expect(chainStatusKeys(chain({ sourceBits: 32, outputValidBits: 32, codec: 'pcm_f32le' }))).toEqual(['Unverified']);
+        expect(chainStatusKeys(chain({ bitPerfect: false }))).toEqual(['Unverified']);
+        expect(isSteadyPcmUnchanged(chain({ sourceBits: 32, outputValidBits: 24 }))).toBe(false);
+        expect(isSteadyPcmUnchanged(chain({ outputRate: 48000 }))).toBe(false);
+        expect(isSteadyPcmUnchanged(chain({ sourceRate: 0, outputRate: 0 }))).toBe(false);
+    });
+
+    it('shows all known changes even when more than one applies', () => {
+        expect(chainStatusKeys(chain({ resampled: true, exclusive: false }))).toEqual(['Resampled', 'SharedMixer']);
     });
 });

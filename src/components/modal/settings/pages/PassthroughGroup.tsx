@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { chainDepartures, describeChain } from '../../../../services/passthrough/formatChain';
+import { chainStatusKeys, describeChain, isSteadyPcmUnchanged } from '../../../../services/passthrough/formatChain';
 import { usePassthroughStatusStore } from '../../../../services/passthrough/passthroughStatusStore';
 import type { PassthroughDevice, PassthroughFormatProbe } from '../../../../services/passthrough/types';
 import {
@@ -129,14 +129,12 @@ const PassthroughGroup: React.FC = () => {
         deviceOptions.push({ value: deviceId, label: deviceId });
     }
 
-    const chainTone = chain ? (chain.bitPerfect ? 'ok' : 'warn') : fallbackReason ? 'error' : undefined;
+    const chainTone = chain ? (isSteadyPcmUnchanged(chain) ? 'ok' : 'warn') : fallbackReason ? 'error' : undefined;
     const chainText = chain && engaged
         ? <>
             {describeChain(chain)}
             {' · '}
-            {chain.bitPerfect
-                ? t('passthrough.chainBitPerfect')
-                : chainDepartures(chain).map(key => t(`passthrough.chain${key}`)).join(' / ')}
+            {chainStatusKeys(chain).map(key => t(`passthrough.chain${key}`)).join(' / ')}
             {chain.resampled && chain.resampler && ` (${t(`passthrough.chainResampler${chain.resampler === 'soxr' ? 'Soxr' : 'Rubato'}`)})`}
             {levelDb !== null && ` · ${t('passthrough.level')} ${levelDb <= -120 ? t('passthrough.levelSilent') : `${levelDb.toFixed(1)} dBFS`}`}
         </>
@@ -211,7 +209,7 @@ const PassthroughGroup: React.FC = () => {
                         {probing ? t('passthrough.probeRunning') : t('passthrough.probe')}
                     </Button>
                 </Row>
-                <Row option={O.chain} below={<Status tone={chainTone}>{chainText}</Status>} />
+                <Row option={O.chain} note={t('passthrough.chainScope')} below={<Status tone={chainTone}>{chainText}</Status>} />
             </Reveal>
         </Group>
     );

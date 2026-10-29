@@ -8,6 +8,8 @@ import type { PassthroughChain } from './types';
 export type PassthroughFallbackReason =
     | 'helper-unavailable'
     | 'unsupported-source'
+    | 'unsupported-channels'
+    | 'resample-failed'
     | 'device-in-use'
     | 'exclusive-not-allowed'
     | 'format-unsupported'
@@ -47,7 +49,7 @@ export const usePassthroughStatusStore = create<PassthroughStatusState>((set) =>
 }));
 
 const KNOWN_REASONS: readonly PassthroughFallbackReason[] = [
-    'helper-unavailable', 'unsupported-source', 'device-in-use', 'exclusive-not-allowed', 'format-unsupported',
+    'helper-unavailable', 'unsupported-source', 'unsupported-channels', 'resample-failed', 'device-in-use', 'exclusive-not-allowed', 'format-unsupported',
     'device-missing', 'device-lost', 'open-failed', 'decode-failed', 'stage-failed',
 ];
 

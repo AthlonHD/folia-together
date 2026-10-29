@@ -1,6 +1,7 @@
 // folia-audio-helper: WASAPI exclusive pass-through player. `serve` speaks line-delimited JSON on stdio; `devices` and `probe` are for humans.
 mod capture;
 mod devices;
+mod integrity;
 mod player;
 mod protocol;
 mod resample;

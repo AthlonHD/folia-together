@@ -1,5 +1,6 @@
 // Playback session: a decoder thread fills a ring buffer, an event-driven WASAPI exclusive render thread drains it.
 use crate::devices::PROBE_RATES;
+use crate::integrity::{steady_pcm_unchanged, supports_channels};
 use crate::protocol::{emit, emit_error, Chain, Event, OutputMode, RateStrategy, ResampleEngine};
 use crate::resample::AnyResampler;
 use crate::source::Source;
@@ -137,6 +138,9 @@ pub fn start_session(
     // Set when the session ends: it also ends a read that is waiting for the download.
     let stop_flag = Arc::new(AtomicBool::new(false));
     let source = Source::open(path, growing_total, stop_flag.clone()).map_err(|e| ("decode-failed".to_string(), e))?;
+    if !supports_channels(source.info.channels) {
+        return Err(("unsupported-channels".into(), format!("{} source channels are unsupported; no channels were discarded", source.info.channels)));
+    }
     let target = if strategy == RateStrategy::Fixed { fixed_rate } else { source.info.rate };
     let layouts = layout_order(source.info.bits);
     let rates = rate_candidates(target);
@@ -196,7 +200,8 @@ pub fn start_session(
             resampled,
             truncated,
             downmixed,
-            bit_perfect: !resampled && !truncated && !downmixed,
+            bit_perfect: steady_pcm_unchanged(source.info.rate, source.info.bits, source.info.channels,
+                &source.info.codec, info.rate, info.layout.valid_bits, mode == OutputMode::Exclusive),
             resampler: if resampled { Some(engine.name().to_string()) } else { None },
         },
     });
@@ -214,7 +219,7 @@ fn to_stereo(chunk: Vec<i32>, channels: usize) -> Vec<i32> {
     match channels {
         2 => chunk,
         1 => chunk.iter().flat_map(|&s| [s, s]).collect(),
-        n => chunk.chunks_exact(n).flat_map(|f| [f[0], f[1]]).collect(),
+        _ => unreachable!("source channel count is validated before opening the output"),
     }
 }
 
@@ -239,19 +244,20 @@ fn push_ring(shared: &Shared, samples: &[i32]) -> bool {
 fn decode_thread(mut source: Source, shared: Arc<Shared>, engine: ResampleEngine) {
     let channels = source.info.channels as usize;
     let rate_in = source.info.rate;
-    let make_resampler = || -> Option<AnyResampler> {
+    let make_resampler = || -> Result<Option<AnyResampler>, String> {
         if rate_in == shared.out_rate {
-            return None;
+            return Ok(None);
         }
-        match AnyResampler::new(engine, rate_in, shared.out_rate, OUT_CHANNELS) {
-            Ok(r) => Some(r),
-            Err(e) => {
-                emit_error("resample-failed", e);
-                None
-            }
+        AnyResampler::new(engine, rate_in, shared.out_rate, OUT_CHANNELS).map(Some)
+    };
+    let mut resampler = match make_resampler() {
+        Ok(resampler) => resampler,
+        Err(error) => {
+            emit_error("resample-failed", error);
+            shared.stop.store(true, Ordering::SeqCst);
+            return;
         }
     };
-    let mut resampler = make_resampler();
     // Frames of the source still to be dropped after a seek landed before the requested time.
     let mut skip_frames: usize = 0;
     loop {
@@ -266,7 +272,14 @@ fn decode_thread(mut source: Source, shared: Arc<Shared>, engine: ResampleEngine
                     shared.frames_rendered.store(0, Ordering::SeqCst);
                     shared.base_sec_bits.store(sec.to_bits(), Ordering::SeqCst);
                     shared.decode_done.store(false, Ordering::SeqCst);
-                    resampler = make_resampler();
+                    resampler = match make_resampler() {
+                        Ok(resampler) => resampler,
+                        Err(error) => {
+                            emit_error("resample-failed", error);
+                            shared.stop.store(true, Ordering::SeqCst);
+                            return;
+                        }
+                    };
                 }
                 Err(e) => emit_error("seek-failed", e),
             }
@@ -539,6 +552,39 @@ fn open_shared(device_id: &str) -> Result<Opened, (String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mono_is_duplicated_without_changing_values() {
+        assert_eq!(to_stereo(vec![i32::MIN, 0, i32::MAX], 1), vec![i32::MIN, i32::MIN, 0, 0, i32::MAX, i32::MAX]);
+        assert_eq!(to_stereo(vec![123, -456], 2), vec![123, -456]);
+    }
+
+    #[test]
+    fn surround_is_rejected_before_opening_any_device() {
+        let mut wave = Vec::new();
+        wave.extend_from_slice(b"RIFF");
+        wave.extend_from_slice(&48u32.to_le_bytes());
+        wave.extend_from_slice(b"WAVEfmt ");
+        wave.extend_from_slice(&16u32.to_le_bytes());
+        wave.extend_from_slice(&1u16.to_le_bytes());
+        wave.extend_from_slice(&6u16.to_le_bytes());
+        wave.extend_from_slice(&48000u32.to_le_bytes());
+        wave.extend_from_slice(&576000u32.to_le_bytes());
+        wave.extend_from_slice(&12u16.to_le_bytes());
+        wave.extend_from_slice(&16u16.to_le_bytes());
+        wave.extend_from_slice(b"data");
+        wave.extend_from_slice(&12u32.to_le_bytes());
+        wave.extend_from_slice(&[0; 12]);
+        let file = std::env::temp_dir().join(format!("folia-surround-{}.wav", std::process::id()));
+        std::fs::write(&file, wave).unwrap();
+        let result = start_session(file.to_str().unwrap(), "not-an-output-device", RateStrategy::Native,
+            48000, OutputMode::Exclusive, ResampleEngine::Rubato, 0.0, false, 1, None);
+        let _ = std::fs::remove_file(file);
+        match result {
+            Err((code, _)) => assert_eq!(code, "unsupported-channels"),
+            Ok(session) => { session.stop(); panic!("surround must not open an output"); }
+        }
+    }
 
     fn packed(sample: i32, store_bits: u16, valid_bits: u16) -> Vec<u8> {
         let mut out = vec![0u8; store_bits as usize / 8];

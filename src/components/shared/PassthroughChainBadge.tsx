@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePassthroughStatusStore } from '../../services/passthrough/passthroughStatusStore';
-import { chainDepartures, describeFormats } from '../../services/passthrough/formatChain';
+import { chainStatusKeys, describeFormats, isSteadyPcmUnchanged } from '../../services/passthrough/formatChain';
 
 // src/components/shared/PassthroughChainBadge.tsx
 // 本 Fork:直通模式下,正在播的歌实际走的链路——输入 → 输出的采样率/位深、独占还是共享、是否逐位一致。
@@ -14,13 +14,11 @@ const PassthroughChainBadge: React.FC<{ color?: string; className?: string }> = 
     const engaged = usePassthroughStatusStore(state => state.engaged);
     if (!chain || !engaged) return null;
 
-    const departures = chainDepartures(chain);
+    const unchanged = isSteadyPcmUnchanged(chain);
     const engine = chain.resampled && chain.resampler ? t(`passthrough.chainResampler${chain.resampler === 'soxr' ? 'Soxr' : 'Rubato'}`) : '';
-    const verdict = chain.bitPerfect
-        ? t('passthrough.chainBitPerfect')
-        : departures.map(key => t(`passthrough.chain${key}`)).join(' / ') + (engine ? ` ${engine}` : '');
+    const verdict = chainStatusKeys(chain).map(key => t(`passthrough.chain${key}`)).join(' / ') + (engine ? ` ${engine}` : '');
     const mode = t(chain.exclusive ? 'passthrough.modeExclusive' : 'passthrough.modeSharedShort');
-    const title = `${describeFormats(chain)} · ${chain.deviceName} · ${mode} · ${verdict}`;
+    const title = `${describeFormats(chain)} · ${chain.deviceName} · ${mode} · ${verdict}\n${t('passthrough.chainScope')}`;
 
     return (
         <span
@@ -29,7 +27,7 @@ const PassthroughChainBadge: React.FC<{ color?: string; className?: string }> = 
             className={`inline-flex max-w-full items-center gap-1.5 truncate rounded-full border px-2 py-px text-[10px] font-medium leading-4 tabular-nums select-none ${className}`}
             style={{ color, borderColor: 'currentColor', opacity: 0.8 }}
         >
-            <span aria-hidden className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: chain.bitPerfect ? '#22c55e' : '#f59e0b' }} />
+            <span aria-hidden className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: unchanged ? '#22c55e' : '#f59e0b' }} />
             <span className="truncate">{describeFormats(chain, false).replace(' → ', '→')} · {mode} · {verdict}</span>
         </span>
     );

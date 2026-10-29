@@ -58,6 +58,7 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
         setLevelDb(null);
         setSilenceWebOutput(false);
         setFallbackReason(reason);
+        if (reason) void api?.stop();
         if (reason && reportedReasonRef.current !== reason) {
             reportedReasonRef.current = reason;
             setStatusMessage({ type: 'info', text: t(`passthrough.fallback.${reason}`) });
@@ -111,7 +112,7 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
                     break;
                 }
                 case 'error': {
-                    if (event.code === 'seek-failed' || event.code === 'bad-command' || event.code === 'resample-failed') {
+                    if (event.code === 'seek-failed' || event.code === 'bad-command') {
                         console.warn('[PassthroughPlayback]', event.code, event.message);
                         return;
                     }
@@ -133,7 +134,13 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
     useEffect(() => {
         if (!enabled || !api) return;
         const element = audioRef.current;
-        if (!audioSrc || !element) return;
+        if (!audioSrc || !element) {
+            ++tokenRef.current;
+            ownSeekRef.current = false;
+            stand(null);
+            void api.stop();
+            return;
+        }
 
         if (classifyAudioSrc(audioSrc) === 'unsupported') {
             void api.stop();
@@ -142,6 +149,8 @@ export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePass
         }
 
         const token = ++tokenRef.current;
+        ownSeekRef.current = false;
+        lastMoveAtRef.current = 0;
         let cancelled = false;
         // Another song was asked for (a skip): the old one must stop sounding now, not when the new one has been fetched. A song that ended
         // by itself is left to finish its tail; the helper replaces it when the next one loads.
