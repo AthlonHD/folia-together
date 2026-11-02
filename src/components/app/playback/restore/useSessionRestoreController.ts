@@ -145,6 +145,8 @@ export function useSessionRestoreController({
                 // A song asked for while the remembered one was being read stands: the restore gives up.
                 if (askedSongKeyRef.current !== null) return;
 
+                // The active platform stays as it was: the song plays through its own platform, and the queue may
+                // hold songs of several.
                 console.log('[Session] Restoring last song:', lastSong.name);
                 // 不再把"当前浏览的平台"对齐到上次那首歌所属的平台:播放与浏览已经解耦(队列里的歌自带来源、可跨平台混排),
                 // 启动时默认打开哪个平台由 startupProviderSelector 按优先级和账号决定。
