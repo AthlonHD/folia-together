@@ -963,6 +963,7 @@ export default {
       "lyric-staff-absorb-cycle": { "title": "Mode serap kredit pembuka", "description": "Ganti apakah baris di sekitarnya ikut digabung ke blok kredit" },
       "settings-obs-browser-source": { "title": "Sumber browser OBS", "description": "Buka pengaturan sumber browser OBS" },
       "obs-toggle-keep-main-window-animation": { "title": "OBS: pertahankan animasi jendela utama", "description": "Aktifkan atau nonaktifkan animasi jendela utama saat OBS terhubung" },
+      "obs-toggle-track-card": { "title": "OBS: tampilkan kartu lagu yang diputar", "description": "Aktifkan atau nonaktifkan kartu lagu yang diputar di sumber browser OBS" },
       "desktop-toggle-lyric-api": { "title": "API Lirik", "description": "Alihkan endpoint lirik lokal tanpa autentikasi" },
       "settings-obs-copy-css": { "title": "Salin CSS OBS", "description": "Salin Custom CSS OBS Browser Source yang membawa aset unggahan" },
       "settings-storage": { "title": "Pengaturan penyimpanan", "description": "Buka pengaturan cache dan penyimpanan" },
@@ -993,8 +994,8 @@ export default {
       "video-layer-pick": { "title": "Lapisan video: pilih video lokal", "description": "Pilih video lokal untuk diputar di belakang lirik" },
       "visualizer-toggle-random-per-song": { "title": "Visualizer acak tiap lagu", "description": "Alihkan mode animasi lirik acak tiap pergantian lagu" },
       "visualizer-machi-camera-bar": { "title": "Machi: Jendela bidik", "description": "Tampilkan atau sembunyikan bilah jendela bidik Machi di halaman pemutar untuk mengatur tampilan, fokus, bukaan, dan gerakan kamera" },
-      "visualizer-nebbia-behind-cycle": { "title": "Nebbia: Ganti pemandangan jendela", "description": "Ganti apa yang ada di luar jendela Nebbia: jalan malam, Laut Mimpi Berpendar, atau latar; kaca depan ikut berganti ke pasangan bawaannya" },
-      "visualizer-nebbia-glass-cycle": { "title": "Nebbia: Ganti kaca depan", "description": "Ganti kaca di depan jendela Nebbia antara hujan dan embun" },
+      "visualizer-nebbia-behind-cycle": { "title": "Nebbia: Ganti pemandangan jendela", "description": "Ganti apa yang ada di luar jendela Nebbia: jalan malam, Laut Mimpi Berpendar, atau latar; kaca depan tetap seperti semula" },
+      "visualizer-nebbia-glass-cycle": { "title": "Nebbia: Ganti kaca depan", "description": "Ganti kaca di depan jendela Nebbia antara hujan, embun, dan salju" },
       "visualizer-toggle-glow-blur-quantize": { "title": "Perbaiki animasi lirik macet di Linux", "description": "Ubah cara beberapa animasi lirik menggambar glow, memperbaiki macet yang sesekali terjadi setelah pemutaran lama di Linux" },
       "settings-visualizer": { "title": "Pengaturan visualizer", "description": "Buka bengkel animasi lirik" },
       "settings-theme-park": { "title": "Warna", "description": "Buka editor tema" },
@@ -1794,7 +1795,11 @@ export default {
     "noteDeviceLimit": "Keluar dari perangkat yang tidak dipakai di ponsel, lalu coba lagi",
     "noteWrongScanApp": "Pindai dengan aplikasi untuk metode masuk ini, atau pilih metode lain",
     "noteCloseBrowser": "Tutup browser itu, lalu coba lagi",
-    "noteUnknown": "Kesalahan tidak diketahui"
+    "noteUnknown": "Kesalahan tidak diketahui",
+    "submit": "Kirim",
+    "submitting": "Mengirim…",
+    "formErrorUnknown": "Gagal masuk. Periksa isian Anda dan coba lagi.",
+    "formLoggedInRefreshFailed": "Berhasil masuk, tetapi akun tidak dapat dimuat. Coba lagi atau buka ulang jendela masuk.",
   },
   "failure": {
     "unreachable": "Tidak dapat terhubung ke {{provider}}",
@@ -1856,6 +1861,8 @@ export default {
     "loginNoteQishui": "Pindai dengan aplikasi Douyin dan konfirmasi otorisasi",
     "loginTitleBodian": "Pindai dengan Bodian Music",
     "loginNoteBodian": "Pindai kode ini dengan aplikasi Bodian Music dan konfirmasi masuk",
+    "loginTitleFnMusic": "Masuk ke fnOS Music",
+    "loginNoteFnMusic": "Masukkan alamat server dan akun fnOS Music untuk memutar musik NAS Anda",
     "loginTitleYtm": "Masuk ke YouTube Music",
     "loginNoteYtmBrowser": "Jendela browser terpisah akan terbuka. Masuk ke Google di sana, lalu tutup jendela itu setelah YouTube Music menampilkan akun Anda.",
     "loginNoteYtmBrowserMac": "Jendela browser terpisah akan terbuka. Masuk ke Google di sana, lalu keluar dari browser itu (⌘Q) setelah YouTube Music menampilkan akun Anda.",
@@ -2111,6 +2118,13 @@ export default {
     "version": "Versi"
   },
   "qishui": { "recentPlayed": "Terakhir diputar di Qishui", "recommended": "Rekomendasi untuk Anda" },
+  "listeningRank": {
+    "week": "Peringkat dengar · Minggu terakhir",
+    "all": "Peringkat dengar · Sepanjang waktu",
+    "description": "Lagu yang diurutkan menurut riwayat dengar akun ini di platform",
+    "listenCount_one": "Diputar {{count}} kali",
+    "listenCount_other": "Diputar {{count}} kali"
+  },
   "lyricProvider": {
     "qishui": "Qishui Music",
     "netease": "NetEase Cloud Music",
@@ -2118,6 +2132,16 @@ export default {
     "kugou": "Kugou Music",
     "spotify": "Spotify",
     "amll": "AMLLDB"
+  },
+  "onlineProviderName": {
+    "netease": "NetEase",
+    "kugou": "Kugou",
+    "qq": "QQ Music",
+    "bodian": "Bodian",
+    "ytm": "YT Music",
+    "spotify": "Spotify",
+    "qishui": "Qishui",
+    "fnmusic": "fnOS",
   },
   "globalLyricOffset": {
     "title": "Offset Waktu Global",
@@ -2728,6 +2752,8 @@ export default {
     "stageTrackPillMode_never": "Jangan tampilkan",
     "stageTrackPillOnHome": "Tampilkan juga di halaman utama",
     "stageTrackPillOnHomeDesc": "Saat nonaktif, kartu tetap tampil di pemutar dan antrean putar. Aktifkan untuk menampilkannya juga di halaman utama.",
+    "stageTrackPillInObs": "Tampilkan di sumber browser",
+    "stageTrackPillInObsDesc": "Aktifkan untuk menampilkan kartu juga di sumber browser OBS, dengan mode tampilan, durasi, dan posisi di atas. Di versi web, salin ulang tautan OBS agar berlaku.",
     "stageTrackPillTimeout": "Durasi tampil",
     "disableVisualizerVignette": "Nonaktifkan vignette",
     "visualizerVignette": "Vignette",
@@ -3202,7 +3228,7 @@ export default {
     "nebbiaScenery_cars": "Lampu mobil",
     "nebbiaScenery_road": "Jalan",
     "nebbiaRain": "Hujan di luar",
-    "nebbiaRainHint": "Hujan di luar hanya terlihat di dalam sorotan lampu sorot, di bagian kaca yang sudah diusap bersih; hujan miring condong mengikuti kecepatan bus.",
+    "nebbiaRainHint": "Hujan di luar hanya terlihat di dalam sorotan lampu sorot, di bagian kaca yang sudah diusap bersih; hujan miring condong mengikuti kecepatan bus. Dengan kaca salju, di luar tidak hujan, jadi pilihan ini tidak berpengaruh.",
     "nebbiaRain_slant": "Miring",
     "nebbiaRain_straight": "Tegak",
     "nebbiaRain_off": "Mati",
@@ -3218,10 +3244,14 @@ export default {
     "nebbiaGlassStyle": "Air di kaca",
     "nebbiaGlass_rain": "Hujan",
     "nebbiaGlass_dew": "Embun",
-    "nebbiaGlassHint": "Hujan: titik air besar kecil di kabut, dengan tetes hujan menghantam kaca. Embun: lapisan rapat butir embun kecil yang perlahan merembes keluar. Saat mengganti pemandangan luar, otomatis memilih pasangan bawaannya (Jalanan malam dengan hujan, Laut Mimpi Berpendar dengan embun); setelahnya bisa diganti sendiri.",
+    "nebbiaGlass_snow": "Salju",
+    "nebbiaGlassHint": "Hujan: titik air besar kecil di kabut, dengan tetes hujan menghantam kaca. Embun: lapisan rapat butir embun kecil yang perlahan merembes keluar. Salju: kepingan salju menempel di kaca lalu perlahan mencair menjadi titik air yang menempel di kaca dan baru meluncur setelah menyatu jadi besar; jari yang menulis menyapu salju, dan di luar tidak hujan. Kaca dipilih terpisah dari pemandangan luar; mengganti pemandangan tidak mengganti kaca.",
     "nebbiaDew": "Banyak embun",
     "nebbiaDewSize": "Ukuran embun",
     "nebbiaDewGlint": "Kilau embun",
+    "nebbiaSnow": "Banyak salju",
+    "nebbiaSnowSize": "Ukuran kepingan salju",
+    "nebbiaSnowMelt": "Kecepatan mencair",
     "nebbiaAquaScenery_spot": "Cahaya dari atas",
     "nebbiaAquaScenery_buildings": "Karang dan rumput laut",
     "nebbiaAquaScenery_lights": "Cahaya di rumput laut",
@@ -3391,7 +3421,7 @@ export default {
     "machiGlow": "Pendar dan kilau lensa",
     "machiGlowHint": "Pendar di sekitar lampu dan papan nama pada malam hari, serta kilau lensa mendatar.",
     "machiAdaptive": "Turunkan otomatis",
-    "machiAdaptiveHint": "Jika frame rate terus rendah, kualitas diturunkan bertahap di bawah pengaturan ini (blur kedalaman bidang dulu, lalu supersampling dan MSAA tepi, kemudian pantulan, pendar, resolusi, dan anti-aliasing akhir, bayangan paling akhir), tidak pernah melebihi pilihanmu. Mengubah pengaturan memulai lagi dari yang baru.",
+    "machiAdaptiveHint": "Jika frame rate terus rendah, kualitas diturunkan bertahap di bawah pengaturan ini (supersampling dan MSAA tepi dulu, kemudian pendar, pantulan, blur kedalaman bidang, resolusi, dan anti-aliasing akhir, bayangan paling akhir), tidak pernah melebihi pilihanmu. Mengubah pengaturan memulai lagi dari yang baru.",
     "machiAdaptiveActive": "Saat ini turun {{count}} tingkat.",
     "hanabiFireworksSection": "Kembang api",
     "hanabiStageSection": "Panggung",
@@ -4763,6 +4793,19 @@ export default {
     "cloudDrive": "Cloud Drive",
     "cloudDriveDesc": "NetEase Cloud Music Drive",
     "qqCloudDriveDesc": "Weiyun Music Drive"
+  },
+  "fnmusic": {
+    "serverUrl": "Alamat server",
+    "serverUrlPlaceholder": "cth: http://192.168.1.10:5666",
+    "username": "Akun",
+    "usernamePlaceholder": "Akun fnOS Music atau akun NAS",
+    "password": "Kata sandi",
+    "login": "Masuk",
+    "loginNote": "Masukkan alamat server, akun, dan kata sandi fnOS Music",
+    "errorBadCredentials": "Akun atau kata sandi salah",
+    "errorNetwork": "Tidak dapat menghubungi server. Periksa alamat dan koneksi Anda.",
+    "errorBadResponse": "Server mengembalikan respons yang tidak dikenali",
+    "errorBadServerUrl": "Alamat server tidak valid, contoh: http://192.168.1.10:5666"
   },
   "hifi": {
     "settings": {
@@ -6313,9 +6356,9 @@ export default {
         "slotsHold": "Tekan lama sebuah tombol sampai lingkaran di sekelilingnya penuh, atau langsung klik kanan.",
         "slotsPick": "Aksi yang bisa ditaruh muncul tepat di atasnya; klik salah satu untuk menggantinya. Memilih aksi yang ada di slot lain akan menukar keduanya. Pilihan yang sama ada di pengaturan — tombol di bawah langsung ke sana.",
         "slotsSuggest": "Kalau kamu sering menjalankan salah satu aksi ini dari jendela perintah, bilah akan menanyakan sekali apakah mau menaruhnya di sini.",
-        "quickIntro": "Biarkan penunjuk berhenti di kapsul, dan sederet aksi untuk lagu ini muncul di atasnya: volume, suka, tambah ke daftar putar, acak, subtitel, dan gaya lirik. Yang sudah ada di dua slotmu tidak ditampilkan lagi. Di layar sentuh deretan ini tidak ada.",
+        "quickIntro": "Biarkan penunjuk berhenti di kapsul, dan sederet aksi untuk lagu ini muncul di atasnya: volume, suka, tambah ke daftar putar, acak, subtitel, dan gaya lirik. Yang sudah ada di dua slotmu tidak ditampilkan lagi. Di layar sentuh deretan ini langsung muncul saat kamu mengetuk kapsul hingga terbuka atau menjeda, tanpa volume, dan hilang lagi setelah 4 detik tidak disentuh.",
         "quickPalette": "Yang paling kanan membuka jendela perintah. Jendela itu tumbuh dari kapsul itu sendiri: kotak input mendarat di tempat kapsul, dengan hasil terbaik tepat di sebelahnya.",
-        "quickOther": "Mengklik bagian kosong kapsul di halaman pemutar membukanya dengan cara yang sama, kecuali pemutaran diatur dibuka di Lattice — maka klik itu menuju Lattice. {{mod}} + K juga menumbuhkannya dari kapsul selama kapsul terlihat. Saat ditutup, ia menyusut kembali ke kapsul."
+        "quickOther": "Mengklik bagian kosong kapsul di halaman pemutar membukanya dengan cara yang sama (di layar sentuh, ketuk lagi saat deretan itu muncul), kecuali pemutaran diatur dibuka di Lattice — maka klik itu menuju Lattice. {{mod}} + K juga menumbuhkannya dari kapsul selama kapsul terlihat. Saat ditutup, ia menyusut kembali ke kapsul."
       },
       "commandPalette": {
         "type": "Perintah dicari, bukan ditelusuri. Ketik begitu jendela terbuka dan ia menyaring nama, alias dan kata kunci sekaligus; separuh nama biasanya sudah cukup.",

@@ -28,6 +28,8 @@ export default defineConfig({
     // 初始选择钉在 grid：现有用例都假设没选过 suite 的人看到网格（开发阶段的初始选择是 bravais）。
     // VITE_STAGE_RELAY 钉成空:它是部署环境的开关(.env.local 里会设),单测不能因此变成遥控模式。
     env: { VITE_LIBRARY_TUI: 'true', VITE_LIBRARY_INITIAL_SUITE: 'grid', VITE_STAGE_RELAY: '' },
-    include: ['test/unit/**/*.test.ts']
+    include: ['test/unit/**/*.test.ts'],
+    // Node 25 起自带的 localStorage 占位会盖住 jsdom 的那份：jsdom 用例在这里统一补内存实现，node 用例删掉占位。
+    setupFiles: ['test/unit/jsdomLocalStorage.ts']
   }
 });

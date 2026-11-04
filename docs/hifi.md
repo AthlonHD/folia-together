@@ -8,6 +8,7 @@
 
 - 设置位置：设置 → 播放控制 → 直通模式。
 - 只在 Windows 桌面版出现；开不起来或遇到解不了的文件时自动回到普通播放并说明原因。
+- 飞牛音乐的 `folia-fnmusic://` 音源也经主进程协议读取，交给 helper 直通；临时文件按同一套规则清理。协议白名单与暂存回归测试：`npx vitest run -c vitest.config.ts test/unit/electron/audioHelperProcess.test.ts`。尚未连接真实飞牛服务做端到端验证。
 
 ---
 

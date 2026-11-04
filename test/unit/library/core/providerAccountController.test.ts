@@ -159,6 +159,7 @@ const createLocalService = (initial: Partial<LoginLocalServiceStatus> = {}) => {
 let auth: { [K in keyof LibraryAccountAuthPort]: ReturnType<typeof vi.fn> };
 let accounts: ReturnType<typeof createAccounts>;
 let refresh: ReturnType<typeof vi.fn<LibraryProviderAccountPort['refresh']>>;
+let submitLoginForm: ReturnType<typeof vi.fn<LibraryProviderAccountPort['submitLoginForm']>>;
 let logoutPort: ReturnType<typeof vi.fn<LibraryProviderAccountPort['logout']>>;
 let confirmLogout: ReturnType<typeof vi.fn<LibraryProviderAccountPort['confirmLogout']>>;
 let cleanup: ReturnType<typeof vi.fn<LibraryProviderSwitchCleanupPort['leaveProvider']>>;
@@ -169,7 +170,7 @@ let keySeq: number;
 const createController = (switchOptions: { requiresConfirmation?: boolean } = {}): LibraryAccountController => createProviderAccountController({
     auth: auth as unknown as LibraryAccountAuthPort,
     accounts: accounts.port,
-    providerAccounts: { refresh, logout: logoutPort, confirmLogout },
+    providerAccounts: { refresh, submitLoginForm, logout: logoutPort, confirmLogout },
     switchCleanup: { leaveProvider: cleanup, holdsSongsOf: () => holdsSongs, dropSongsOf: dropSongs },
     clock: manual.clock,
     diagnostics: { appVersion: '9.9.9-test', userAgent: 'vitest agent' },
@@ -219,6 +220,9 @@ beforeEach(() => {
         accounts.update(providerId, { status: 'authenticated' });
         return true;
     });
+    submitLoginForm = vi.fn<LibraryProviderAccountPort['submitLoginForm']>(async (providerId, values) => {
+        ops.push(['submit-form', providerId, values]);
+    });
     logoutPort = vi.fn<LibraryProviderAccountPort['logout']>(async providerId => {
         ops.push(['logout', providerId]);
         accounts.update(providerId, { status: 'anonymous' });
@@ -232,6 +236,60 @@ beforeEach(() => {
 });
 
 const opsOf = (...names: string[]) => ops.filter(op => names.includes(op[0]));
+
+describe('providerAccountController · form login ownership', () => {
+    it.each(['submit', 'refresh', 'activation'] as const)('abandons a form attempt cancelled during %s', async phase => {
+        const controller = createController();
+        const submitted = deferred<void>();
+        const refreshed = deferred<boolean>();
+        const left = deferred<void>();
+        if (phase === 'submit') submitLoginForm.mockReturnValueOnce(submitted.promise);
+        if (phase === 'refresh') refresh.mockReturnValueOnce(refreshed.promise);
+        if (phase === 'activation') cleanup.mockReturnValueOnce(left.promise);
+        const pending = controller.submitFormLogin('gamma', {});
+        await manual.flush();
+        await controller.startLogin('netease');
+        submitted.resolve();
+        refreshed.resolve(true);
+        left.resolve();
+        expect(await pending).toMatchObject({ outcome: 'activation-declined' });
+        expect(controller.getSnapshot().login?.providerId).toBe('netease');
+        expect(controller.getSnapshot().lastLoginCompletion).toBeNull();
+        expect(accounts.stored()).toBe('alpha');
+        controller.dispose();
+    });
+
+    it.each([
+        ['close', 'submit'], ['close', 'refresh'], ['dispose', 'submit'], ['dispose', 'refresh'],
+    ] as const)('does not finish a sessionless form after %s during %s', async (action, phase) => {
+        const controller = createController();
+        const submitted = deferred<void>();
+        const refreshed = deferred<boolean>();
+        if (phase === 'submit') submitLoginForm.mockReturnValueOnce(submitted.promise);
+        else refresh.mockReturnValueOnce(refreshed.promise);
+        const pending = controller.submitFormLogin('gamma', {});
+        await manual.flush();
+        if (action === 'close') controller.closeLogin();
+        else controller.dispose();
+        submitted.resolve();
+        refreshed.resolve(true);
+        expect(await pending).toMatchObject({ outcome: 'activation-declined' });
+        expect(controller.getSnapshot().lastLoginCompletion).toBeNull();
+        expect(refresh).toHaveBeenCalledTimes(phase === 'submit' ? 0 : 1);
+        expect(accounts.stored()).toBe('alpha');
+        controller.dispose();
+    });
+
+    it('still completes the current form and reports an account refresh failure', async () => {
+        const controller = createController();
+        refresh.mockResolvedValueOnce(false);
+        expect(await controller.submitFormLogin('gamma', {})).toMatchObject({ outcome: 'refresh-failed' });
+        expect(controller.getSnapshot().lastLoginCompletion?.outcome).toBe('refresh-failed');
+        expect(await controller.submitFormLogin('gamma', {})).toMatchObject({ outcome: 'completed' });
+        expect(accounts.stored()).toBe('gamma');
+        controller.dispose();
+    });
+});
 
 // ─── 切换 ───────────────────────────────────────────────────────────────
 

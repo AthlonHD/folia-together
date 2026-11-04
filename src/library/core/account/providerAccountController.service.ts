@@ -9,6 +9,7 @@ import type {
     LibraryLoginCloseResult,
     LibraryLoginCompletion,
     LibraryLoginDiagnosticResult,
+    LibraryLoginOutcome,
     LibraryLoginPageResult,
     LibraryLoginPasteResult,
     LibraryLoginPhase,
@@ -283,27 +284,30 @@ export const createProviderAccountController = (deps: LibraryAccountControllerDe
     // ─── 切换 ───────────────────────────────────────────────────────────
 
     /** 切过去：离开旧平台 → 作废上一个平台的在途请求 → 写当前平台 → （switch 时）读新账户。 */
-    const commitSwitch = async (from: OnlineProviderId, to: OnlineProviderId, readAccount: boolean): Promise<void> => {
+    const commitSwitch = async (from: OnlineProviderId, to: OnlineProviderId, readAccount: boolean, isCurrent?: () => boolean): Promise<boolean> => {
         try {
             await switchCleanup.leaveProvider(from, to);
         } catch (error) {
             // 离开旧平台出错也照样切过去，只记日志。
             log('warn', 'switch:cleanup-error', { from, to, ...describeLoginError(error) });
         }
+        if (isCurrent && !isCurrent()) return false;
         accounts.invalidateActiveRequests();
         accounts.setActiveProviderId(to);
-        if (!readAccount) return;
+        if (!readAccount) return true;
         try {
             await providerAccounts.refresh(to, 'switch');
         } catch (error) {
             log('warn', 'switch:refresh-error', { providerId: to, ...describeLoginError(error) });
         }
+        return true;
     };
 
     // 切换不拿走播放器里的歌（各首按自己的平台播放），所以不问用的人，直接切。
     const openSwitchRequest = async (
         to: OnlineProviderId,
         reason: LibraryProviderSwitchReason,
+        isCurrent?: () => boolean,
     ): Promise<LibrarySwitchResult> => {
         if (disposed) return { status: 'declined', providerId: to, reason: 'disposed' };
         const from = activeProviderId();
@@ -311,7 +315,9 @@ export const createProviderAccountController = (deps: LibraryAccountControllerDe
         const selection = resolveProviderSelection(findProvider(to));
         if (selection.kind === 'unavailable') return { status: 'unavailable', providerId: to, reason: selection.reason };
         log('info', 'switch', { from, to, reason });
-        await commitSwitch(from, to, reason === 'switch');
+        if (!await commitSwitch(from, to, reason === 'switch', isCurrent)) {
+            return { status: 'declined', providerId: to, reason: disposed ? 'disposed' : 'superseded' };
+        }
         return { status: 'switched', providerId: to, changed: true };
     };
 
@@ -419,10 +425,12 @@ export const createProviderAccountController = (deps: LibraryAccountControllerDe
     };
 
     const closeLogin = (): LibraryLoginCloseResult => {
-        if (disposed || !login) return { status: 'no-session' };
+        if (disposed) return { status: 'no-session' };
+        // Forms have no QR session, but closing them must still invalidate an in-flight submission.
+        loginSeq += 1;
+        if (!login) return { status: 'no-session' };
         const sessionId = login.id;
         batch(() => {
-            loginSeq += 1;
             session.stop();
             login = null;
             watchLocalService(null);
@@ -505,6 +513,58 @@ export const createProviderAccountController = (deps: LibraryAccountControllerDe
         batch(() => complete(result.status === 'switched' ? 'completed' : 'activation-declined'));
     };
 
+    // ─── 表单式登录 ────────────────────────────────────────────────────
+
+    /**
+     * 表单式登录完成（FormLogin 提交成功后由登录窗口调用）：读账号，走和扫码确认一样的收尾链路——
+     * 读到了收起登录，不是当前平台时先问（activate-after-login），再报完成（登录窗口据它放动画/关窗）。
+     * 表单登录没有会话，sessionId 用 0。
+     */
+    const finishFormLogin = async (providerId: OnlineProviderId, attempt: number): Promise<LibraryLoginCompletion> => {
+        const isCurrent = () => !disposed && attempt === loginSeq;
+        const abandoned: LibraryLoginCompletion = { sessionId: 0, providerId, outcome: 'activation-declined' };
+        const complete = (outcome: LibraryLoginOutcome): LibraryLoginCompletion => {
+            if (!isCurrent()) return abandoned;
+            const completion = { sessionId: 0, providerId, outcome };
+            batch(() => { lastLoginCompletion = completion; });
+            return completion;
+        };
+        if (!isCurrent()) return abandoned;
+        let refreshed = false;
+        try {
+            refreshed = await providerAccounts.refresh(providerId, 'sign-in');
+        } catch (error) {
+            log('warn', 'login:refresh-error', { providerId, ...describeLoginError(error) });
+        }
+        if (!isCurrent()) return abandoned;
+        if (!refreshed) return complete('refresh-failed');
+        const needsActivation = providerId !== activeProviderId();
+        batch(() => {
+            login = null;
+            watchLocalService(null);
+        });
+        if (!needsActivation) return complete('completed');
+        if (!isCurrent()) return abandoned;
+        const result = await openSwitchRequest(providerId, 'activate-after-login', isCurrent);
+        return complete(result.status === 'switched' ? 'completed' : 'activation-declined');
+    };
+
+    const completeFormLogin = (providerId: OnlineProviderId): Promise<LibraryLoginCompletion> => (
+        finishFormLogin(providerId, ++loginSeq)
+    );
+
+    /**
+     * 表单式登录完整链路（FormLogin 提交时走这里，不再绕过 controller 直调 omni）：
+     * 先提交表单（provider 的 submitLoginForm，失败抛错由表单显示），成功后读账号、走和扫码确认一样的收尾链路。
+     * 读账号失败返回 refresh-failed：token 已存，登录窗口据结局显示提示（FormLogin 不静默关窗）。
+     */
+    const submitFormLogin = async (providerId: OnlineProviderId, values: Record<string, string>): Promise<LibraryLoginCompletion> => {
+        if (disposed) return { sessionId: 0, providerId, outcome: 'activation-declined' };
+        const attempt = ++loginSeq;
+        await providerAccounts.submitLoginForm(providerId, values);
+        return finishFormLogin(providerId, attempt);
+    };
+
     // ─── 选平台与登出 ───────────────────────────────────────────────────
 
     const selectProvider = async (providerId: OnlineProviderId): Promise<LibrarySelectProviderResult> => {
@@ -572,6 +632,8 @@ export const createProviderAccountController = (deps: LibraryAccountControllerDe
         startLogin,
         selectLoginMethod,
         retryLogin,
+        completeFormLogin,
+        submitFormLogin,
         openLoginPage,
         pasteLoginAddress,
         closeLogin,

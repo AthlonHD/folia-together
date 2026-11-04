@@ -24,6 +24,21 @@ afterEach(() => {
 });
 
 describe('stageSource', () => {
+    it('registers the new platform stream for native staging', async () => {
+        const main = readFileSync(new URL('../../../electron/main.cjs', import.meta.url), 'utf8');
+        const registered = /customSchemes:\s*\[([^\]]+)\]/.exec(main)?.[1];
+        expect(registered).toContain('FN_MUSIC_SCHEME');
+        const { FN_MUSIC_SCHEME } = require('../../../electron/fnmusic/fnmusicApiBridge.cjs');
+        const file = await stageSource({
+            directory: scratch(),
+            source: { kind: 'url', url: `${FN_MUSIC_SCHEME}://stream?guid=test-song` },
+            fetchImpl: (async () => new Response(new Uint8Array([1, 2, 3]))) as typeof fetch,
+            customSchemes: [FN_MUSIC_SCHEME],
+        });
+        expect([...readFileSync(file)]).toEqual([1, 2, 3]);
+        expect(path.basename(file)).toMatch(/^eph-/);
+    });
+
     it('writes bytes once and returns the same file for the same content', async () => {
         const directory = scratch();
         const bytes = new Uint8Array([1, 2, 3, 4]).buffer;

@@ -169,6 +169,9 @@ describe('account storage per mode', () => {
 
 describe('remote storage shield', () => {
     it('drops writes to host-owned settings but not to appearance settings', () => {
+        // This tests Storage.prototype interception, which the general in-memory setup shim does not implement.
+        const dom = (globalThis as unknown as { jsdom: { window: Window } }).jsdom;
+        vi.stubGlobal('localStorage', dom.window.localStorage);
         const proto = Storage.prototype;
         const originalSet = proto.setItem;
         const originalRemove = proto.removeItem;
@@ -188,6 +191,7 @@ describe('remote storage shield', () => {
             proto.setItem = originalSet;
             proto.removeItem = originalRemove;
             delete (proto as { __foliaRemoteShield?: boolean }).__foliaRemoteShield;
+            vi.unstubAllGlobals();
         }
     });
 });
