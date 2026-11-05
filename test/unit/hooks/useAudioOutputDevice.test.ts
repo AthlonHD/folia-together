@@ -26,6 +26,7 @@ const { useAudioOutputDevice } = await import('@/hooks/useAudioOutputDevice');
 const { useAudioSettingsStore } = await import('@/stores/useAudioSettingsStore');
 const { usePlaybackStore } = await import('@/stores/usePlaybackStore');
 const { useStatusMessageStore } = await import('@/stores/useStatusMessageStore');
+const { usePassthroughStatusStore } = await import('@/services/passthrough/passthroughStatusStore');
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root | null = null;
@@ -55,6 +56,7 @@ beforeEach(() => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     useStatusMessageStore.setState({ message: null });
     usePlaybackStore.setState({ audioSrc: 'blob:one' });
+    usePassthroughStatusStore.setState({ silenceWebOutput: false });
 });
 
 afterEach(() => {
@@ -64,6 +66,35 @@ afterEach(() => {
 });
 
 describe('useAudioOutputDevice', () => {
+    it.each(['source', 'deck', 'native', 'failure'] as const)('does not resume a stale device switch after %s changes', async change => {
+        useAudioSettingsStore.setState({ audioOutputDeviceId: 'default' });
+        let finish!: () => void;
+        let fail!: (error: unknown) => void;
+        const pending = new Promise<void>((resolve, reject) => { finish = resolve; fail = reject; });
+        const element = document.createElement('audio') as SinkElement;
+        element.sinkId = '';
+        element.setSinkId = vi.fn(() => pending);
+        let paused = false;
+        Object.defineProperty(element, 'paused', { get: () => paused });
+        const play = vi.spyOn(element, 'play').mockResolvedValue();
+        vi.spyOn(element, 'pause').mockImplementation(() => { paused = true; });
+        const audioRef = { current: element };
+        const Probe = () => {
+            useAudioOutputDevice({ audioRef, audioContextRef: { current: null }, gainNodeRef: { current: null } });
+            return null;
+        };
+        root = createRoot(document.createElement('div'));
+        act(() => root!.render(React.createElement(Probe)));
+        await act(async () => {
+            if (change === 'native') usePassthroughStatusStore.setState({ silenceWebOutput: true });
+            else if (change === 'deck') audioRef.current = document.createElement('audio') as SinkElement;
+            else usePlaybackStore.setState({ audioSrc: null });
+            if (change === 'failure') fail(new DOMException('interrupted', 'AbortError'));
+            else finish();
+            await flush();
+        });
+        expect(play).not.toHaveBeenCalled();
+    });
     it('says once that a device it could not put back is missing, and that the default plays instead', async () => {
         useAudioSettingsStore.setState({ audioOutputDeviceId: 'dac-gone' });
         const element = mountWith(async () => { throw notFound(); });

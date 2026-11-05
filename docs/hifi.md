@@ -9,6 +9,7 @@
 - 设置位置：设置 → 播放控制 → 直通模式。
 - 只在 Windows 桌面版出现；开不起来或遇到解不了的文件时自动回到普通播放并说明原因。
 - 飞牛音乐的 `folia-fnmusic://` 音源也经主进程协议读取，交给 helper 直通；临时文件按同一套规则清理。协议白名单与暂存回归测试：`npx vitest run -c vitest.config.ts test/unit/electron/audioHelperProcess.test.ts`。尚未连接真实飞牛服务做端到端验证。
+- 直通接管时，浏览器输出末端的独立增益闸门同步归零，两个播放 deck 和音效都经过它；切换声卡的异步操作失败或晚到，也不会绕过这道静音。退出直通或回退普通播放时恢复。`setSinkId({ type: 'none' })` 仍用于释放浏览器输出设备。相关回归测试：`npm run test:unit -- test/unit/services/playbackGraph.test.ts test/unit/hooks/useAudioOutputDevice.test.ts`；测试验证软件静音与过期恢复保护，未替代实际声卡的录音验证。
 
 ---
 

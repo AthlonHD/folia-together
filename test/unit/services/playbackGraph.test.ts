@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { usePassthroughStatusStore } from '@/services/passthrough/passthroughStatusStore';
 import { buildPlaybackGraph } from '@/services/playbackGraph';
 import { resolveAudioEqualizerSettings } from '@/utils/audioEqualizer';
 import { AUDIO_SOUND_PRESETS } from '@/utils/audioPresets';
@@ -16,6 +17,12 @@ import { AUDIO_SOUND_PRESETS } from '@/utils/audioPresets';
 // would pass whatever the source did.
 
 type FakeNode = { kind: string; connect: (target: FakeNode) => void; disconnect: () => void };
+
+const graphs: ReturnType<typeof buildPlaybackGraph>[] = [];
+afterEach(() => {
+    graphs.splice(0).forEach(graph => graph.dispose());
+    usePassthroughStatusStore.setState({ silenceWebOutput: false });
+});
 
 const createFakeContext = () => {
     const edges: Array<[FakeNode, FakeNode]> = [];
@@ -82,10 +89,38 @@ const buildWith = (effectsPreset: 'lofi' | 'flat') => {
         equalizerNodesRef: { current: [] },
         settings,
     });
+    graphs.push(graph);
     return { graph, edges, analyser, context };
 };
 
 describe('buildPlaybackGraph', () => {
+    it('silences every output route synchronously while native playback owns the sound, without sinkId', () => {
+        const { graph, edges, context, analyser } = buildWith('lofi');
+        const gate = edges.find(([, to]) => to === context.destination)![0] as FakeNode & { gain: { value: number } };
+        expect(gate.gain.value).toBe(1);
+        usePassthroughStatusStore.getState().setSilenceWebOutput(true);
+        expect(gate.gain.value).toBe(0);
+        const noise = edges.map(([from]) => from).find(node => node.kind === 'bufferSource')!;
+        routesToDestination(edges, noise).forEach(route => expect(route).toContain(gate));
+        routesToDestination(edges, analyser).forEach(route => expect(route).toContain(gate));
+        // Track-start volume writes cannot reopen the independent native-output gate.
+        (graph.gainNode as unknown as { gain: { value: number } }).gain.value = 1;
+        expect(gate.gain.value).toBe(0);
+        usePassthroughStatusStore.getState().setSilenceWebOutput(false);
+        expect(gate.gain.value).toBe(1);
+    });
+
+    it('starts silent when native playback is already engaged and unsubscribes on disposal', () => {
+        usePassthroughStatusStore.getState().setSilenceWebOutput(true);
+        const { graph, edges, context } = buildWith('flat');
+        const gate = edges.find(([, to]) => to === context.destination)![0] as FakeNode & { gain: { value: number } };
+        expect(gate.gain.value).toBe(0);
+        graph.dispose();
+        graphs.splice(graphs.indexOf(graph), 1);
+        usePassthroughStatusStore.getState().setSilenceWebOutput(false);
+        expect(gate.gain.value).toBe(0);
+        expect(gate.disconnect).toHaveBeenCalled();
+    });
     it('puts the volume fader between the vinyl noise and the speakers', () => {
         const { graph, edges, context } = buildWith('lofi');
         // The looping noise buffer the vinyl branch starts - the one thing in the chain that makes
@@ -148,5 +183,6 @@ describe('buildPlaybackGraph', () => {
         });
         expect(graph.decksConnected).toBe(false);
         expect(graph.gainNode).toBeDefined();
+        graphs.push(graph);
     });
 });

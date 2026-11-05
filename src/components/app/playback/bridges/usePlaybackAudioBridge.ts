@@ -188,7 +188,7 @@ export function usePlaybackAudioBridge({
             analyser.smoothingTimeConstant = 0.6;
             analyserRef.current = analyser;
 
-            const { gainNode, fadeNode, effectChain, decksConnected } = buildPlaybackGraph({
+            const { gainNode, fadeNode, effectChain, decksConnected, dispose } = buildPlaybackGraph({
                 context: ctx,
                 analyser,
                 connectDecks,
@@ -199,7 +199,7 @@ export function usePlaybackAudioBridge({
             // Hands the transport its own fade node; until this runs (or if setup fails) pause and
             // resume see no graph and fall back to plain element pause/play.
             registerPlaybackFadeGraph({ context: ctx, gain: fadeNode });
-            effectChainRef.current = effectChain;
+            effectChainRef.current = { apply: effectChain.apply, dispose };
             if (!decksConnected) {
                 console.warn('[AudioContext] Deck setup incomplete, automix will stay idle');
             }

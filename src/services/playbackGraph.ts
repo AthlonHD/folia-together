@@ -1,6 +1,7 @@
 import { connectAudioEqualizerGraph } from './audioEqualizerGraph';
 import { createAudioEffectChain, type AudioEffectChain } from './audioEffects/effectChain';
 import type { AudioEqualizerSettings } from '../utils/audioEqualizer';
+import { createWebOutputGate } from './passthrough/webOutputGate';
 
 // src/services/playbackGraph.ts
 // The order the playback nodes are wired in, as one function so the order can be asserted.
@@ -32,6 +33,7 @@ export type PlaybackGraph = {
     effectChain: AudioEffectChain;
     /** False when a deck was missing, so automix will stay idle. Audio still flows. */
     decksConnected: boolean;
+    dispose: () => void;
 };
 
 export const buildPlaybackGraph = ({
@@ -94,16 +96,26 @@ export const buildPlaybackGraph = ({
     // The analyser stays last, so the visualiser draws what is actually being heard - including
     // the volume the listener set.
     fadeNode.connect(analyser);
-    analyser.connect(context.destination);
+    // Device switching is asynchronous and can fail: the gate silences both decks before
+    // the helper starts, independently of sinkId and every volume/fade writer upstream.
+    const webOutputGate = createWebOutputGate(context);
+    analyser.connect(webOutputGate.node);
+    webOutputGate.node.connect(context.destination);
 
     // Once per audio context. Printed rather than assumed because the ORDER is the fix: if this
     // ever reads "volume" before "effects" again, the vinyl noise has stopped answering the
     // volume control and the bit crush has gone back to tracking it.
     console.log(
-        '[AudioContext] graph: decks -> mix -> equaliser -> effects -> volume -> fade -> analyser -> out'
+        '[AudioContext] graph: decks -> mix -> equaliser -> effects -> volume -> fade -> analyser -> Web output gate -> out'
         + ` (equaliser ${settings.enabled ? 'on' : 'flat'},`
         + ` noise ${settings.effects.noise}, crush ${settings.effects.crush}, punch ${settings.effects.punch})`,
     );
 
-    return { gainNode, fadeNode, effectChain, decksConnected };
+    return {
+        gainNode, fadeNode, effectChain, decksConnected,
+        dispose: () => {
+            webOutputGate.dispose();
+            effectChain.dispose();
+        },
+    };
 };

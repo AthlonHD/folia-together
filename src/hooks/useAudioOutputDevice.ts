@@ -40,10 +40,14 @@ export const useAudioOutputDevice = ({
         targetDeviceId: string,
         reportError = true,
     ) => {
+        const sourceAtStart = usePlaybackStore.getState().audioSrc;
         const audioElement = audioRef.current as (HTMLAudioElement & {
             setSinkId?: (sinkId: string) => Promise<void>;
             sinkId?: string;
         }) | null;
+        const isCurrent = () => audioRef.current === audioElement
+            && usePlaybackStore.getState().audioSrc === sourceAtStart
+            && !usePassthroughStatusStore.getState().silenceWebOutput;
         const audioContext = audioContextRef.current as (AudioContext & {
             setSinkId?: (sinkId: string) => Promise<void>;
             sinkId?: string;
@@ -78,13 +82,15 @@ export const useAudioOutputDevice = ({
         let shouldPauseBeforeSwitch = normalizedTargetDeviceId === 'default' || normalizedTargetDeviceId === 'communications';
 
         while (attempt <= maxRetryCount) {
-            const wasPlaying = Boolean(audioElement && !audioElement.paused && !audioElement.ended);
+            if (!isCurrent()) return false;
+            const wasPlaying = Boolean(sourceAtStart && audioElement && !audioElement.paused && !audioElement.ended);
             try {
                 if (audioElement && shouldPauseBeforeSwitch && wasPlaying) {
                     audioElement.pause();
                 }
 
                 await audioSinkTarget.setSinkId(normalizedTargetDeviceId);
+                if (!isCurrent()) return false;
                 persistAudioOutputDeviceId(targetDeviceId);
                 silentFailureReportedFor = null;
 
@@ -102,6 +108,7 @@ export const useAudioOutputDevice = ({
 
                 return true;
             } catch (error) {
+                if (!isCurrent()) return false;
                 const isAbortError = error instanceof DOMException && error.name === 'AbortError';
                 if (isAbortError && attempt < maxRetryCount) {
                     if (audioElement && wasPlaying && audioElement.paused) {
