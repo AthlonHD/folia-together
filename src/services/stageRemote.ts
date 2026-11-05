@@ -1,9 +1,9 @@
 // src/services/stageRemote.ts
 // 遥控模式:本页不出声,所有播放操作经 Stage 中继转给服务器上的 Host 页执行。
 
-import type { SongResult, StagePlayerQueueRequest } from '../types';
+import type { SongResult, StagePlayerQueueRequest, StagePlayerQueueItem } from '../types';
 import { setStatusMessage as setStatusMsg } from '../stores/useStatusMessageStore';
-import { getPlaybackSongKey, getPlaybackSourceRef, isLocalPlaybackSong } from '../utils/appPlaybackGuards';
+import { getPlaybackSongKey, getPlaybackSongSource, getPlaybackSourceRef, isLocalPlaybackSong } from '../utils/appPlaybackGuards';
 import { writeProviderSessionValue } from './onlineMusic/providerStorage';
 import {
     getStageAuthHeaders,
@@ -196,8 +196,15 @@ export const remoteMoveQueueSong = (fromIndex: number, toIndex: number) =>
     remoteQueueOp({ action: 'move', fromIndex, toIndex }).catch(reportRemoteError);
 
 // 把服务器队列依次移动成 targetQueue 的顺序(选择排序式,逐项 move),用于批量"下一首/移到末尾"
-export const remoteReorderQueue = async (currentQueue: SongResult[], targetQueue: SongResult[]) => {
+const writeRemoteQueueOrder = async (currentQueue: SongResult[], targetQueue: SongResult[], removeRest: boolean) => {
     const working = currentQueue.map(song => getPlaybackSongKey(song));
+    // An order editor may remove rows, but must not silently replace an unrecognised song with a deletion.
+    const available = [...working];
+    for (const song of targetQueue) {
+        const index = available.indexOf(getPlaybackSongKey(song));
+        if (index < 0) return;
+        available.splice(index, 1);
+    }
     try {
         for (let toIndex = 0; toIndex < targetQueue.length; toIndex += 1) {
             const wanted = getPlaybackSongKey(targetQueue[toIndex]);
@@ -206,9 +213,42 @@ export const remoteReorderQueue = async (currentQueue: SongResult[], targetQueue
             await remoteQueueOp({ action: 'move', fromIndex, toIndex });
             working.splice(toIndex, 0, ...working.splice(fromIndex, 1));
         }
+        if (removeRest) {
+            for (let index = working.length - 1; index >= targetQueue.length; index -= 1) {
+                await remoteQueueOp({ action: 'remove', index });
+            }
+        }
     } catch (error) {
         reportRemoteError(error);
     }
+};
+
+export const remoteReorderQueue = (currentQueue: SongResult[], targetQueue: SongResult[]) => (
+    writeRemoteQueueOrder(currentQueue, targetQueue, false)
+);
+
+/** Applies a scratchpad order, including removed rows, on the Host without writing the local mirror. */
+let scratchpadQueueTask: Promise<unknown> = Promise.resolve();
+export const remoteSetQueueOrder = (currentQueue: SongResult[], targetQueue: SongResult[]) => {
+    const task = scratchpadQueueTask.then(() => writeRemoteQueueOrder(currentQueue, targetQueue, true));
+    scratchpadQueueTask = task.catch(reportRemoteError);
+    return task;
+};
+
+/** Wait for a draft's moves, then select the server's current item identifier rather than a stale mirror index. */
+export const remoteSelectQueueSongAfterEdits = (song: SongResult): Promise<boolean> => {
+    const task = scratchpadQueueTask.then(async () => {
+        const response = await fetchRemoteQueue();
+        const source = getPlaybackSongSource(song);
+        const item = response.queue?.items?.find((row: StagePlayerQueueItem) => (
+            row.source === source && row.id === String(song.id)
+        ));
+        if (!item) return false;
+        await remoteQueueOp({ action: 'select', queueItemId: item.queueItemId });
+        return true;
+    }).catch(error => { reportRemoteError(error); return false; });
+    scratchpadQueueTask = task;
+    return task;
 };
 
 // 随机播放:清空服务器队列(保留当前曲)后,按打乱后的顺序重新追加,只需两次请求

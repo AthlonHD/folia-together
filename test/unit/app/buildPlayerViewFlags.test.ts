@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildPlayerViewFlags } from '@/components/app/presentation/buildPlayerViewFlags';
 
 // test/unit/app/buildPlayerViewFlags.test.ts
 // Whether the capsule's and the Lattice's play/pause can act on the current song. On the HiFi route
 // audioSrc is always null (mpv plays the song), so the current HiFi track has to count too (finding #29).
+
+const mode = vi.hoisted(() => ({ remote: false }));
+vi.mock('@/services/stageRemote', () => ({ isStageRemoteMode: () => mode.remote }));
+afterEach(() => { mode.remote = false; });
 
 type FlagInput = Parameters<typeof buildPlayerViewFlags>[0];
 
@@ -20,12 +24,19 @@ const input = (overrides: Partial<FlagInput> = {}): FlagInput => ({
     duration: 0,
     playbackRoute: 'web',
     hasHifiTrack: false,
+    hasExternalSong: false,
     ...overrides,
 });
 
 const canToggle = (overrides: Partial<FlagInput>) => buildPlayerViewFlags(input(overrides)).canToggleCurrentPlayback;
 
 describe('canToggleCurrentPlayback', () => {
+    it('uses the mirrored Host duration in remote mode even without any local playback source', () => {
+        mode.remote = true;
+        expect(canToggle({ duration: 72 })).toBe(true);
+        expect(canToggle({ duration: 0, hasExternalSong: true })).toBe(false);
+        expect(canToggle({ duration: 72, isNowPlayingControlDisabled: true })).toBe(false);
+    });
     it('is on for a web song with a source, and off with none', () => {
         expect(canToggle({ audioSrc: 'blob:song' })).toBe(true);
         expect(canToggle({ audioSrc: null })).toBe(false);
@@ -33,6 +44,12 @@ describe('canToggleCurrentPlayback', () => {
 
     it('is on for the current HiFi track though audioSrc is null', () => {
         expect(canToggle({ playbackRoute: 'hifi', hasHifiTrack: true, audioSrc: null })).toBe(true);
+    });
+
+    it('is on for the external route and for a restored external song with no route yet', () => {
+        expect(canToggle({ playbackRoute: 'external', hasExternalSong: true, audioSrc: null })).toBe(true);
+        expect(canToggle({ playbackRoute: 'web', hasExternalSong: true, audioSrc: null })).toBe(true);
+        expect(canToggle({ playbackRoute: 'external', hasExternalSong: false })).toBe(false);
     });
 
     it('is off on the HiFi route with no HiFi track, and for a leftover track once the route is web', () => {

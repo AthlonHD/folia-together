@@ -8,7 +8,7 @@ import CommandPalette from './components/command-palette/CommandPalette';
 import AddToPlaylistHost from './components/app/AddToPlaylistHost';
 import CrossPlaylistHost from './components/app/crossPlaylist/CrossPlaylistHost';
 import ScratchpadHost from './components/app/scratchpad/ScratchpadHost';
-import { useScratchpadPlayback } from './components/app/scratchpad/useScratchpadPlayback';
+import { useScratchpadPlayback, useScratchpadQueuePort } from './components/app/scratchpad/useScratchpadPlayback';
 import { useCommandPalette } from './components/command-palette/useCommandPalette';
 import { useCommandPaletteContext } from './hooks/useCommandPaletteContext';
 import { useReducedMotionFor } from './hooks/useReducedMotionFor';
@@ -97,6 +97,10 @@ import { resolveActiveProviderSummary } from './library/core/account/accountRule
 import { useAppPreferences } from './hooks/useAppPreferences';
 import { useElectronPlaybackBridge } from './components/app/playback/bridges/useElectronPlaybackBridge';
 import { useHifiPlaybackBridge } from './components/hifi/useHifiPlaybackBridge';
+import { useExternalPlaybackBridge } from './components/app/playback/bridges/useExternalPlaybackBridge';
+import { useExternalAutomixGate } from './components/app/playback/externalPlaybackGate';
+import { seekExternalPlayback } from './services/onlineMusic/externalPlayback';
+import { seekExternalSongIfNotLoaded, startExternalSong } from './components/app/playback/start/externalSongStart';
 import { seekHifiRoute } from './components/hifi/hifiRouteTransport';
 import { useHifiAutomixGate } from './components/hifi/useHifiAutomixGate';
 import { useWebEngineYield } from './components/hifi/useWebEngineYield';
@@ -1020,7 +1024,7 @@ export default function App() {
         setLyricsStable,
     ]);
 
-    const { addNavidromeSongsToQueue, applyQueueBatchOperation, removeQueueSong, moveQueueSongToEnd, moveQueueSongToNext, moveQueueSong } = useMemo(() => createQueueMutations({
+    const { setQueueOrder, addNavidromeSongsToQueue, applyQueueBatchOperation, removeQueueSong, moveQueueSongToEnd, moveQueueSongToNext, moveQueueSong } = useMemo(() => createQueueMutations({
         currentSong,
         playQueue,
         persistLastPlaybackCache,
@@ -1200,13 +1204,15 @@ export default function App() {
 
     // mpv is not one of the two decks a blend needs: off while this song or the next one plays on HiFi.
     const hifiBlocksAutomix = useHifiAutomixGate();
+    // Nor does a provider's own player have a deck to blend into.
+    const externalBlocksAutomix = useExternalAutomixGate();
     const automix = useAutomixDecks({
         audioRef,
         audioContextRef,
         currentSongKeyRef: currentSongRef,
         coverUrl,
         loopMode: effectiveLoopMode,
-        isEnabled: automixEnabled && !isNowPlayingStageActive && !hifiBlocksAutomix,
+        isEnabled: automixEnabled && !isNowPlayingStageActive && !hifiBlocksAutomix && !externalBlocksAutomix,
         transition: transitionSettings,
         onAdvanceTrack: () => {
             // Same advance the end of a track would trigger, only early enough for the outgoing
@@ -1471,8 +1477,10 @@ export default function App() {
         syncStageLyricsClock,
         pauseDuringTransition: handlePauseDuringTransition,
         isTransitionAudible: automix.isTransitionAudible,
+        startExternalSong: () => startExternalSong(playSong),
     });
     useHifiPlaybackBridge({ handleNextTrack, playSong, shouldAutoPlayRef: shouldAutoPlay, isLyricsLoading, effectiveLoopMode, isFmMode });
+    useExternalPlaybackBridge({ handleNextTrack });
     useNavidromeScrobbleReporter({
         audioRef,
         currentSong,
@@ -1723,10 +1731,12 @@ export default function App() {
         duration,
         playbackRoute,
         hasHifiTrack,
+        hasExternalSong: Boolean(currentSong && omni.canPlayExternally(currentSong)),
     }), [
         activePlaybackContext,
         audioSrc,
         currentView,
+        currentSong,
         disableHomeDynamicBackground,
         duration,
         hasHifiTrack,
@@ -2101,6 +2111,8 @@ export default function App() {
      * the live song, queue-mode and blend state.
      */
     seekDuringTransitionRef.current = (time: number) => {
+        // External route: the provider's player seeks; the bar's seek also resumes, as on mpv.
+        if (seekExternalPlayback(time, { resume: true })) return true;
         // HiFi route: mpv seeks. Arrow keys and the remote seek mpv before this, so it is seekMainAudio's and resumes.
         if (seekHifiRoute(time, { resume: true })) return true;
         const tailElement = cancelBlendToDisplayedTrack(true);
@@ -2129,6 +2141,9 @@ export default function App() {
         tailElement.pause();
         return true;
     };
+    // The newest play path, for a seek on a song whose external player has nothing loaded yet.
+    const latestPlaySongRef = useRef(playSong);
+    latestPlaySongRef.current = playSong;
     const seekMainAudio = useCallback((time: number) => {
         if (stageRemoteMode) {
             currentTime.set(time);
@@ -2145,6 +2160,9 @@ export default function App() {
         if (seekDuringTransitionRef.current(time)) {
             return;
         }
+        // The song on screen belongs to a provider's own player, but nothing is loaded there yet
+        // (a session restore): a seek starts it at that position, as it resumes a deck on the web route.
+        if (seekExternalSongIfNotLoaded(time, latestPlaySongRef.current)) return;
         if (audioRef.current) {
             audioRef.current.currentTime = time;
             if (audioRef.current.paused) {
@@ -2319,6 +2337,7 @@ export default function App() {
         onBackCollection: backCollection,
     });
     const scratchpadPlayback = useScratchpadPlayback(homeModel.surfaceProps, handleQueueAddAndPlay);
+    const scratchpadQueue = useScratchpadQueuePort(playSong, setQueueOrder);
     const playerDisplayCatalogIndex = useMemo(() => buildLocalLibraryIndex(
         localLibraryCatalog.entities,
         localLibraryCatalog.assignments,
@@ -3050,8 +3069,13 @@ export default function App() {
                 onCreateNavidromePlaylistWithSongs={createNavidromePlaylistWithSongs}
             />
 
-            {/* 速记簿：左缘的把手与滑出的抽屉，非模态，三个视图里都在。 */}
-            <ScratchpadHost isDaylight={isDaylight} playback={scratchpadPlayback} />
+            {/* 速记簿：左缘的把手与滑出的抽屉，非模态，三个视图里都在；播放页隐藏 UI 时把手跟着藏起来。 */}
+            <ScratchpadHost
+                isDaylight={isDaylight}
+                playback={scratchpadPlayback}
+                queue={scratchpadQueue}
+                isHandleHidden={currentView === 'player' && isPlayerChromeHidden}
+            />
             {/* 跨平台歌单:存在这台设备上,遥控端没有自己的(见 components/app/crossPlaylist) */}
             {!isStageRemoteMode() && (
                 <CrossPlaylistHost

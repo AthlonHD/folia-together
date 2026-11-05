@@ -10,6 +10,14 @@ const mocks = vi.hoisted(() => ({
     setPlayQueue: vi.fn(),
     setStatusMessage: vi.fn(),
     refreshPrefetchAfterQueueEdit: vi.fn(),
+    remote: false,
+    remoteSetQueueOrder: vi.fn(),
+}));
+
+vi.mock('../../../src/services/stageRemote', () => ({
+    isStageRemoteMode: () => mocks.remote,
+    remoteSetQueueOrder: mocks.remoteSetQueueOrder,
+    remoteMoveQueueSong: vi.fn(), remoteRemoveQueueSong: vi.fn(), remoteReorderQueue: vi.fn(),
 }));
 
 vi.mock('../../../src/stores/usePlaybackStore', () => ({ setPlayQueue: mocks.setPlayQueue }));
@@ -46,12 +54,24 @@ const setup = ({ count = 4, currentIndex = 0 }: { count?: number; currentIndex?:
 const ids = (queue: SongResult[]) => queue.map(item => item.id);
 
 beforeEach(() => {
+    mocks.remote = false;
+    mocks.remoteSetQueueOrder.mockReset();
     mocks.setPlayQueue.mockReset();
     mocks.setStatusMessage.mockReset();
     mocks.refreshPrefetchAfterQueueEdit.mockReset();
 });
 
 describe('createQueueMutations.moveQueueSong', () => {
+    it('sends scratchpad queue edits to the Host without changing or persisting its local mirror', () => {
+        const { mutations, playQueue, persistLastPlaybackCache } = setup();
+        mocks.remote = true;
+        const next = [playQueue[3], playQueue[1]];
+        mutations.setQueueOrder(next);
+        expect(mocks.remoteSetQueueOrder).toHaveBeenCalledWith(playQueue, next);
+        expect(mocks.setPlayQueue).not.toHaveBeenCalled();
+        expect(persistLastPlaybackCache).not.toHaveBeenCalled();
+        expect(mocks.refreshPrefetchAfterQueueEdit).not.toHaveBeenCalled();
+    });
     it('moves one song to the target index, writes the queue and persists it', () => {
         const { playQueue, persistLastPlaybackCache, mutations } = setup();
         mutations.moveQueueSong(3, 1);

@@ -39,6 +39,10 @@ import { DEFAULT_NEBBIA_TUNING } from '@/components/visualizer/nebbia/types';
 // pin that times out also leaves a stray entry in the snapshot file: this file gets a longer limit.
 vi.setConfig({ testTimeout: 30_000 });
 
+// The registry discovers settings panels, but this contract never renders their player-chrome controls.
+// Keep that separate store's migration outside the lyric-style storage being measured.
+vi.mock('@/stores/usePlayerChromeSettingsStore', () => ({ usePlayerChromeSettingsStore: () => false }));
+
 type Stored = Record<string, string>;
 type AnyState = Record<string, unknown> & Record<string, (...args: never[]) => unknown>;
 

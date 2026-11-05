@@ -11,7 +11,7 @@ import type { AudioQualityPreference, MediaId } from '../../../types/onlineMusic
 import type { QueueBatchAction } from '../../command-palette/queueQuery';
 import { setStatusMessage as setStatusMsg } from '../../../stores/useStatusMessageStore';
 import { setPlayQueue } from '../../../stores/usePlaybackStore';
-import { isStageRemoteMode, remoteMoveQueueSong, remoteRemoveQueueSong, remoteReorderQueue } from '../../../services/stageRemote';
+import { isStageRemoteMode, remoteMoveQueueSong, remoteRemoveQueueSong, remoteReorderQueue, remoteSetQueueOrder } from '../../../services/stageRemote';
 
 // src/components/app/player-panel/createQueueMutations.ts
 
@@ -154,6 +154,11 @@ export const createQueueMutations = ({
     };
 
     return {
+        /** 整个换成这个顺序（速记簿「播放队列」页的拖动排序与批量操作）：和其余就地编辑同一条路。 */
+        setQueueOrder: (nextQueue: SongResult[]) => {
+            if (isStageRemoteMode()) void remoteSetQueueOrder(playQueue, nextQueue);
+            else updateQueueOrder(nextQueue);
+        },
         addNavidromeSongsToQueue,
         applyQueueBatchOperation,
         removeQueueSong,

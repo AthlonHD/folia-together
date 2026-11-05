@@ -17,6 +17,7 @@ export const buildPlayerViewFlags = ({
     duration,
     playbackRoute,
     hasHifiTrack,
+    hasExternalSong,
 }: {
     currentView: string;
     disableHomeDynamicBackground: boolean;
@@ -32,6 +33,8 @@ export const buildPlayerViewFlags = ({
     playbackRoute: PlaybackRoute;
     /** useHifiTrackStore has a current track (loading, ready, or the one mpv still holds). */
     hasHifiTrack: boolean;
+    /** The song on screen plays in a provider's own player outside this app (external route). */
+    hasExternalSong: boolean;
 }) => {
     const isPlayerView = currentView === 'player';
     return {
@@ -43,6 +46,13 @@ export const buildPlayerViewFlags = ({
         // 遥控模式本页没有音频源,播放/暂停交给服务器 Host:有曲目在播(镜像来的时长大于 0)就可以点
         canToggleCurrentPlayback: !isNowPlayingControlDisabled && (isStageRemoteMode()
             ? duration > 0
-            : Boolean(audioSrc || (playbackRoute === 'hifi' && hasHifiTrack) || (activePlaybackContext === 'stage' && stageActiveEntryKind === 'lyrics' && duration > 0))),
+            : Boolean(
+                audioSrc
+                || (playbackRoute === 'hifi' && hasHifiTrack)
+                // Not gated on the route: a song restored paused has no route of its own yet, and the
+                // transport starts the provider's player when it is pressed.
+                || hasExternalSong
+                || (activePlaybackContext === 'stage' && stageActiveEntryKind === 'lyrics' && duration > 0),
+            )),
     };
 };

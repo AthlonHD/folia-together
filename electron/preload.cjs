@@ -211,6 +211,8 @@ contextBridge.exposeInMainWorld('electron', {
     fnmusicRequest: (operation, params) => ipcRenderer.invoke('fnmusic-api-request', operation, params),
     bodianRequest: (operation, params) => ipcRenderer.invoke('bodian-api-request', operation, params),
     ytmRequest: (operation, params) => ipcRenderer.invoke('ytm-api-request', operation, params),
+    appleMusicWindowsExperimental: process.platform === 'win32' && process.env.ELECTRON_DEV === 'true' && process.env.FOLIA_APPLE_MUSIC_WINDOWS_EXPERIMENTAL === '1',
+    appleMusicRequest: (operation, params) => ipcRenderer.invoke('apple-music-request', operation, params),
     spotifyRequest: (operation, params) => ipcRenderer.invoke('spotify-api-request', operation, params),
     getNetworkProxy: () => ipcRenderer.invoke('network-proxy-get'),
     saveNetworkProxy: (config) => ipcRenderer.invoke('network-proxy-save', config),
@@ -244,9 +246,10 @@ contextBridge.exposeInMainWorld('electron', {
         return () => ipcRenderer.removeListener('window-playback-handoff-requested', listener);
     },
     setNativeTheme: (themeSource) => ipcRenderer.invoke('window-set-native-theme', themeSource),
+    setKeyCaptureActive: (active) => ipcRenderer.send('key-capture-active', active === true),
     getMainWindowClickThroughEnabled: () => ipcRenderer.invoke('window-get-click-through'),
     setMainWindowClickThroughEnabled: (enabled) => ipcRenderer.invoke('window-set-click-through', enabled),
-    setMainWindowClickThroughUnlockHover: (active) => ipcRenderer.invoke('window-set-click-through-unlock-hover', active),
+    setMainWindowClickThroughUnlockHover: (active, viewportWidth, coordinates) => ipcRenderer.invoke('window-set-click-through-unlock-hover', active, viewportWidth, coordinates),
     getMainWindowAlwaysOnTop: () => ipcRenderer.invoke('window-get-always-on-top'),
     setMainWindowAlwaysOnTop: (enabled) => ipcRenderer.invoke('window-set-always-on-top', enabled),
     onMainWindowClickThroughChanged: (callback) => {
@@ -362,6 +365,12 @@ contextBridge.exposeInMainWorld('electron', {
         const listener = (_event, status) => callback(status);
         ipcRenderer.on('stage-session-cleared', listener);
         return () => ipcRenderer.removeListener('stage-session-cleared', listener);
+    },
+    // POST /stage/lyrics/clock: an external player's position for the lyrics session on screen.
+    onStageLyricsClockUpdated: (callback) => {
+        const listener = (_event, update) => callback(update);
+        ipcRenderer.on('stage-lyrics-clock-updated', listener);
+        return () => ipcRenderer.removeListener('stage-lyrics-clock-updated', listener);
     },
     onStageExternalPlayRequest: (callback) => {
         const listener = (_event, request) => callback(request);

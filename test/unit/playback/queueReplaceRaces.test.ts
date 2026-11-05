@@ -94,6 +94,7 @@ vi.mock('@/services/hostExtensionHooks', () => ({
 vi.mock('@/services/onlineMusic/omni', () => ({
     omni: {
         canPlaySong: () => true,
+        canPlayExternally: () => false,
         getProviderLabel: (id: string) => id,
         getPersonalFm: () => env.self.fmBatch ?? Promise.resolve([]),
         getSongReplacement: async (song: { id: string }) => env.self.replacementFor.get(String(song.id)) ?? null,
@@ -158,6 +159,7 @@ const { resetPlaybackStore } = await import('./currentSongWatch');
 const { onlineFailureOf } = await import('@/services/onlineMusic/failure/onlineFailureCase');
 const { usePersonalFmModeStore } = await import('@/stores/usePersonalFmModeStore');
 const { useAudioSettingsStore } = await import('@/stores/useAudioSettingsStore');
+const { usePlayOrderStore } = await import('@/stores/usePlayOrderStore');
 const { queueStartsSoFar } = await import('@/components/app/playback/start/queueStarts');
 
 const online = (id: string): SongResult => ({
@@ -262,6 +264,22 @@ function mount() {
 }
 
 describe('a play that lands after the queue was replaced whole', () => {
+    it('replaces an unplayable shuffle candidate before stepping to the next song', async () => {
+        playerWith([a, b, c], a);
+        useAudioSettingsStore.setState({ shuffleEnabled: true });
+        usePlayOrderStore.setState({ upcomingKey: getPlaybackSongKey(b) });
+        env.self.unavailable.add('b');
+        try {
+            const { queue } = mount();
+            await queue.handleNextTrack();
+            await settle();
+            expect(store().currentSong?.id).toBe('c');
+            expect(keys(store().playQueue)).toEqual(keys([a, b, c]));
+        } finally {
+            useAudioSettingsStore.setState({ shuffleEnabled: false });
+            usePlayOrderStore.getState().reset();
+        }
+    });
     it('swaps itself into the new queue when that queue holds it, and saves and fetches around the new queue', async () => {
         playerWith([a, b, c], a);
         const { queue, persistLastPlaybackCache } = mount();

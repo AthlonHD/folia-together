@@ -18,7 +18,7 @@ import { createProviderSongMetadata } from '../../../utils/songMetadata';
 import { toSafePlaybackUrl } from '../../../utils/appPlaybackHelpers';
 import { fetchQQLyrics } from './qqLyricProvider';
 import { writeProviderSessionValue } from '../providerStorage';
-import { normalizeQqCollection, normalizeQqSong, normalizeQqUser } from './qqNormalize';
+import { getQqLyricSearchAlias, normalizeQqCollection, normalizeQqSong, normalizeQqUser } from './qqNormalize';
 import { clearQqSession, getQqRemoteApiBase, getQqTransportAvailability, hasQqSession, hasUsableQqSession, isQqSessionParked, requestQq } from './qqTransport';
 import { canRunLoginSelfCheck, runLoginSelfCheck } from '../loginSelfCheck';
 import { diagnosticLine, formatDiagnosticClock } from '../login/loginDiagnosticReport';
@@ -1101,7 +1101,7 @@ export const qqProvider: OnlineMusicProvider = {
         searchAlbums: (query, limit, offset) => searchQqCollections('album', query, limit, offset),
         searchPlaylists: (query, limit, offset) => searchQqCollections('playlist', query, limit, offset),
     },
-    lyrics: { getLyrics },
+    lyrics: { getLyrics, getSearchAlias: getQqLyricSearchAlias },
     auth: {
         getLoginTexts: () => ({
             // 和 caseNotes 一样，到窗口真的要显示时才看这一次登录解析出的方式：只给 QQ 音乐 App 扫码时说三种 App 都能扫，

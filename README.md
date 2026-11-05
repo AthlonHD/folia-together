@@ -91,6 +91,8 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 
 > 本 Fork 的服务端形态是**单机自托管**：一台常开的 Windows 机器同时跑前端、Stage 中继和各音乐 API。上游的 Vercel / Cloudflare 一键部署、Docker 全栈部署**不包含本 Fork 的 Stage 中继与遥控能力**，需要这些形态请到[上游仓库](https://github.com/chthollyphile/folia-major)查看；在这些形态里运行的是上游的功能集。服务端用 `start-stage.cmd --auto-update` 启动后会自己跟上本分支的新提交，与桌面版出自同一份代码。
 
+上游桌面 Stage API 的外部播放器输入与本机连接文件不等同于 Web 遥控中继；服务器仍按本文端口和令牌配置启动，边界见 [桌面 Stage API 与 Web 中继](docs/stage-remote.md#桌面-stage-api-与-web-中继)。
+
 ### 环境要求
 
 - Windows（启动脚本为 `.cmd`；Stage 中继本身是普通 Node 程序，也可以手动在其他系统运行）

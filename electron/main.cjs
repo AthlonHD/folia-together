@@ -10,6 +10,8 @@ const { spawn } = require('child_process');
 const Store = require('electron-store').default || require('electron-store');
 const crypto = require('crypto');
 const { createStageApi } = require('./stageApi.cjs');
+const { resolveStageConnectionFilePath } = require('./stageConnectionFile.cjs');
+const { isCursorInsideUnlockHotspot, createUnlockHoverRequests } = require('./mainWindowClickThrough.cjs');
 const { createModSystem } = require('./modSystem/modSystem.cjs');
 const { MOD_PROTOCOL_PRIVILEGED_SCHEME } = require('./modSystem/modProtocol.cjs');
 const { createWindowPlaybackHandoffStore } = require('./windowPlaybackHandoff.cjs');
@@ -74,6 +76,8 @@ const { createQishuiMediaPolicy } = require('./qishui/mediaCors.cjs');
 const { createBodianApiBridge } = require('./bodian/bodianApiBridge.cjs');
 const { createBodianMediaPolicy } = require('./bodian/mediaCors.cjs');
 const { createYtmApiBridge } = require('./ytm/ytmApiBridge.cjs');
+const { createCompanionClient } = require('./appleMusic/companionClient.cjs');
+const { createCompanionRequestHandler } = require('./appleMusic/companionIpc.cjs');
 const { createYtmSandbox } = require('./ytm/sandbox.cjs');
 const { YTM_AUDIO_PRIVILEGED_SCHEME, YTM_AUDIO_SCHEME } = require('./ytm/audio.cjs');
 const { createSpotifyApiBridge } = require('./spotify/spotifyApiBridge.cjs');
@@ -82,6 +86,7 @@ const { SPOTIFY_AUDIO_PRIVILEGED_SCHEME, SPOTIFY_AUDIO_SCHEME } = require('./spo
 const { createQqAuthSessionRepository } = require('./qq/qqAuthSessionRepository.cjs');
 const { DEFAULT_DISCORD_APPLICATION_ID, createDiscordPresenceController } = require('./discordPresence.cjs');
 const { createVoiceInputPauseMonitor } = require('./voiceInputPause.cjs');
+const { createWindowSystemMenuGuard } = require('./windowSystemMenu.cjs');
 const { createDisplaySleepBlocker } = require('./displaySleepBlocker.cjs');
 const { createVideoExportFileWriter } = require('./videoExportFileWriter.cjs');
 const { finalizeVideoExportFile } = require('./videoExportMp4.cjs');
@@ -420,6 +425,17 @@ const ytmApiBridge = createYtmApiBridge({ store, safeStorage,
   // sign-in ends.
   signInFolder: () => path.join(app.getPath('userData'), 'ytm-sign-in'),
   browserProxyArgs: () => browserProxyArgs(networkProxy.get()),
+});
+// Development and packaged builds both use the system-WebView host; no alternate browser runtime.
+const { resolveNativeExecutable } = require('./appleMusic/nativePaths.cjs');
+const appleMusicClient = createCompanionClient({
+  nativeExecutablePath: resolveNativeExecutable({
+    platform: process.platform, isPackaged: app.isPackaged, resourcesPath: process.resourcesPath,
+    projectRoot: path.join(__dirname, '..'),
+    override: process.env.ELECTRON_DEV === 'true' ? process.env.FOLIA_APPLE_MUSIC_NATIVE : '',
+    windowsExperimental: process.env.ELECTRON_DEV === 'true' && process.env.FOLIA_APPLE_MUSIC_WINDOWS_EXPERIMENTAL === '1',
+  }),
+  profilePath: path.join(app.getPath('userData'), 'apple-music-companion'),
 });
 const getSpotifyNetwork = () => getServiceNetwork('folia-spotify');
 // The HTTP proxy for the Spotify playback component; following the system, it is what the system proxy answers for a Spotify address.
@@ -2850,6 +2866,8 @@ const stageApi = createStageApi({
   stageApiPortSettingKey: STAGE_API_PORT_SETTING_KEY,
   defaultStageApiPort: DEFAULT_STAGE_API_PORT,
   getNeteasePort: () => neteaseBackend.getPort(),
+  // Local tools read the address and token from here instead of asking the user to copy the token.
+  connectionFilePath: resolveStageConnectionFilePath({ userDataDir: app.getPath('userData') }),
 });
 
 const lyricApi = createLyricApi({
@@ -5235,16 +5253,21 @@ function isCursorInsideMainWindowClickThroughUnlockHotspot() {
 
   const bounds = mainWindow.getBounds();
   const cursor = screen.getCursorScreenPoint();
-  const hotspotRight = bounds.x + bounds.width - MAIN_WINDOW_CLICK_THROUGH_UNLOCK_HOTSPOT.rightInset;
-  const hotspotLeft = hotspotRight - MAIN_WINDOW_CLICK_THROUGH_UNLOCK_HOTSPOT.width;
-  const hotspotTop = bounds.y + MAIN_WINDOW_CLICK_THROUGH_UNLOCK_HOTSPOT.topInset;
-  const hotspotBottom = hotspotTop + MAIN_WINDOW_CLICK_THROUGH_UNLOCK_HOTSPOT.height;
-
-  return cursor.x >= hotspotLeft
-    && cursor.x <= hotspotRight
-    && cursor.y >= hotspotTop
-    && cursor.y <= hotspotBottom;
+  const scale = process.platform === 'darwin' ? mainWindow.webContents.getZoomFactor() : 1;
+  // Docked DevTools can make the page narrower than the native window.
+  return isCursorInsideUnlockHotspot({
+    bounds, cursor, hotspot: MAIN_WINDOW_CLICK_THROUGH_UNLOCK_HOTSPOT,
+    viewportWidth: process.platform === 'darwin' ? mainWindowUnlockHoverRequests.getViewportWidth() : null,
+    viewportOrigin: process.platform === 'darwin' ? mainWindowUnlockHoverRequests.getViewportOrigin(bounds) : null,
+    scale,
+  });
 }
+
+const mainWindowUnlockHoverRequests = createUnlockHoverRequests({
+  platform: process.platform,
+  pollCursor: () => syncMainWindowClickThroughUnlockHoverFromCursor(),
+  setHover: (active) => setMainWindowClickThroughUnlockHover(active),
+});
 
 function syncMainWindowClickThroughUnlockHoverFromCursor() {
   if (!mainWindowClickThroughEnabled) {
@@ -6372,6 +6395,14 @@ let isAppQuitting = false;
 
 let isSwappingMainWindow = false;
 
+// Alt+Space opens Windows' window menu before the page sees the Space; while a key-capture field
+// records, the menu is refused for its window so the combination can be recorded (windowSystemMenu.cjs).
+const windowSystemMenuGuard = createWindowSystemMenuGuard();
+app.on('browser-window-created', (_event, window) => windowSystemMenuGuard.attach(window));
+ipcMain.on('key-capture-active', (event, active) => {
+  windowSystemMenuGuard.setCapturing(event.sender.id, active === true);
+});
+
 app.on('window-all-closed', () => {
   if (isSwappingMainWindow) {
     return;
@@ -7270,6 +7301,10 @@ ipcMain.handle('network-proxy-test', async (event, raw) => {
     ses.closeAllConnections().catch(() => {});
   }
 });
+ipcMain.handle('apple-music-request', createCompanionRequestHandler({
+  isTrusted: isTrustedMainWindowContents,
+  client: appleMusicClient,
+}));
 ipcMain.handle('spotify-api-request', (event, operation, params) => {
   if (!isTrustedMainWindowContents(event.sender)) {
     return { ok: false, error: { code: 'unavailable', message: 'Untrusted Spotify request' } };
@@ -7426,12 +7461,12 @@ ipcMain.handle('window-set-click-through', (event, enabled) => {
   return setMainWindowClickThroughEnabled(enabled);
 });
 
-ipcMain.handle('window-set-click-through-unlock-hover', (event, active) => {
+ipcMain.handle('window-set-click-through-unlock-hover', (event, active, viewportWidth, coordinates) => {
   if (!isTrustedMainWindowContents(event.sender)) {
     return false;
   }
 
-  return setMainWindowClickThroughUnlockHover(active);
+  return mainWindowUnlockHoverRequests.handle(active, viewportWidth, coordinates, mainWindow.getBounds(), mainWindow.webContents.getZoomFactor());
 });
 
 ipcMain.handle('window-get-always-on-top', (event) => {
@@ -7670,6 +7705,8 @@ ipcMain.handle('global-shortcuts-set', (event, accelerators) => {
 });
 
 app.on('will-quit', () => {
+  appleMusicClient.close();
+  stageApi.dispose();
   globalShortcutController?.dispose();
   hifiSession.killSync();
   hifiMpris?.dispose();
