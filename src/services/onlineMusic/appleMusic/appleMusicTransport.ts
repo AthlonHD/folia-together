@@ -4,21 +4,18 @@ import type { ProviderAvailability, ProviderErrorCode } from '../../../types/onl
 // The provider's sole renderer-side boundary to the isolated desktop companion.
 // The queue is Folia's: no next/previous of the companion's own.
 export type AppleMusicOperation = 'showWindow' | 'hideWindow' | 'logout' | 'accountStatus' | 'search' | 'playlists' | 'playlistTracks' | 'playlistTrackCount' | 'lyrics'
-    | 'songOriginal' | 'catalogSong' | 'catalogAlbum' | 'catalogAlbumTracks' | 'catalogArtist' | 'catalogArtistSongs' | 'catalogArtistAlbums' | 'libraryAlbums' | 'libraryAlbumTracks' | 'stations' | 'station' | 'playStation' | 'personalFm' | 'addPlaylistTracks' | 'likeSong' | 'prepareNext' | 'playbackStatus' | 'playSong' | 'pause' | 'resume' | 'seek';
+    | 'songOriginal' | 'catalogSong' | 'catalogAlbum' | 'catalogAlbumTracks' | 'catalogArtist' | 'catalogArtistSongs' | 'catalogArtistAlbums' | 'libraryAlbums' | 'librarySongs' | 'libraryAlbumTracks' | 'stations' | 'station' | 'playStation' | 'personalFm' | 'addPlaylistTracks' | 'likeSong' | 'prepareNext' | 'playbackStatus' | 'playSong' | 'pause' | 'resume' | 'seek' | 'setVolume';
 export type AppleMusicParams = Record<string, string | number | boolean | string[] | undefined>;
 export type AppleMusicBridgeResult =
     | { ok: true; data: unknown }
     | { ok: false; error: string; httpStatus?: number | null; playbackStage?: string };
 
-// macOS is validated; Windows is an explicit development opt-in until its DRM path is tested.
+// macOS and Windows ship the system-WebView host (WKWebView / WebView2 Evergreen).
 // Linux stays visible with a provider-owned explanation and never starts an unsupported player.
 export const getAppleMusicTransportAvailability = (): ProviderAvailability => {
     const bridge = typeof window !== 'undefined' ? window.electron : undefined;
     if (typeof bridge?.appleMusicRequest !== 'function') return { configured: false, reason: 'runtime-unavailable' };
-    if (bridge.platform === 'darwin') return { configured: true };
-    if (bridge.platform === 'win32') return bridge.appleMusicWindowsExperimental === true
-        ? { configured: true }
-        : { configured: false, reason: 'not-configured', messageKey: 'home.appleMusicWindowsPending' };
+    if (bridge.platform === 'darwin' || bridge.platform === 'win32') return { configured: true };
     if (bridge.platform === 'linux') return { configured: false, reason: 'not-configured', messageKey: 'home.appleMusicLinuxUnsupported' };
     return { configured: false, reason: 'runtime-unavailable' };
 };

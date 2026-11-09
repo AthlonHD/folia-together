@@ -13,6 +13,8 @@
 
 ---
 
+> Spotify 选择上游 Soloist 备用播放方式时，由 Soloist 独立输出声音，不向本 Fork helper 提供解密流；直通仅适用于标准方式可取得的音频。Soloist 的安装与限制见 [上游实现说明](../src/services/onlineMusic/UPSTREAMS.md)。
+
 ## 与上游 mpv HiFi 的关系
 
 上游 mpv HiFi 与本 Fork 直通模式同时保留：mpv 用于本地 / Navidrome 歌曲；Windows 桌面版开启本 Fork 直通模式时，后续起播优先使用 helper。正在由 mpv 播放的歌曲继续使用 mpv，切歌时再按设置选择；mpv 播放期间 helper 停止，不再同步浏览器时钟。使用 mpv 时请先关闭本 Fork 直通模式。

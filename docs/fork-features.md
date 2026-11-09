@@ -5,7 +5,7 @@
 - 上游的功能说明、使用指南与许可证条款不变，见根目录 [README](../README.md)。
 - 与上游重叠的部分，原则是「不改上游行为，只加不替换」：新增能力放在独立模块或受开关控制，上游新版本通过合并（merge）引入，冲突在本 Fork 内解决。
 - 上游新增的 Stage 指定平台搜索仍只接入 Electron；Web Host 的 Stage 通道尚未接入该新增接口，原有搜索路径保留。
-- 当前已合并上游 main 至 `f69290ae`（**v0.7.25**）：新增 Apple Music 伴随播放器、速记簿播放队列页、Stage 外部播放器时钟与封面接口；同步快捷键、歌词别名搜索、Navidrome 专辑与界面修复。保留本 Fork 的 Stage 中继、手机布局、跨平台歌单、随机播放和代理设置。Apple Music 的平台支持与限制见 [上游实现说明](../electron/appleMusic/README.md)。完整记录见 [Fork 更新日志](../FORK_CHANGELOG.md)。
+- 当前已合并上游 main 至 `5bdade11`（**v0.7.27**）：新增 Apple Music 伴随播放器、速记簿播放队列页、Stage 外部播放器时钟与封面接口；同步快捷键、歌词别名搜索、Navidrome 专辑与界面修复。保留本 Fork 的 Stage 中继、手机布局、跨平台歌单、随机播放和代理设置。Apple Music 的平台支持与限制见 [上游实现说明](../electron/appleMusic/README.md)。完整记录见 [Fork 更新日志](../FORK_CHANGELOG.md)。
 - 本次合并兼容修复：飞牛音源接入直通；表单登录在开发模式失败后可重试，关窗或换平台后旧请求不再清掉新登录或切回旧平台。
 
 **重点功能：[Hi-Fi 直通（桌面版）](hifi.md)**——WASAPI 独占 / 共享直出、整数采样、整数倍优先、单次重采样（rubato / SoXR）、真实链路读数。完整说明、实测数据与边界在 [hifi.md](hifi.md)，本文第 8 节只保留与其他功能交叉的部分、构建与脚本。

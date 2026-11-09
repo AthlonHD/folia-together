@@ -59,7 +59,7 @@ export type CollectionMutationOmni = {
     subscribe(collection: OmniCollection, subscribed: boolean): Promise<void>;
     likeSong(song: SongResult, liked: boolean): Promise<void>;
     updateCollectionTracks(collection: OmniCollection, operation: 'add' | 'del', tracks: SongResult[]): Promise<void>;
-    dislikeSong(song: SongResult): Promise<{ replacement?: SongResult; limitReached?: boolean }>;
+    dislikeSong(song: SongResult): Promise<{ replacement?: SongResult; limitReached?: boolean; removed?: boolean }>;
     getRecommendationHistoryDates(): Promise<string[]>;
     getRecommendationHistorySongs(date: string): Promise<SongResult[]>;
     getDailySongs(refresh?: boolean): Promise<SongResult[]>;
@@ -72,6 +72,8 @@ export type CollectionMutationOmni = {
      * 单测的替身可以不给：那时历史日期当作有，风格推荐当作没有。
      */
     getProviderCapabilities?(providerId: OmniProviderId): Pick<ProviderCapabilities, 'historyRecommendations' | 'dailyStyleRecommendations'>;
+    /** 账号上的推荐偏好存过（说是哪个平台）；替身不给时不听。 */
+    subscribeRecommendationPreferenceSaves?(listener: (providerId: OmniProviderId) => void): () => void;
 };
 
 /**
@@ -149,9 +151,13 @@ export const createCollectionMutationController = (
     let historyRequested = false;
     let dailyHistoryDates: readonly string[] = [];
     let dailyDate = '';
+    let dailyListVersion = 0;
     let dailyDatePending = false;
     let dailyStyleShown = false;
     let stopWatchingDailyMode: (() => void) | null = null;
+    let stopWatchingPreferenceSaves: (() => void) | null = null;
+    let dailyPreferenceRefreshPending = false;
+    let stopWatchingDailyLoad: (() => void) | null = null;
     let dailyStyleGroupsPrefetched = false;
     let dailyStyleGroups: readonly DailyStyleGroup[] = [];
     let dailyStyleGroupsRequested = false;
@@ -261,6 +267,32 @@ export const createCollectionMutationController = (
         listeners.forEach(listener => listener());
     };
 
+    const clearDailyPreferenceRefresh = () => {
+        dailyPreferenceRefreshPending = false;
+        stopWatchingDailyLoad?.();
+        stopWatchingDailyLoad = null;
+    };
+
+    // 切换以最终显示的日期和模式为准，资源自己发出的加载也要等这一轮结束。
+    const refreshDailyAfterPreferenceSave = () => {
+        if (!dailyPreferenceRefreshPending || dailyDatePending) return;
+        const { resource } = inputs;
+        if (dailyDate || dailyStyleShown || !resource) {
+            clearDailyPreferenceRefresh();
+            return;
+        }
+        if (resource.getSnapshot().status === 'loading') {
+            stopWatchingDailyLoad ??= resource.subscribe(() => {
+                if (resource.getSnapshot().status !== 'loading') queueMicrotask(refreshDailyAfterPreferenceSave);
+            });
+            return;
+        }
+        clearDailyPreferenceRefresh();
+        void setDailyDate('', { afresh: true }).then(result => {
+            if (!result.ok) console.warn('[LibraryUi] Daily recommendations were not read again after preferences changed:', result.reason);
+        });
+    };
+
     // 订阅状态与历史日期都是「有人看才需要」：第一个订阅者到来（或能力后来才出现）时各取一次。
     const prefetch = () => {
         if (disposed || listeners.size === 0) return;
@@ -286,6 +318,15 @@ export const createCollectionMutationController = (
             loadDailyStyleGroups();
         }
         if (!stopWatchingDailyMode && dailyMode && styleAvailable()) stopWatchingDailyMode = dailyMode.subscribe(emit);
+        // 账号上的推荐偏好存过：这个平台今天的每日推荐可能换了。
+        if (!stopWatchingPreferenceSaves && snapshot.branches.isDailyRecommendationsCollection && omni.subscribeRecommendationPreferenceSaves) {
+            stopWatchingPreferenceSaves = omni.subscribeRecommendationPreferenceSaves(providerId => {
+                const current = inputs.descriptor;
+                if (disposed || current.source !== 'online' || current.type !== 'daily_recommendations' || current.providerId !== providerId) return;
+                dailyPreferenceRefreshPending = true;
+                refreshDailyAfterPreferenceSave();
+            });
+        }
         if (!historyRequested && snapshot.branches.isDailyRecommendationsCollection && historyAvailable()) {
             historyRequested = true;
             omni.getRecommendationHistoryDates()
@@ -304,6 +345,9 @@ export const createCollectionMutationController = (
     // ---- 删条目 ----
 
     const removeDaily = async (entry: LibraryEntryRef): Promise<LibraryMutationResult> => {
+        const listVersion = dailyListVersion;
+        const originalResource = inputs.resource;
+        const originalUser = inputs.currentUserId;
         const result = await omni.dislikeSong(entry.track);
         if (result?.replacement) {
             const resource = inputs.resource;
@@ -315,6 +359,15 @@ export const createCollectionMutationController = (
         if (result?.limitReached) {
             dailyLimitReached = true;
             return fail('limit-reached');
+        }
+        // 写进黑名单但没有替换曲：把这一行从当天的列表去掉。
+        if (result?.removed) {
+            if (listVersion !== dailyListVersion || inputs.resource !== originalResource || inputs.currentUserId !== originalUser) return fail('stale');
+            const resource = inputs.resource;
+            const tracks = resource?.getSnapshot().tracks ?? [];
+            const index = resolveRawIndex(tracks, entry.entryKey);
+            if (!resource || index < 0) return fail('stale');
+            return resource.removeAt(index, getPlaybackSongKey(entry.track)) ? OK : fail('stale');
         }
         return fail('failed');
     };
@@ -555,13 +608,16 @@ export const createCollectionMutationController = (
                 date ? omni.getRecommendationHistorySongs(date) : omni.getDailySongs(afresh)
             ));
             if (!replaced) return fail('failed');
+            dailyListVersion += 1;
             dailyDate = date;
             dailyStyleShown = false;
+            if (date) clearDailyPreferenceRefresh();
             dailyMode?.setPrefersStyle(false);
             return OK;
         } finally {
             dailyDatePending = false;
             emit();
+            refreshDailyAfterPreferenceSave();
         }
     };
 
@@ -626,8 +682,10 @@ export const createCollectionMutationController = (
                 return result?.songs ?? [];
             });
             if (!replaced) return fail('failed');
+            dailyListVersion += 1;
             dailyDate = '';
             dailyStyleShown = true;
+            clearDailyPreferenceRefresh();
             dailyMode?.setPrefersStyle(true);
             const shownFor = answer.selection ?? saving;
             dailyStyleSelection = shownFor ? { groupId: shownFor.groupId, tagIds: [...shownFor.tagIds] } : null;
@@ -636,6 +694,7 @@ export const createCollectionMutationController = (
         } finally {
             dailyDatePending = false;
             emit();
+            refreshDailyAfterPreferenceSave();
         }
     };
 
@@ -658,7 +717,14 @@ export const createCollectionMutationController = (
         },
         update: (next) => {
             if (disposed) return;
+            const previous = inputs;
             inputs = { ...inputs, ...next };
+            if (
+                previous.resource !== inputs.resource
+                || String(previous.currentUserId ?? '') !== String(inputs.currentUserId ?? '')
+                || (previous.descriptor.source === 'online' ? previous.descriptor.providerId : null)
+                    !== (inputs.descriptor.source === 'online' ? inputs.descriptor.providerId : null)
+            ) clearDailyPreferenceRefresh();
             // 宿主的描述换了名字：记录作废（之后即使又变回旧名，也不再拿出来）。
             if (renamed && inputs.descriptor.name !== renamed.from) renamed = null;
             emit();
@@ -724,9 +790,12 @@ export const createCollectionMutationController = (
         loadDailyStyleGroups,
         dispose: () => {
             disposed = true;
+            clearDailyPreferenceRefresh();
             stopWatchingSaves();
             stopWatchingDailyMode?.();
             stopWatchingDailyMode = null;
+            stopWatchingPreferenceSaves?.();
+            stopWatchingPreferenceSaves = null;
             listeners.clear();
         },
     };

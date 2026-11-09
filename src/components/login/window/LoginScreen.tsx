@@ -1,7 +1,7 @@
 import LoginAddressPasteBack from './LoginAddressPasteBack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { LibraryLoginCompletion, LibraryLoginSessionSnapshot } from '../../../library/core/account/account.contract';
+import type { LibraryLoginCompletion, LibraryLoginSessionSnapshot, LibraryProviderSetupSnapshot } from '../../../library/core/account/account.contract';
 import { resolveLoginSessionReportRoute, translateLoginSelfCheck } from '../../../library/core/account/useLibraryAccount';
 import { LOGIN_REPORT_ELSEWHERE_COPY, retryOpensAt } from '../../../library/core/account/accountRules';
 import { providerDisplayName } from '../../../i18n/providerName';
@@ -22,6 +22,7 @@ import { accountView, failureNoteKey, failureQuote, loginScene, sceneHeadline, s
 import FormLogin from './FormLogin';
 import LoginWindow from './LoginWindow';
 import PlatformColumn from './PlatformColumn';
+import SetupChecklist from './SetupChecklist';
 
 // src/components/login/window/LoginScreen.tsx
 // 登录窗口此刻画什么：从「选中了哪一行、登录走到哪一步、失败是哪一种情况」定出那一块画、标题、
@@ -53,6 +54,10 @@ export type LoginScreenProps = {
     onRestartService: () => void;
     onSwitch: () => void;
     onSignOut: () => void;
+    /** 账号那一幅的「同步数据」：重新读选中的这个平台的账号、歌单与红心。 */
+    onSync: () => void;
+    /** 正在同步数据的平台（同一时间一个）：是选中的这个就转圈，是别的就只是不可按。 */
+    syncingProviderId?: OnlineProviderId | null;
     /** 这一次登录的诊断报告（生成不了是空串）。 */
     buildReport: () => Promise<string>;
     /** 按下去打开窗口的那个东西在哪：窗口从那一边出来。 */
@@ -63,9 +68,19 @@ export type LoginScreenProps = {
     onDoneLeave?: () => void;
     /** 动画放完了。 */
     onDoneEnd?: () => void;
+    /** 开着的配置清单（账户 controller 快照里的那一份）；不是选中的这个平台的不画。 */
+    setup?: LibraryProviderSetupSnapshot | null;
+    /** 选中的这个平台有配置清单：账号那一幅多一个打开它的按钮。 */
+    canOpenSetup?: boolean;
+    onOpenSetup?: () => void;
+    /** 做清单上的一个操作；回 true 是平台做完了。 */
+    onSetupAction?: (stepId: string, actionId: string, value?: string) => Promise<boolean>;
+    /** 收起清单（登录之后的那一份：报这一次登录的完成）。 */
+    onFinishSetup?: () => void;
 };
 
 const nothing = () => { };
+const nothingDone = async () => false;
 
 /** 到了 `at` 这个时刻没有（毫秒时间戳）；没到就在那一刻再画一次。 */
 const useReached = (at: number): boolean => {
@@ -82,7 +97,8 @@ const useReached = (at: number): boolean => {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
     isOpen, onClose, rows, activeProviderId, chosen, login, onChoose, onStart, onSubmitForm, onSelectMethod, onReopenBrowser, onPasteAddress, onRestartService, onSwitch, onSignOut,
-    buildReport, origin, done = false, onDoneLeave = nothing, onDoneEnd = nothing,
+    onSync, syncingProviderId = null, buildReport, origin, done = false, onDoneLeave = nothing, onDoneEnd = nothing,
+    setup = null, canOpenSetup = false, onOpenSetup = nothing, onSetupAction = nothingDone, onFinishSetup = nothing,
 }) => {
     const { t } = useTranslation();
     const still = useKitReducedMotion();
@@ -92,7 +108,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     const inBrowser = login?.inBrowser ?? false;
     const service = login?.localService ?? null;
     const failure: LoginFailure | null = providerId ? login?.failure ?? null : null;
-    const scene = loginScene({ lead: chosen?.lead ?? null, phase: login?.phase ?? null, inBrowser, failed: Boolean(failure), providerId });
+    const shownSetup = setup && setup.providerId === providerId ? setup : null;
+    const scene = loginScene({ lead: chosen?.lead ?? null, phase: login?.phase ?? null, inBrowser, failed: Boolean(failure), providerId, setup: shownSetup !== null });
+    // 选中的登录方式自己的说明（浏览器登录的几种方式靠它说清楚差在哪）。
+    const methodNote = login?.methods.find(method => method.id === login.selectedMethodId)?.noteKey;
     const texts = login?.texts ?? null;
     const retry = onStart;
     const retryLabel = t(inBrowser ? 'home.loginBrowserRetry' : 'home.retryQr');
@@ -105,8 +124,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     let quote: { who: string; text: string; code?: string } | undefined;
     let actions: MessageAction[] = [];
     let details: React.ReactNode;
+    let checklist: React.ReactNode;
     let waitFor: LoginFailure | null = null;
-    if (scene === 'failed' && failure && providerId) {
+    if (scene === 'setup' && shownSetup) {
+        const { view, busy, origin: from } = shownSetup;
+        headline = t(view.titleKey, view.params);
+        note = view.noteKey ? t(view.noteKey, view.params) : undefined;
+        // 登录之后的那一份：做完是「完成」，没做完也能先走（「稍后再说」）；从账号那一幅打开的是「返回」。
+        const finishLabel = view.complete ? 'login.setupDone' : from === 'sign-in' ? 'login.setupLater' : 'login.setupBack';
+        actions = [{ label: t(finishLabel), primary: view.complete, busy: busy && from === 'sign-in' && view.complete, disabled: busy, onClick: onFinishSetup }];
+        checklist = <SetupChecklist view={view} busy={busy} onAction={onSetupAction} />;
+    } else if (scene === 'failed' && failure && providerId) {
         const noteKey = failureNoteKey(failure, texts?.caseNotes);
         headline = t(LOGIN_CASE_TEXTS[failure.case.id].title, { provider: label });
         note = noteKey ? t(noteKey) : undefined;
@@ -147,7 +175,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             if (summary) actions = [{ label: t('home.loginBrowserRetry'), primary: true, onClick: () => onChoose(providerId) }];
         } else {
             if (summary?.user) note = `${label} · ID: ${shortAccountId(String(summary.user.id))}`;
-            actions = [...switchAction, { label: t('account.logout'), onClick: onSignOut }];
+            const syncing = syncingProviderId === providerId;
+            const syncAction: MessageAction = {
+                label: t(syncing ? 'account.syncing' : 'account.syncData'),
+                onClick: onSync,
+                busy: syncing,
+                disabled: syncingProviderId !== null,
+            };
+            const setupAction: MessageAction[] = canOpenSetup ? [{ label: t('login.setupOpen'), onClick: onOpenSetup }] : [];
+            actions = [...switchAction, syncAction, ...setupAction, { label: t('account.logout'), onClick: onSignOut }];
         }
     } else if (scene === 'accountless') {
         headline = label;
@@ -157,7 +193,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         const key = sceneHeadline(scene, inBrowser);
         // 'title'：平台自己的登录标题；没有声明的平台是「登录到 平台名」。
         headline = key.includes('.') ? t(key) : texts ? t(texts.title) : t('home.loginToProvider', { provider: label });
-        if (texts && scene !== 'none' && scene !== 'scanned' && scene !== 'reading') note = t(texts.note);
+        if (texts && scene !== 'none' && scene !== 'scanned' && scene !== 'reading' && scene !== 'checking') note = t(texts.note);
+        if (methodNote && (scene === 'browser-ready' || scene === 'preparing' || scene === 'browser')) note = t(methodNote);
         if (scene === 'form' && texts) {
             // 表单式登录：窗口标题条已经说了「登录到 平台名」，这里用平台的说明当标题，不再重复「登录…」。
             headline = t(texts.note);
@@ -174,7 +211,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         playing,
         providerId,
         scanned: login?.phase === 'scanned',
-        confirmed: login?.phase === 'confirmed',
+        confirmed: login?.phase === 'confirmed' || login?.phase === 'checking',
         read: done,
         onLeave: onDoneLeave,
         onEnd: onDoneEnd,
@@ -244,7 +281,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         headline={headline}
                         note={note}
                         quote={quote}
-                        methods={login && login.methods.length > 0 && chosen?.lead === 'sign-in' ? {
+                        methods={login && login.methods.length > 0 && chosen?.lead === 'sign-in' && scene !== 'reading' && scene !== 'checking' && scene !== 'setup' ? {
                             options: login.methods.map(method => ({ value: method.id, label: t(method.labelKey), icon: loginMethodIcon(method.iconKey) })),
                             value: login.selectedMethodId,
                             onChange: onSelectMethod,
@@ -252,14 +289,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         actions={actions}
                         waitFor={waitFor}
                         details={details ? { open: detailsOpen, onToggle: () => setDetailsOpen(open => !open) } : undefined}
-                        steps={stepMarks(scene, inBrowser)}
+                        steps={stepMarks(scene, inBrowser, login?.checksAfterLogin ?? false)}
                     />
                 )}
             below={details ? <Unfold open={detailsOpen}>{details}</Unfold> : (
                 // 授权后的网址要粘贴回来的登录(provider 声明):等授权的时候给一个粘贴框
                 login?.canPasteLoginAddress && onPasteAddress && (scene === 'browser' || scene === 'browser-ready')
                     ? <LoginAddressPasteBack onSubmit={onPasteAddress} />
-                    : undefined
+                    : checklist
             )}
         />
         {shownDone && providerId && <LoginDoneFlight parts={doneParts} providerId={providerId} label={label} user={summary?.user ?? null} />}

@@ -59,6 +59,11 @@ export type CommandPaletteCommand = {
     icon?: LucideIcon;
     keywords: string[];
     placeholder?: (context: CommandPaletteContext) => string;
+    /**
+     * While this command is open, the name its chip shows in place of the title: a command whose surface
+     * changes its subject (the FM radio on air) names it the way the surface does.
+     */
+    activeTitle?: (context: CommandPaletteContext) => string;
     requiresInput?: boolean;
     /** Environment gating: which platforms ship this feature at all. */
     platform?: CommandPlatform[];
@@ -183,7 +188,10 @@ export type CommandPalettePlaybackContext = {
     personalFmCatalog?: PersonalFmCatalog;
     /** Only the providers that actually implement FM modes offer the picker. */
     isPersonalFmModeSupported: boolean;
+    /** The extra radio FM plays, if any: its modes come under a command of their own. */
+    personalFmStation?: string | null;
     setPersonalFmSelection: (selection: PersonalFmSelection) => Promise<void> | void;
+    isRecommendationPreferencesOffered: () => boolean;
     toggleMute: () => void;
     /**
      * The like/star action from the controls tab. It travels here rather than staying inside the
@@ -365,6 +373,9 @@ export type CommandPaletteSettingsContext = {
      */
     canReportPlayback: () => boolean;
     togglePlaybackReport: () => void;
+    /** 自动 AI 分词: segment songs with no saved split by themselves (issue #960). */
+    toggleAutoAiLyricSegmentation: () => void;
+    toggleKeepProviderWordTiming: () => void;
     voiceInputPauseSupported: boolean;
     /** Lab switch for the experimental mod system; gates the `mods` command. */
     modSystemEnabled: boolean;

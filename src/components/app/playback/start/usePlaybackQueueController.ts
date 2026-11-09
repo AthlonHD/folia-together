@@ -1,3 +1,5 @@
+import { registerPersonalFmLanding, takePersonalFmLanding } from './personalFmLanding';
+import { usePersonalFmModeStore } from '@/stores/usePersonalFmModeStore';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlayQueueContextStore } from '../../../../stores/usePlayQueueContextStore';
 import { planHeartbeatStep } from '../../../../utils/heartbeatPlan';
@@ -14,7 +16,7 @@ import type { MotionValue } from 'framer-motion';
 import { applyOnlineAudioSourceMetadata, loadOnlineSongLyrics } from '../../../../services/onlinePlayback';
 import { askPlayedSong, isSongUnavailable } from '../../../../services/onlineMusic/songAvailability';
 import { getSongResourceCacheKey } from '../../../../services/onlineMusic/resourceKeys';
-import { getPersonalFmSelection } from '../../../../stores/usePersonalFmModeStore';
+import { getPersonalFmSelection, getStationRequestOptions } from '../../../../stores/usePersonalFmModeStore';
 import { omni } from '../../../../services/onlineMusic/omni';
 import { announceExternalPlayback, beginExternalPlayback, isExternalRoute, yieldExternalPlayback } from '../../../../services/onlineMusic/externalPlayback';
 import { getCachedSongCoverUrl, hasCachedSongAudio } from '../../../../services/onlineMusic/resourceCache';
@@ -198,18 +200,31 @@ const pauseWhatIsSounding = (audio: HTMLAudioElement | null) => {
 };
 
 // A sign-in that has run out comes with the button that opens the sign-in window for that platform.
+// An account the platform will not play for, where the platform has a setup checklist (another way to
+// play, for one), comes with the button that opens that checklist; so does a source not set up yet.
 const withSignInAction = (
     shown: OnlineFailure,
     said: StatusMessage,
     t: (key: string) => string,
 ): StatusMessage => {
     const signInTo = shown.case === 'sign-in-needed' ? shown.providerId : undefined;
-    return signInTo ? {
+    if (signInTo) {
+        return {
+            ...said,
+            actionLabel: t('failure.signIn'),
+            onAction: () => {
+                setStatusMsg(null);
+                openLoginWindow(signInTo);
+            },
+        };
+    }
+    const setUp = (shown.case === 'account-refused' || shown.case === 'not-configured') && shown.providerId && omni.hasSetup(shown.providerId) ? shown.providerId : undefined;
+    return setUp ? {
         ...said,
-        actionLabel: t('failure.signIn'),
+        actionLabel: t('failure.openSetup'),
         onAction: () => {
             setStatusMsg(null);
-            openLoginWindow(signInTo);
+            openLoginWindow(setUp, null, 'setup');
         },
     } : said;
 };
@@ -537,6 +552,7 @@ export function usePlaybackQueueController({
             }
             return;
         }
+        const onFmLanding = takePersonalFmLanding(queue);
         const playSongCallId = ++playSongCallIdRef.current;
         // A route that empties the player while this play waits drops it too (`dropPlaysInFlight`), and so
         // does a sign-out of the requested song's platform (`dropPlaysOfProvider`).
@@ -594,6 +610,7 @@ export function usePlaybackQueueController({
             const playedQueue = shownQueue.length > 0
                 ? shownQueue.map(queued => (getPlaybackSongKey(queued) === shownKey ? playedSong : queued))
                 : [playedSong];
+            if (onFmLanding) registerPersonalFmLanding(playedQueue, onFmLanding);
             await latestQueueActionsRef.current.playSong(playedSong, playedQueue, asFm(), options);
             return;
         }
@@ -751,6 +768,7 @@ export function usePlaybackQueueController({
                     // A queue given here and not yet in the store is the one kept; else the queue of now,
                     // so that edits made meanwhile are not undone.
                     const targetQueue = readClickTimeQueue() ?? newQueue;
+                    if (onFmLanding && asFm() && playSongCallIdRef.current === playSongCallId) registerPersonalFmLanding(targetQueue, onFmLanding);
                     void latestQueueActionsRef.current.playSong(getNextPlayableQueueSong(targetQueue, song, asFm()) ?? nextSong, targetQueue, asFm(), {
                         ...deferredPlayOptions,
                         unavailableSkipCount: skipCount + 1,
@@ -773,6 +791,7 @@ export function usePlaybackQueueController({
                         // Where no queue was given, none is given again: the store's queue is not rewritten.
                         const retryQueue = queue.length > 0 && (queueFollowsStore || rewritten) ? readLiveQueue() ?? [] : queue;
                         const retryFm = rewritten ? usePlaybackStore.getState().isFmMode : asFm();
+                        if (onFmLanding && !rewritten && retryFm && isLatestPlaybackRequest() && playSongCallIdRef.current === playSongCallId) registerPersonalFmLanding(retryQueue, onFmLanding);
                         void latestQueueActionsRef.current.playSong(song, retryQueue, retryFm, { ...deferredPlayOptions, unavailableSkipCount: 0 });
                     },
                 } : said);
@@ -931,7 +950,8 @@ export function usePlaybackQueueController({
             if (isExternal) {
                 // Another engine must stop before the companion starts, or both sound at once. The
                 // companion itself is not paused first: its next play replaces the track in one
-                // call, and pausing it here would race that play in the companion's queue.
+                // call, and pausing it here would race that play in the companion's queue. A song of
+                // another provider plays in another player: `beginExternalPlayback` stops the old one.
                 if (!isExternalRoute()) pauseWhatIsSounding(audioRef.current);
                 await beginExternalPlayback(song, options.startAtSec ?? 0);
             } else {
@@ -1029,6 +1049,11 @@ export function usePlaybackQueueController({
             landedQueue = swapped ?? live;
         } else if (queue.length > 0 || playQueue.length === 0) {
             setPlayQueue(landedQueue);
+        }
+
+        if (isLatestPlaybackRequest() && playSongCallIdRef.current === playSongCallId) {
+            if (usePlaybackStore.getState().isFmMode && !queueRewritten()) onFmLanding?.();
+            else if (fmModeToRestore && !usePlaybackStore.getState().isFmMode) usePersonalFmModeStore.getState().resetStationSelections();
         }
 
         void persistLastPlaybackCache({ ...resolvedSong, onlineLyricsState: onlineLyricsState ?? undefined }, landedQueue);
@@ -1388,13 +1413,16 @@ export function usePlaybackQueueController({
             const stepFrom = heldSong ?? options?.fromSong ?? currentSong;
             const providerId = stepFrom ? getOnlineProviderIdForSong(stepFrom) : undefined;
             const selection = getPersonalFmSelection(providerId || undefined);
+            // The extra radio on air, if there is one (undefined on every platform without a station): its next
+            // batch is asked for by its options, and dropped when they changed while it came.
+            const station = providerId ? getStationRequestOptions(providerId) : undefined;
             // The main player's plays start in playSong and take a new call id there, before any wait of their
             // own (a mode switch, a home card, a next pressed meanwhile, a search result): one that came while
             // the batch did has the say over what plays next, even before it shows its song. The stage takes
             // over without playSong, and ends FM as it does.
             const playCallAtStart = playSongCallIdRef.current;
             try {
-                batch = await omni.getPersonalFm();
+                batch = await omni.getPersonalFm(station);
             } catch (error) {
                 console.error('Failed to fetch FM tracks', error);
             }
@@ -1430,6 +1458,8 @@ export function usePlaybackQueueController({
                 return;
             }
             if (selection.mode !== selectedNow.mode || selection.scene !== selectedNow.scene) return;
+            const stationNow = providerId ? getStationRequestOptions(providerId) : undefined;
+            if (station?.station !== stationNow?.station || station?.mode !== stationNow?.mode || station?.submode !== stationNow?.submode) return;
             // The queue as the store holds it now, with whatever was added or edited during the wait: this
             // render's may already be an older copy of it.
             const base = live.playQueue;

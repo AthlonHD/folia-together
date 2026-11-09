@@ -38,6 +38,11 @@ export const omniAccountAuthPort: LibraryAccountAuthPort = {
     canRunLoginSelfCheck: providerId => omni.canRunLoginSelfCheck(providerId),
     runLoginSelfCheck: providerId => omni.runLoginSelfCheck(providerId),
     getProviderCapabilities: providerId => omni.getProviderCapabilities(providerId),
+    checksAfterLogin: providerId => omni.checksAfterLogin(providerId),
+    checkAfterLogin: (providerId, methodId) => omni.checkAfterLogin(providerId, methodId),
+    hasSetup: providerId => omni.hasSetup(providerId),
+    getSetup: providerId => omni.getSetup(providerId),
+    runSetupAction: (providerId, stepId, actionId, value) => omni.runSetupAction(providerId, stepId, actionId, value),
     dropRequestLimits: dropLoginRequestLimits,
 };
 
@@ -60,11 +65,13 @@ export const accountStorePort: LibraryAccountStorePort = {
 
 /**
  * 读账号：登录确认之后读到了、或者读到了人却没读到歌单（登录本身成了）都算成；平台说没人登录、问不到是没读到。
- * 切过去之后只读，不判。readAccount 从不 reject。
+ * 切过去之后只读，不判。同步数据要人和歌单都读到才算成。readAccount 从不 reject。
  */
 export const readProviderAccount: LibraryProviderAccountPort['refresh'] = async (providerId, reason) => {
     const outcome = await omni.readAccount(providerId, reason);
-    return reason === 'switch' || outcome === 'read' || outcome === 'not read';
+    if (reason === 'switch') return true;
+    if (reason === 'sync') return outcome === 'read';
+    return outcome === 'read' || outcome === 'not read';
 };
 
 /** 提交表单式登录（FormLogin 渲染的字段）：转 omni.submitLoginForm，失败抛 OnlineProviderError。 */

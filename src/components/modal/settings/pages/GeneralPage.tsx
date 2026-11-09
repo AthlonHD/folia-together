@@ -11,6 +11,7 @@ import { Button, Group, Reveal, Row, Segmented, Select, Toggle, option, type Set
 import LayoutModeSection, { LAYOUT_MODE_OPTIONS } from '../LayoutModeSection';
 import { FoundUpdateRow } from './FoundUpdateRow';
 import TogetherUpdateGroup, { TOGETHER_UPDATE_OPTIONS } from './TogetherUpdateGroup';
+import { ChinaDrivesRow } from './ChinaDrivesRow';
 import { useSettingsPage } from './settingsPageContext';
 
 // src/components/modal/settings/pages/GeneralPage.tsx
@@ -124,6 +125,7 @@ const GeneralPage: React.FC = () => {
                     foot={t(autoUpdateSupported ? 'options.autoUpdateGithubNotice' : 'options.updateCheckGithubNotice')}
                 >
                     <FoundUpdateRow />
+                    <ChinaDrivesRow />
                     <Row
                         option={O.updateCheck}
                         hint={t(updateStatus?.updateCheckSupportReason === 'channel' ? 'options.updateUnsupportedChannel' : 'options.enableUpdateCheckDesc')}

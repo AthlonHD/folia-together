@@ -238,6 +238,9 @@ export default {
       "stage-failed": "取歌失败,已回到普通播放"
     }
   },
+  "appleMusic": {
+    "libraryPlaylistName": "全部歌曲"
+  },
   "scratchpad": {
     "title": "速记簿",
     "count_one": "{{count}} 首",
@@ -245,7 +248,6 @@ export default {
     "hint": "先存着，待会再听或整理。不影响播放队列。",
     "history": "播放历史",
     "historyTab": "播放历史",
-    "historyHint": "本机最近 7 天放过的歌，新的在前。",
     "historyEmpty": "最近 7 天还没放过歌。",
     "today": "今天",
     "yesterday": "昨天",
@@ -253,6 +255,7 @@ export default {
     "empty": "还是空的。在歌曲卡片、曲目列表或搜索结果上点「加入速记簿」，或用命令面板记下正在播的歌。",
     "open": "打开速记簿",
     "close": "收起速记簿",
+    "openQueueCanvas": "在速记簿里展开播放队列",
     "play": "插进队列播放",
     "enqueue": "加入队列",
     "addToPlaylist": "加入歌单…",
@@ -277,9 +280,8 @@ export default {
     "alreadyInAll": "这些歌都已在速记簿里",
     "full": "速记簿满了（最多 {{count}} 首），先清掉一些",
     "saveFailed": "速记簿没存上（本机存储已满），重启后这次改动会丢失",
-    "expandCanvas": "展开成画布",
-    "collapseCanvas": "收回列表",
-    "canvasHint": "拖动卡片排序。框选或按住 {{mod}} 点击来多选，Shift 点击选一段。触屏上长按卡片再拖，选中一张后点别的卡片加选。",
+    "expandCanvas": "展开整页",
+    "collapseCanvas": "收回侧栏",
     "selectGroup": "选中本组",
     "enqueueGroup": "本组全部入队",
     "addGroupToPlaylist": "本组加入歌单…",
@@ -291,26 +293,153 @@ export default {
     "queue": "播放队列",
     "queueHint": "正在播的这份队列。点一首就播它；展开后能多选、拖动排序。",
     "queueEmpty": "播放队列是空的。",
+    "historyHint": "最近 7 天放过的歌，一天一组，新的在上。",
+    "historyListHint": "点一首插进队列播放；展开整页后能框选、从播放历史删除。",
+    "shuffleQueue": "打乱队列",
+    "nowPlaying": "正在播放",
+    "playedHidden_one": "已播放 {{count}} 首 · 已收起，点开",
+    "playedHidden_other": "已播放 {{count}} 首 · 已收起，点开",
+    "playedShown_one": "已播放 {{count}} 首 · 点一下收起",
+    "playedShown_other": "已播放 {{count}} 首 · 点一下收起",
+    "historyBandHint": "按时间排 · 不能拖动重排 · 双击播放",
+    "expandPage": "展开整页",
+    "crumb": "展开 › {{page}}",
+    "jumpTo": "跳到",
+    "tipsTitle": "操作",
+    "locateCurrent": "定位正在播放",
+    "tipMarqueeKey": "拖空白",
+    "tipMarquee": "框选",
+    "tipAddKey": "{{mod}} + 点",
+    "tipAdd": "加选",
+    "tipReorderKey": "拖卡片",
+    "tipReorderGroup": "组内重排",
+    "tipReorder": "重排",
+    "tipPlayKey": "双击",
+    "tipPlay": "播放",
+    "tipDeleteKey": "Delete",
+    "tipDelete": "删记录",
+    "tipEscKey": "Esc",
+    "tipEsc": "取消选择",
+    "overview": "三行总览",
+    "crumbOverview": "{{title}} › 展开",
+    "overviewMore_one": "还有 {{count}} 首",
+    "overviewMore_other": "还有 {{count}} 首",
+    "overviewQueueMore_one": "接下来还有 {{count}} 首",
+    "overviewQueueMore_other": "接下来还有 {{count}} 首",
+    "overviewRemove": "移除",
+    "overviewRemoveQueueHint": "队列里的歌到「播放队列」那一页移出",
+    "overviewHelpLabel": "操作说明",
+    "overviewHelp": "空白处拖动框选（可以跨行），按住 {{mod}} 加选；双击播放；点信息条上的「展开整页」看全部、拖动重排",
     "playFromQueue": "播放这首",
     "playNext": "下一首播放",
     "moveToEnd": "移到末尾",
     "removeFromQueue": "移出队列",
     "cannotRemoveCurrent": "正在播放的这首不能移出队列",
     "originQueue": "播放队列",
-    "queueCanvasHint": "箭头是播放的先后，放过的那段淡一些。框选或按住 {{mod}} 点击来多选，Shift 点击选一段；选中几张一起拖动换位置，停手片刻后才写进队列。双击播放。",
-    "queueCanvasHintReadOnly": "箭头是播放的先后。框选或按住 {{mod}} 点击来多选，Shift 点击选一段，双击播放。此刻的队列不能改。",
-    "historyCanvasHint": "时间轴从新到旧穿过每一天。框选或按住 {{mod}} 点击来多选，Shift 点击选一段，双击播放；选中后按 Delete 从播放历史删除。",
     "deleteFromHistory": "从播放历史删除",
     "historyDeleted_one": "已从播放历史删除 {{count}} 首",
     "historyDeleted_other": "已从播放历史删除 {{count}} 首",
     "greeting": {
-      "lateNight": "夜深了，还醒着听歌呢。",
-      "dawn": "早安，天才刚亮。",
-      "morning": "上午好，今天从哪首开始？",
-      "noon": "中午好，歇一会儿吧。",
-      "afternoon": "下午好，来杯茶配首歌。",
-      "evening": "晚上好，今天辛苦了。",
-      "night": "夜里好，放首慢一点的吧。"
+      "lateNight": {
+        "v1": "夜深了，还醒着听歌呢。",
+        "v2": "这么晚了，再听一首就睡吧。",
+        "v3": "夜里安静，每个音都听得更清楚。",
+        "v4": "熬夜的人，都有自己的歌单。",
+        "v5": "月亮还没下班，你也是。",
+        "v6": "深夜电台，只为你一个人开着。"
+      },
+      "dawn": {
+        "v1": "早安，天才刚亮。",
+        "v2": "起得真早，窗外的鸟还在试音。",
+        "v3": "天边泛白了，来点轻的吧。",
+        "v4": "清晨的空气，适合配一首新歌。",
+        "v5": "早起的人，先听为敬。",
+        "v6": "太阳刚醒，你已经在听歌了。"
+      },
+      "morning": {
+        "v1": "上午好，今天从哪首开始？",
+        "v2": "上午好，给今天定个调子。",
+        "v3": "一首歌，一杯咖啡，开工。",
+        "v4": "上午的状态，交给节奏来带。",
+        "v5": "早上好，今天也要好好听歌。",
+        "v6": "新的一天，换个口味试试？"
+      },
+      "noon": {
+        "v1": "中午好，歇一会儿吧。",
+        "v2": "午饭吃了吗？边吃边听。",
+        "v3": "午休时间，闭上眼听一首。",
+        "v4": "中午好，阳光正好，歌也正好。",
+        "v5": "半天过去了，放首喜欢的犒劳一下。",
+        "v6": "饭后一首歌，下午不犯困。"
+      },
+      "afternoon": {
+        "v1": "下午好，来杯茶配首歌。",
+        "v2": "下午有点困？换首提神的。",
+        "v3": "下午好，离收工又近了一点。",
+        "v4": "午后的光斜斜的，歌也慢下来。",
+        "v5": "下午茶时间，今天配什么歌？",
+        "v6": "再撑一撑，听几首就到傍晚了。"
+      },
+      "evening": {
+        "v1": "晚上好，今天辛苦了。",
+        "v2": "晚上好，耳机留给自己。",
+        "v3": "一天结束了，听点喜欢的吧。",
+        "v4": "晚饭后的时间，属于音乐。",
+        "v5": "晚上好，今天过得怎么样？",
+        "v6": "灯亮起来了，歌也该换一首。"
+      },
+      "night": {
+        "v1": "夜里好，放首慢一点的吧。",
+        "v2": "准备睡了吗？来首安静的。",
+        "v3": "夜色正好，适合单曲循环。",
+        "v4": "今天就到这里，听完这首再说。",
+        "v5": "关灯之前，再听一首。",
+        "v6": "说晚安之前，留一首给明天。"
+      }
+    },
+    "greetingShort": {
+      "lateNight": {
+        "v1": "夜深了",
+        "v2": "还醒着呢",
+        "v3": "深夜好",
+        "v4": "夜猫子你好"
+      },
+      "dawn": {
+        "v1": "早安",
+        "v2": "天刚亮",
+        "v3": "起得真早",
+        "v4": "清晨好"
+      },
+      "morning": {
+        "v1": "上午好",
+        "v2": "早上好",
+        "v3": "开工啦",
+        "v4": "新的一天"
+      },
+      "noon": {
+        "v1": "中午好",
+        "v2": "午休一下",
+        "v3": "午餐时间",
+        "v4": "歇会儿吧"
+      },
+      "afternoon": {
+        "v1": "下午好",
+        "v2": "午后时光",
+        "v3": "喝杯茶吧",
+        "v4": "再撑一撑"
+      },
+      "evening": {
+        "v1": "晚上好",
+        "v2": "今天辛苦了",
+        "v3": "收工啦",
+        "v4": "晚间时光"
+      },
+      "night": {
+        "v1": "夜里好",
+        "v2": "准备睡了吗",
+        "v3": "夜色正好",
+        "v4": "晚安时间"
+      }
     }
   },
   "libraryBravais": {
@@ -428,7 +557,7 @@ export default {
       "localTitle": "还没有导入本地音乐",
       "localBody": "在信息条的「⋯」里选「{{action}}」，文件夹、专辑和歌手会铺满这面墙。"
     },
-    "special": {"liked": "我喜欢的音乐", "cloud": "云盘", "personal-fm": "私人FM", "daily": "每日推荐", "all-songs": "全部歌曲", "local-favorites": "我喜欢", "navidrome-random": "随机音乐", "navidrome-favorites": "收藏"}
+    "special": {"liked": "我喜欢的音乐", "cloud": "云盘", "personal-fm": "私人FM", "fm-station": "电台", "daily": "每日推荐", "all-songs": "全部歌曲", "local-favorites": "我喜欢", "navidrome-random": "随机音乐", "navidrome-favorites": "收藏"}
   },
   "libraryTui": {
     "back": "返回",
@@ -446,7 +575,7 @@ export default {
     "columnAlbum": "专辑",
     "columnTime": "时长",
     "enqueue": "加入播放队列",
-    "hints": "↑↓ 移动 · PgUp/PgDn 翻页 · Home/End · Enter 播放 · Shift+Enter 入队 · Ctrl+Enter 播放全部 · Ctrl+Shift+Enter 全部入队 · Esc 返回",
+    "hints": "↑↓ 移动 · PgUp/PgDn 翻页 · Home/End · Enter 播放 · Shift+Enter 入队 · {{mod}}+Enter 播放全部 · {{mod}}+Shift+Enter 全部入队 · Esc 返回",
     "hintRemove": "Del 删除",
     "hintDislike": "Del 不喜欢",
     "hintOpenLinks": "Alt+Enter 打开专辑 · Alt+Shift+Enter 打开歌手",
@@ -489,7 +618,7 @@ export default {
     "itemType": {"playlist": "歌单", "album": "专辑", "artist": "歌手", "folder": "文件夹", "cloud": "云盘", "radio": "电台", "daily_recommendations": "每日", "personal_fm": "FM"},
     "homeHints": "↑↓ 移动 · PgUp/PgDn 翻页 · Tab 分区 · F6 来源 · Enter 打开 · Esc 先清筛选再关闭",
     "homeTreeHints": "←→ 折叠",
-    "homeBatchHints": "Ins 选中 · Ctrl+A 全选 · Ctrl+Enter 播放 · Ctrl+Shift+Enter 入队",
+    "homeBatchHints": "Ins 选中 · {{mod}}+A 全选 · {{mod}}+Enter 播放 · {{mod}}+Shift+Enter 入队",
     "homeSelection": "已选 {{count}} 项 · {{tracks}} 首",
     "homeShown": "{{shown}} / {{total}}",
     "homeBusy": "处理中…",
@@ -527,7 +656,7 @@ export default {
     "bioMore": "展开",
     "bioLess": "收起",
     "columnYear": "年份",
-    "artistHints": "↑↓ 移动 · Tab 歌曲/专辑 · Enter 播放/打开 · Shift+Enter 入队 · Ctrl+Enter 全部播放 · Ctrl+Shift+Enter 热门歌曲入队 · Esc 返回"
+    "artistHints": "↑↓ 移动 · Tab 歌曲/专辑 · Enter 播放/打开 · Shift+Enter 入队 · {{mod}}+Enter 全部播放 · {{mod}}+Shift+Enter 热门歌曲入队 · Esc 返回"
   },
   "libraryBravaisCollection": {
     "matchCount": "{{matches}} / {{total}}",
@@ -561,6 +690,10 @@ export default {
     "homeBgEnabled": "主页动态背景已开启",
     "autoBestLyricOn": "自动使用最佳歌词已开启",
     "autoBestLyricOff": "自动使用最佳歌词已关闭",
+    "keepProviderWordTimingOn": "已保留平台自带的逐字歌词",
+    "keepProviderWordTimingOff": "平台自带的逐字歌词不再优先保留",
+    "autoAiLyricSegmentationOn": "自动 AI 分词已开启",
+    "autoAiLyricSegmentationOff": "自动 AI 分词已关闭",
     "lyricSourceChanged": "优先匹配歌词源已切换为{{source}}",
     "progressBarHidden": "播放页底部控制条已隐藏",
     "progressBarShown": "播放页底部控制条已显示",
@@ -743,6 +876,10 @@ export default {
     "providerLibraryUnavailable": "{{provider}} 暂未提供歌单库。",
     "songUnavailable": "歌曲已下架",
     "externalPlayerMovedOn": "播放器已换到其他歌曲，已暂停",
+    "externalVideoExportUnavailable": "这首歌由平台自己的播放器播放，声音不经过 Folia，无法导出视频。",
+    "externalBypassTitle": "这首歌由平台自己的播放器播放",
+    "externalBypassBody": "声音不经过 Folia，这里的均衡器和音效不会改变你听到的声音。设置会保留，播放其他歌曲时照常生效。",
+    "externalReplayGainBypassed": "由平台自己的播放器播放，不应用 ReplayGain",
     "songUnavailableAlternativeTitle": "可播放其他版本",
     "songUnavailableAlternativeDescription": "当前歌曲已下架，{{typeDesc}}。是否改为播放其他版本？",
     "songUnavailableAlternativeDefaultType": "存在可播放的其他版本",
@@ -908,8 +1045,10 @@ export default {
     "sleepTimerUnexpectedMinutes": "--off 不能指定时长",
     "sleepTimerDurationRequired": "请先输入分钟数再开启定时器",
     "fmModeTitle": "私人 FM 模式",
+    "fmModeTitleOf": "{{name}}模式",
     "fmModeHint": "点下方场景即可直接切到场景模式",
     "fmModeFilterPlaceholder": "输入以筛选模式和场景",
+    "recommendationPreferencesPlaceholder": "在下方调整偏好",
     "sourceCurrent": "当前来源",
     "sourceLocal": "本地音乐",
     "sourceNavidrome": "Navidrome",
@@ -956,8 +1095,11 @@ export default {
       "queue": { "title": "队列", "description": "搜索队列；使用 @ 筛选元数据，使用 -- 批量操作" },
       "playback-volume": { "title": "音量条", "description": "调整播放音量" },
       "playback-fm-mode": { "title": "私人 FM 模式", "description": "切换私人 FM 的模式或场景" },
+      "playback-station-mode": { "title": "电台模式", "description": "切换正在播的电台的模式或场景" },
+      "playback-recommendation-preferences": { "title": "偏好设置", "description": "调整保存在账号上、影响推荐的偏好" },
       "settings-help": { "title": "打开帮助", "description": "打开帮助和快捷键" },
       "ponder-current-page": { "title": "思索当前页面", "description": "打开当前页面的交互式介绍" },
+      "provider-playback-setup": { "title": "平台播放设置", "description": "打开当前平台的播放配置清单" },
       "settings-options": { "title": "打开选项", "description": "打开设置中心" },
       "settings-now-playing-card-position": { "title": "调整卡片位置", "description": "拖动正在播放卡片到新的位置" },
       "settings-ai-provider": { "title": "AI 供应商设置", "description": "选择 AI 供应商和模型" },
@@ -1058,7 +1200,7 @@ export default {
       "home-local": { "title": "打开本地音乐", "description": "打开本地音乐 tab" },
       "home-albums": { "title": "打开专辑", "description": "打开专辑 tab" },
       "home-navidrome": { "title": "打开 Navidrome", "description": "打开 Navidrome tab" },
-      "home-radio": { "title": "打开电台", "description": "打开电台 tab" },
+      "home-radio": { "title": "打开推荐", "description": "打开推荐 tab" },
       "home-explore": { "title": "打开探索", "description": "打开探索 tab" },
       "grid-sort-file-name": { "title": "按文件名排序", "description": "把本地曲目按文件名排列" },
       "grid-sort-modified-date": { "title": "按修改时间排序", "description": "把本地曲目按文件最后修改时间排列" },
@@ -1092,6 +1234,7 @@ export default {
       "artist-reload": { "title": "重新加载歌手", "description": "从来源重新加载这个歌手页" },
       "artist-retry-albums": { "title": "继续加载专辑", "description": "重试失败的那一页专辑，并继续加载其余的" },
       "artist-edit-entity": { "title": "编辑歌手信息", "description": "打开本地曲库里这位歌手的编辑窗口" },
+      "artist-open-all-songs": { "title": "打开全部歌曲", "description": "在一页里列出这位歌手的全部歌曲，包括不在专辑里的单曲" },
       "settings-interaction": { "title": "交互设置", "description": "打开键盘、快捷键与网格交互设置" },
       "settings-global-shortcuts": { "title": "全局快捷键", "description": "直接跳到系统级的快捷键：播放控制与模组命令" },
       "settings-custom-shortcut": { "title": "自定义快捷键", "description": "直接跳到自定义键盘快捷键的绑定处" },
@@ -1121,6 +1264,8 @@ export default {
       "settings-queue-behavior": { "title": "队列行为", "description": "直接跳到播放队列的组建与保留方式" },
       "settings-netease-scrobble": { "title": "网易云听歌打卡", "description": "直接跳到是否把播放记录上报给网易云音乐" },
       "netease-scrobble-toggle": { "title": "网易云听歌打卡", "description": "开启或关闭把播放记录上报给网易云音乐" },
+      "auto-ai-lyric-segmentation-toggle": { "title": "自动 AI 分词", "description": "开启或关闭新歌自动用 AI 给歌词分词" },
+      "keep-provider-word-timing-toggle": { "title": "保留平台自带的逐字歌词", "description": "开启或关闭自动择优时保留 Apple Music 等平台自带的逐字歌词" },
       "settings-audio-output": { "title": "音频输出", "description": "直接跳到音频输出设备与格式设置" },
       "hifi-toggle": { "title": "mpv 播放引擎", "description": "在 Web Audio 和 mpv 之间切换本地与 Navidrome 歌曲的播放引擎；mpv 直接送到输出设备" },
       "hifi-settings": { "title": "播放引擎设置", "description": "打开播放引擎设置：Web Audio 或 mpv，以及 mpv 的输出设备、独占模式和 DSD" },
@@ -1155,6 +1300,8 @@ export default {
       "playback-add-to-playlist": { "title": "添加到歌单", "description": "把当前歌曲放进你的某个歌单" },
       "scratchpad-toggle": { "title": "打开 / 收起速记簿", "description": "从左边拉出速记簿：先放着、待会再听或再整理的歌" },
       "scratchpad-collect-current": { "title": "把当前歌曲记进速记簿", "description": "不动播放队列，先把这首记下来" },
+      "scratchpad-handle-toggle": { "title": "显示 / 隐藏速记簿悬浮标签", "description": "窗口左缘那道打开速记簿的把手" },
+      "settings-scratchpad": { "title": "速记簿设置", "description": "打开速记簿的设置：悬浮标签显不显示、放在什么高度" },
       "playback-mute": { "title": "静音", "description": "静音，或恢复声音" },
       "playback-volume-up": { "title": "音量加", "description": "音量调高 5%" },
       "playback-volume-down": { "title": "音量减", "description": "音量调低 5%" },
@@ -1457,6 +1604,8 @@ export default {
     "noLyrics": "当前没有可分词的歌词",
     "saved": "分词结果已保存",
     "restored": "已恢复默认分词",
+    "autoSaved": "已自动用 AI 分词",
+    "autoFailed": "自动 AI 分词失败，请检查 AI 模型设置",
     "promptCopied": "提示词和歌词已复制",
     "currentCopied": "当前分词结果已复制",
     "partialFailure": "有 {{count}} 批失败，这些行保持默认分词",
@@ -1489,7 +1638,7 @@ export default {
     "queueReplaceUndoGone": "队列在替换之后又改过了，没有可以撤销的替换",
     "queueReplaceHint": "可以一次换掉整个播放队列，并结束私人 FM；替换后会提示是哪个模组换的，在队列再被改动之前可以撤销。",
     "equalizerControlHint": "会改写你的音效设置：可以切换音效预设，或换上它自己的均衡器曲线。",
-    "renderQualityHint": "会改写歌词画布的渲染质量：可以修改「性能与动效」里的歌词画布分辨率与抗锯齿。",
+    "renderQualityHint": "会改写歌词画布的渲染质量：可以修改「动画与性能」里的歌词画布分辨率与抗锯齿。",
     "visualizerModeHint": "会切换你的歌词动画样式，和你在播放页切换一样。",
     "visualizerTuningHint": "会改写内置歌词样式的选项（画质设置除外）。",
     "visualizerBeatEffectsHint": "会开关智能动感模式的动感效果、调整强度；智能动感模式本身仍由你决定，但在「开启」下打开的效果会让 GPU 分析新歌。",
@@ -1699,6 +1848,7 @@ export default {
   },
   "personalFmMode": {
     "openPicker": "切换私人 FM 模式",
+    "openPickerOf": "切换{{name}}模式",
     "category": {
       "mode": "模式",
       "mood": "情绪",
@@ -1760,7 +1910,27 @@ export default {
     "statusPending": "私人 FM 模式",
     "statusApplied": "私人 FM 已切换到",
     "statusEmpty": "该私人 FM 模式没有返回歌曲",
-    "statusFailed": "切换私人 FM 模式失败"
+    "statusFailed": "切换私人 FM 模式失败",
+    "statusAppliedOf": "{{name}}已切换到",
+    "statusEmptyOf": "该{{name}}模式没有返回歌曲",
+    "statusFailedOf": "切换{{name}}模式失败"
+  },
+  "recommendationPreferences": {
+    "open": "偏好设置",
+    "noteDefault": "保存在账号上",
+    "less": "减少推荐",
+    "default": "默认",
+    "more": "增加推荐",
+    "reset": "重置",
+    "save": "保存",
+    "saving": "正在保存…",
+    "loading": "正在读取偏好…",
+    "loadFailed": "偏好没读到",
+    "retry": "重试",
+    "empty": "没有可以调整的偏好",
+    "saved": "已保存",
+    "unconfirmed": "已发出，还没确认生效，稍后再打开看看",
+    "saveFailed": "保存失败，选择还在，可以再试一次"
   },
   "login": {
     "title": "登录",
@@ -1772,6 +1942,14 @@ export default {
     "rowSignedOut": "未登录",
     "signInRanOut": "登录已过期",
     "readingAccount": "正在读取账号…",
+    "checkingAccount": "正在检查这个账号能否播放…",
+    "setupOpen": "播放设置",
+    "setupDone": "完成",
+    "setupLater": "稍后再说",
+    "setupBack": "返回",
+    "setupSecretChange": "更换",
+    "setupSecretCancel": "保留已存的",
+    "setupState": { "done": "已完成", "todo": "待完成", "warn": "需要注意", "error": "出错" },
     "openBrowser": "打开浏览器",
     "pasteBackHint": "如果授权后的页面打不开（在手机或不是服务器的电脑上登录），把地址栏里的网址粘贴到这里，再点「完成登录」。",
     "pasteBackConfirm": "完成登录",
@@ -1847,7 +2025,8 @@ export default {
     "noteMaybeSubscription": "可能需要会员才能播放",
     "noteMaybeRegion": "可能受地区限制",
     "skipCountdown": "{{seconds}} 秒后跳到下一首",
-    "signIn": "登录"
+    "signIn": "登录",
+    "openSetup": "播放设置"
   },
   "home": {
     "welcome": "欢迎使用 Folia",
@@ -1894,7 +2073,6 @@ export default {
     "loginTitleAppleMusic": "登录 Apple Music",
     "loginNoteAppleMusic": "请在 Apple 窗口中登录，密码只会交给 Apple。",
     "appleMusicLinuxUnsupported": "Linux 暂未支援",
-    "appleMusicWindowsPending": "Windows 版本尚待验证",
     "loginNoteYtmBrowser": "会打开一个单独的浏览器窗口。在里面登录 Google，看到 YouTube Music 显示你的账号后，关掉那个窗口。",
     "loginNoteYtmBrowserMac": "会打开一个单独的浏览器窗口。在里面登录 Google，看到 YouTube Music 显示你的账号后，退出那个浏览器（⌘Q）。",
     "loginNoBrowserYtm": "登录 YouTube Music 需要安装 Chrome（Beta、Dev、Canary 版也可以）、Edge、Chromium、Brave 或 Helium。",
@@ -2043,6 +2221,7 @@ export default {
     "allAlbums": "全部",
     "popular": "时下流行",
     "radio": "电台",
+    "radioTab": "推荐",
     "explore": "探索",
     "exploreRefresh": "换一批",
     "exploreMore": "更多",
@@ -2071,6 +2250,12 @@ export default {
     "qqNewSongs": "新歌速递",
     "qqNewAlbums": "新碟上架",
     "qqCharts": "排行榜",
+    "qqFeedForYou": "为你推荐",
+    "qqRecommendedPlaylists": "推荐歌单",
+    "qqGuessYouLike": "猜你喜欢",
+    "qqGuessYouLikeDescription": "QQ 音乐的猜你喜欢电台，播放时可以换听歌模式",
+    "qqGuessYouLikeSuggested": "为你建议",
+    "qqGuessYouLikeOther": "其他",
     "personalFm": "私人FM",
     "dailyRecommendations": "每日推荐",
     "dailyRecommendationsDescription": "为你定制的每日歌曲",
@@ -2150,11 +2335,33 @@ export default {
   },
   "qishui": { "recentPlayed": "汽水最近播放", "recommended": "为你推荐" },
   "listeningRank": {
+    "qqWeek": "听歌排行 · 本周",
+    "qqYear": "听歌排行 · 年榜",
+    "qqWeekDescription": "QQ 音乐的本周排行，从周一算起，这一周没过完就只算到今天",
+    "qqYearDescription": "QQ 音乐的年榜，统计去年一整年（1 月 1 日到 12 月 31 日）",
     "week": "听歌排行 · 最近一周",
     "all": "听歌排行 · 所有时间",
     "description": "按这个账号在平台上的收听记录排出的歌",
     "listenCount_one": "听过 {{count}} 次",
     "listenCount_other": "听过 {{count}} 次"
+  },
+  "qqPreferences": {
+    "note": "保存在账号上，会影响所有推荐的歌",
+    "familiarity": "歌曲熟悉度",
+    "familiarityExplore": "更探索",
+    "keep": "保持现状",
+    "familiarityFamiliar": "更熟悉",
+    "mood": "音乐情绪",
+    "moodSad": "更伤感",
+    "moodHappy": "更欢快",
+    "coverLive": "翻唱与现场",
+    "instrumental": "纯音乐",
+    "mandarin": "国语",
+    "english": "英语",
+    "japanese": "日语",
+    "korean": "韩语",
+    "cantonese": "粤语",
+    "ai": "AI 歌曲"
   },
   "lyricProvider": {
     "qishui": "汽水音乐",
@@ -2343,6 +2550,7 @@ export default {
     "aiEndpoint_hongkong": "中国香港",
     "aiTemperatureRangeDesc": "范围为 {{min}}–{{max}}；留空时使用默认值 0.7。",
     "aiTemperaturePerModelDesc": "范围为 {{min}}–{{max}}，部分模型会忽略；留空时使用默认值 0.7。",
+    "aiTemperatureNote": "温度决定输出的随机程度：越低越稳定，越高越多变。建议保持默认值，或按照供应商文档的建议调整。",
     "randomVisualizerModes": "参与随机的样式",
     "randomVisualizerSelectAll": "全选",
     "randomVisualizerCurrentStyle": "当前样式",
@@ -2376,7 +2584,7 @@ export default {
     "settingsPageIntegration": "连接与集成",
     "settingsPageStorage": "存储与备份",
     "settingsPageDesktop": "桌面",
-    "settingsPageGraphics": "性能与动效",
+    "settingsPageGraphics": "动画与性能",
     "settingsPageMods": "模组",
     "settingsPageDeveloper": "开发者",
     "settingsHeadingTheme": "主题",
@@ -2561,8 +2769,19 @@ export default {
     "rememberHomeCardPosition": "记住主页卡片位置",
     "rememberHomeCardPositionDesc": "切换顶部入口或从播放界面返回时，回到各入口上次浏览的卡片。位置仅在本次打开应用期间保留。",
     "homeTabsVisibilityDesc": "自定义首页顶部显示的胶囊选项",
+    "scratchpadSettings": "速记簿",
+    "scratchpadShowHandle": "显示左侧悬浮标签",
+    "scratchpadShowHandleDesc": "窗口左缘的那道把手。关掉后仍可用 Ctrl / ⌘ + J 或命令面板打开速记簿。",
+    "scratchpadHandlePosition": "悬浮标签高度",
+    "scratchpadHandlePositionDesc": "把手在左缘上的位置，0% 在最上面，100% 贴近窗口底部。中段会和 Bravais 信息条收起后的标签叠在一起。",
+    "scratchpadHandleStyle": "悬浮标签样式",
+    "scratchpadHandleStyleDesc": "指针没到左缘时，标签只露一点点、半透明，不打扰页面；指针移到左缘才展开成完整的标签。",
+    "scratchpadHandleStyleStrip": "米白小条",
+    "scratchpadHandleStyleLine": "细竖线",
+    "scratchpadHandleStyleDot": "小圆点",
+    "scratchpadHandleStyleShapes": "几何体",
     "showHomeTabPlaylist": "显示歌单",
-    "showHomeTabRadio": "显示电台",
+    "showHomeTabRadio": "显示推荐",
     "showHomeTabExplore": "显示探索",
     "showHomeTabAlbums": "显示专辑",
     "showHomeTabLocal": "显示本地",
@@ -2642,8 +2861,8 @@ export default {
     "updateChannelInternal": "内部构建",
     "updateUnsupportedSystem": "当前系统不支持自动更新。",
     "updateUnsupportedChannel": "此内部构建不支持自动更新。",
-    "autoUpdateGithubNotice": "自动更新需要能够访问 GitHub；网络不稳定时可能无法下载更新。",
-    "updateCheckGithubNotice": "版本检查需要能够访问 GitHub；发现更新后会提供完整安装包入口。",
+    "autoUpdateGithubNotice": "自动更新的下载需要能够访问 GitHub；版本检查连不上 GitHub 时会改用公共代理。",
+    "updateCheckGithubNotice": "版本检查连不上 GitHub 时会改用公共代理；发现更新后会提供完整安装包入口。",
     "openReleasePage": "打开发布页",
     "downloadChina": "国内下载",
     "downloadSources": "下载来源",
@@ -2709,6 +2928,8 @@ export default {
     "autoUseBestLyricDescSpotify": "自动检索网易云、AMLLDB、QQ、酷狗和 Spotify 歌词，若存在完美匹配的逐字歌词则自动优先采用。",
     "lyricMatchPriority": "歌词匹配优先级",
     "lyricMatchPriorityDesc": "在多个歌词源都存在匹配度满足要求的歌词时，优先选择该歌词源的结果。",
+    "keepProviderWordTiming": "保留平台自带的逐字歌词",
+    "keepProviderWordTimingDesc": "Apple Music 的歌自带逐字歌词时，只有“歌词匹配优先级”选的歌词源也有逐字歌词才换掉它，其他歌词源不再搜索。关闭后和其他歌一样，按优先级在各歌词源里择优。",
     "localLyricsPriority": "本地歌曲歌词优先级",
     "localLyricsPriorityDesc": "本地歌曲同时存在在线匹配歌词时，选择优先使用的歌词。手动指定的歌词来源不受影响。",
     "localLyricsPriorityLocal": "本地歌词",
@@ -3388,6 +3609,9 @@ export default {
     "machiSceneKonbini": "便利店",
     "machiSceneStation": "加油站",
     "machiSceneKowloon": "城寨酒吧",
+    "machiLightsSection": "灯光",
+    "machiSimulatedBeat": "模拟节拍",
+    "machiSimulatedBeatHint": "智能动感模式设为「关闭」时，用模拟的固定节拍驱动「霓虹随拍」和「大屏闪拍」：霓虹分组轮流亮起，歌词大屏每两拍亮一处。设为「开启」或「只用已分析」时改由真实的节拍和鼓点驱动，这个开关不起作用。",
     "machiSkySection": "时间与天气",
     "machiTimeOfDay": "时间",
     "machiTimeOfDayHint": "自动：跟本地时间走，白天、黄昏或夜里。",
@@ -3440,13 +3664,13 @@ export default {
     "machiFocusOffset": "对焦前后",
     "machiQualitySection": "画质",
     "machiQuality": "预设",
-    "machiQualityHint": "高、平衡、低是几套现成的组合；改了下面任何一项就成了自定义。帧率上限在设置的「性能与动效」里，对所有样式生效。",
+    "machiQualityHint": "高、平衡、低是几套现成的组合；改了下面任何一项就成了自定义。帧率上限在设置的「动画与性能」里，对所有样式生效。",
     "machiQualityCustom": "自定义",
     "machiQualityHigh": "高",
     "machiQualityBalanced": "平衡",
     "machiQualityLow": "低",
     "machiRenderScale": "分辨率",
-    "machiRenderScaleHint": "按屏幕像素的几成来画：低一些会糊一点，但快很多。高 DPI 屏上最多按 2 倍算。跟随全局时用「性能与动效」里的歌词画布分辨率（现在是 {{value}}，高于 1× 按超采样画）。",
+    "machiRenderScaleHint": "按屏幕像素的几成来画：低一些会糊一点，但快很多。高 DPI 屏上最多按 2 倍算。跟随全局时用「动画与性能」里的歌词画布分辨率（现在是 {{value}}，高于 1× 按超采样画）。",
     "machiAntialias": "抗锯齿",
     "machiAntialiasHint": "FXAA 最省，字会略软；SMAA 边缘干净，墨线和雨丝也平滑，代价稍高；超采样按 2 倍分辨率画再缩回来，最细也最贵。跟随全局时，全局挡位开着（现在是{{value}}）就是 SMAA，关着就是关。",
     "machiAntialiasOff": "关",
@@ -3605,6 +3829,7 @@ export default {
     "gpuPreferenceActive": "当前使用",
     "visualizerFrameRateValue": "限制档位",
     "lyricRenderScale": "歌词画布分辨率",
+    "importFieldLyricRenderQuality": "歌词画布分辨率与抗锯齿",
     "lyricRenderScaleDesc": "用 canvas / WebGL 画的歌词样式（町景、花火、绘光、雾笺等）按这个倍数渲染，1× 是各样式原来的清晰度；高于 1× 是超采样，边缘更细，也更吃显卡。各样式默认跟随这里，也能在样式自己的设置里单独指定。",
     "lyricAntialias": "歌词画布抗锯齿",
     "lyricAntialiasDesc": "自动是各样式自己的默认；打开时几何边缘（线条、卡片、色块）更平滑，代价是显存和一点帧率。各样式默认跟随这里。",
@@ -3613,8 +3838,8 @@ export default {
     "lyricAntialiasOff": "关",
     "lyricRenderSection": "渲染",
     "lyricRenderFollowGlobal": "跟随全局",
-    "lyricRenderScaleStyleHint": "这个样式按几倍分辨率画，高于 1× 是超采样。跟随全局时用「性能与动效」里的挡位（现在是 {{value}}）。",
-    "lyricAntialiasStyleHint": "跟随全局时用「性能与动效」里的挡位（现在是{{value}}）。",
+    "lyricRenderScaleStyleHint": "这个样式按几倍分辨率画，高于 1× 是超采样。跟随全局时用「动画与性能」里的挡位（现在是 {{value}}）。",
+    "lyricAntialiasStyleHint": "跟随全局时用「动画与性能」里的挡位（现在是{{value}}）。",
     "themePresets": "配色主题预设",
     "themePresetsDefault": "墨染 / 素白",
     "openThemePark": "打开主题乐园",
@@ -3946,6 +4171,10 @@ export default {
     "chinaDownload": "网盘下载",
     "goToGithubRelease": "前往Github下载页",
     "chinaDownloadHint": "提示：下载需直连 GitHub（可能较慢），国内环境推荐使用夸克或百度网盘。",
+    "githubUnreachableDrives": "连不上 GitHub，可以从网盘下载 v{{version}} 的完整安装包。",
+    "githubUnreachableCheckFailed": "连不上 GitHub，没能检查更新。可以到网盘查看最新的完整安装包。",
+    "githubUnreachableDrivesQuiet": "GitHub 连不上，也可以从网盘下载",
+    "githubUnreachableRetry": "连不上 GitHub，暂时没法下载 v{{version}}，请稍后再试。",
     "macManualUpdateNotice": "提示：macOS 版本需要下载完整安装包手动覆盖更新。",
     "linuxManualUpdateNotice": "提示：Linux 不支持自动更新。请下载完整的 deb、rpm 或 tar.gz 包手动升级；仅正式版且通过 AUR 安装的用户可使用包管理器升级 folia-major-bin。",
     "manualUpdateNotice": "提示：当前平台暂不支持自动更新，请下载安装包手动覆盖更新。",
@@ -3958,6 +4187,9 @@ export default {
     "globalLyricTimelineOffsetDesc": "整体平移歌词时间轴，补偿蓝牙等输出延迟。",
     "lyricFilterRegex": "歌词过滤",
     "lyricFilterRegexDesc": "逐行过滤规则，以及开头制作人员信息的处理。",
+    "settingsHeadingLyricSegmentation": "分词",
+    "autoAiLyricSegmentation": "自动 AI 分词",
+    "autoAiLyricSegmentationDesc": "播放含中文或日文歌词、且还没有保存分词的歌曲时，自动用 AI 给歌词分词。只影响按词排版的歌词样式；每首歌只自动跑一次，会消耗 AI 请求额度。",
     "noDescription": "暂无详细介绍",
   },
   "releaseNotes": {
@@ -4147,6 +4379,56 @@ export default {
       "qqPrivatePlaylists": {
         "title": "QQ 音乐不公开歌单",
         "description": "登录后，自己创建的不公开歌单也能读取歌曲，并支持真正的分页加载。自建后端需要升级到 qq-music-api 3.1.2 或更新版本；旧后端会自动回退，读不到时会明确提示「不是公开歌单」，不再静默显示为空。"
+      }
+    },
+    "v0_7_27": {
+      "intro": "欢迎来到 0.7.27。Spotify 新增 Soloist 播放方式，拿不到音频密钥的账号也能听歌；Apple Music 的音量和静音现在能用了，资料库多了「全部歌曲」，自带的逐字歌词也会让位给你选的优先歌词源；飞牛音乐在局域网外填 FN ID 就能登录。",
+      "soloist": {
+        "title": "Spotify：Soloist 播放",
+        "description": "有些 Spotify 账号（多见于 2024 年底以后注册的）拿不到音频密钥，Folia 自己的播放方式放不了。现在登录时可以在「标准播放」和「Soloist 播放」之间二选一：Soloist 是 Spotify 官方的播放程序，需要另外下载，并用 Premium 账号生成一把 API 密钥。选标准播放时，登录后会先试一下这个账号能不能拿到密钥，拿不到就提示改用 Soloist。配置清单一步步带你装好程序、填好密钥、配对设备，也可以从账号页、命令面板的「平台播放设置」或播放失败的提示里打开。Soloist 自己把声音送到系统输出，Folia 的均衡器、Automix 和视频导出不作用于它。另外修复了 Linux 上第一次播放 Spotify 时整个应用卡住的问题。"
+      },
+      "amUpdate": {
+        "title": "Apple Music 改进",
+        "description": "音量条和静音现在能控制 Apple Music 的声音。资料库的歌单里多了「全部歌曲」，可以浏览收藏的所有歌曲。启动时直接显示上次登录的账号，不再空着等几秒；桌面版窗口重建（例如开关窗口透明）时，正在放的歌不再停下，新窗口接着播放。歌曲自带逐字歌词时，「歌词匹配优先级」选的歌词源（默认 QQ 音乐）如果也有逐字歌词，就改用它，想要带翻译的歌词不必每首手动换；歌词设置里新增「保留平台自带的逐字歌词」，关掉后 Apple Music 的歌和其他歌一样，在全部歌词源里择优。"
+      },
+      "fnConnect": {
+        "title": "飞牛音乐：外网用 FN ID 登录",
+        "description": "飞牛音乐的服务器地址可以只填 FN ID（例如 mynas），Folia 经 FN Connect 中继连上你的 fnOS 设备，不在同一个局域网也能登录和播放。填了协议、端口或路径的地址仍按原样直连；经中继时一律走 HTTPS。"
+      },
+      "moreDetails": {
+        "title": "更多改进",
+        "description": "本地 .ttml 歌词里没有 itunes:key 的行不再被整行丢掉，其他工具转出来的 TTML 也能正常显示。修复酷狗打开别人的公开歌单后账号失效、取歌失败的问题。速记簿的面板改成顶上的信息条和底部的细纸带，展开整页的卡片放大一档，手机宽度下不再挤在一起。macOS 上思索的固定和歌名打开平台页面改用 ⌘ 键，提示也按平台显示。雾笺水族箱的聚光灯处不再白成一片，跟拍时水草只随节拍摆动。Bravais 的专辑海报在歌手和简介很多时不再溢出，歌手多了可以展开查看；倾斜的海报文字不再发糊。"
+      }
+    },
+    "v0_7_26": {
+      "intro": "欢迎来到 0.7.26「Fawkes Update」：这是一次重大更新。这一版新增「速记簿」，随手把歌收进左侧滑出的暂存区；「雾笺」的窗外和玻璃多了水族箱、凝露和融雪；新接入 Apple Music 和飞牛音乐；不同平台的歌可以排进同一个队列，搜索页也能搜专辑和歌单；进度条胶囊上会浮出常用命令，右侧按钮可以原地更换；推荐也更丰富：网易云每日推荐加了风格推荐，QQ 音乐接上「猜你喜欢」电台和音乐偏好。",
+      "scratchpad": {
+        "title": "速记簿",
+        "description": "新增「速记簿」：从左侧滑出的歌曲暂存区，按 Ctrl+J 打开。在歌曲卡片、搜索结果、探索页和 Lattice 封面墙上悬停，就能把歌加入速记簿或收藏到歌单。收进来的歌按来源分组，可以展开成画布自由摆放、框选，整组加进歌单，触屏上也能拖动。抽屉里还有「播放历史」和「播放队列」两页：历史列出本地、Navidrome 和各平台播过的歌，队列可以展开成卡片画布。左侧悬浮标签的显示和高度可以在设置里调。"
+      },
+      "nebbiaScenes": {
+        "title": "雾笺：新的窗外与玻璃",
+        "description": "「雾笺」的窗外和前面的玻璃现在分开选。窗外除了雨夜街景，还可以换成共用背景，或是水族箱「梦海流萤」；街景里的雨可以斜着、竖直或不下。玻璃新增「凝露」——细小的水珠和飞舞的萤虫，以及「融雪」：雪从远处飘到玻璃上，逆光时像冰一样透亮，停久了的水珠会慢慢结冰。播放页透明时，雾色跟着主题的日夜变化，水珠里折射窗外的景色。命令面板加了「切换窗外」和「切换玻璃」。"
+      },
+      "newPlatforms": {
+        "title": "Apple Music 与飞牛音乐",
+        "description": "新接入两个平台。Apple Music 在 macOS 14 及以上和 Windows 上可用（Windows 需要 WebView2 运行时，Windows 11 已自带），需要 Apple Music 订阅：用 Apple 官方页面登录后，可以搜索和播放整首歌曲，浏览资料库里的歌单和专辑、歌手和专辑目录，收听个人电台与直播电台，并读取歌词；Linux 暂不支持。飞牛音乐连接 fnOS 设备上的音乐库，在登录窗口填写地址和账号即可浏览和播放。"
+      },
+      "crossPlatform": {
+        "title": "跨平台队列与新搜索页",
+        "description": "不同平台的歌现在可以排在同一个播放队列里：切换平台不再清空播放器和队列，退出某个平台时只移出它的歌。搜索页换成新的平面构图，除了单曲还能搜专辑和歌单（网易云、酷狗、QQ 音乐、YouTube Music；汽水只搜歌单）；来源可以选当前平台、已登录的平台、本地和 Navidrome，切换平台也不会清掉搜索结果。"
+      },
+      "playerCapsule": {
+        "title": "进度条胶囊上的命令",
+        "description": "鼠标在进度条胶囊上停一会儿，上方会浮出一排常用命令：打乱队列、喜爱、加到歌单、音量、歌词动画样式和字幕调节；手机上点开胶囊或暂停时也会出现。命令面板改为从胶囊原地长出来。右键或长按胶囊右侧的按钮，可以原地换成别的动作，常用的命令也会提议放上来。新增「字幕调节」面板，可以调副字幕内容、透明度、缩放和下一句模糊；音量面板的图标点一下就能静音。"
+      },
+      "recommendations": {
+        "title": "更多推荐方式",
+        "description": "首页的「电台」页签改名为「推荐」。网易云每日推荐新增「风格推荐」，按选好的曲风、情绪、场景等另出 30 首，可以在日推墙上切换。QQ 音乐接上「猜你喜欢」电台（可选探索、熟悉和各种场景模式）、账号的音乐偏好设置、每日 30 首的历史日期和歌曲「不喜欢」；自建后端需要 qq-music-api 3.3.6 或更新版本。网易云、酷狗和 QQ 音乐的账号歌单里多了「听歌排行」，按时间范围列出自己最常听的歌。"
+      },
+      "moreDetails": {
+        "title": "更多改进",
+        "description": "「町景」支持播放页透明，切换时不再卡住，按屏幕刷新率自动降低画质保持流畅；没开智能动感时霓虹和大屏按固定节拍闪动，可在「模拟节拍」里关掉。歌词画布可以调分辨率和抗锯齿。全局快捷键可以自己选修饰键和按键。桌面版点击穿透时，锁旁边多了上一首、播放暂停和下一首。歌手页加了「全部歌曲」，专辑页的歌手可以点开。从右往左书写的歌词按正确的方向排词。新增「自动 AI 分词」选项。网易云在部分 IPv6 网络下请求被中断的问题已修复。"
       }
     },
     "v0_7_25": {
@@ -4840,12 +5122,12 @@ export default {
   },
   "fnmusic": {
     "serverUrl": "服务器地址",
-    "serverUrlPlaceholder": "例如: http://192.168.1.10:5666",
+    "serverUrlPlaceholder": "例如: http://192.168.1.10:5666 或纯 FN ID（如 mynas）",
     "username": "账号",
     "usernamePlaceholder": "飞牛音乐账号或 NAS 账号",
     "password": "密码",
     "login": "登录",
-    "loginNote": "输入你的飞牛（fnOS）音乐服务器地址与账号密码",
+    "loginNote": "输入你的飞牛（fnOS）音乐服务器地址（局域网地址或纯 FN ID）与账号密码",
     "errorBadCredentials": "账号或密码错误",
     "errorNetwork": "无法连接服务器，请检查地址与网络",
     "errorBadResponse": "服务器返回了无法识别的响应",
@@ -5093,6 +5375,8 @@ export default {
     "stageLocalInputDescription": "Stage 现在是本地单项输入模式。外部可以推送一份完整歌词对象或一段媒体，播放与展示仍由 Folia 自己控制。",
   },
   "libraryBravaisArtist": {
+    "allSongsCountUnit_one": "首",
+    "allSongsCountUnit_other": "首",
     "playTopSongs": "播放热门",
     "songCount_one": "{{count}} 首歌",
     "songCount_other": "{{count}} 首歌",
@@ -5110,7 +5394,10 @@ export default {
     "posterTopSongs": "热门歌曲"
   },
   "libraryBravaisAlbum": {
-    "posterLabel": "专辑海报"
+    "posterLabel": "专辑海报",
+    "openArtist": "打开歌手 {{name}}",
+    "expandArtists": "展开全部 {{count}} 位歌手",
+    "collapseArtists": "收起"
   },
   "artistGrid": {
     "localArtist": "本地歌手: {{artistName}}",
@@ -5122,6 +5409,8 @@ export default {
     "topSongsAddedToQueue_one": "已加入 {{count}} 首热门歌曲到播放队列",
     "topSongsAddedToQueue_other": "已加入 {{count}} 首热门歌曲到播放队列",
     "noTopSongsToQueue": "没有可加入队列的热门歌曲",
+    "allSongs": "全部歌曲",
+    "allSongsCollectionName": "{{artistName}} 的全部歌曲",
   },
   "obs": {
     "connecting": "正在连接 Folia",
@@ -5276,6 +5565,81 @@ export default {
       "subtitle": "尽情享受您的音乐之旅。"
     }
   },
+  "soloist": {
+    "method": {
+      "standard": "标准播放",
+      "standardNote": "在浏览器里登录 Spotify，歌曲由 Folia 自己播放。均衡器、Automix 和跟着音乐跳动的效果都能用。",
+      "soloist": "Soloist 播放",
+      "soloistNote": "在浏览器里登录 Spotify，歌曲交给 Spotify 官方的 Soloist 程序播放，适合拿不到音频密钥的账号。需要另外下载 Soloist，并用 Premium 账号生成一把 API 密钥。"
+    },
+    "setup": {
+      "title": "Spotify Soloist 播放设置",
+      "note": "Soloist 是 Spotify 官方的播放程序，装在这台电脑上，自己把声音送到系统输出；Folia 控制它，并跟着它的进度显示歌词。Folia 的均衡器、Automix 和跟着音乐跳动的效果不处理它的声音。",
+      "titleStandard": "Spotify 播放方式",
+      "noteStandard": "现在由 Folia 自己播放 Spotify 的歌曲。如果这个账号拿不到音频密钥、播放时提示账号无法播放，可以改用 Spotify 官方的 Soloist。"
+    },
+    "noKey": {
+      "title": "这个账号拿不到 Spotify 的音频密钥",
+      "note": "Spotify 不给这个账号发放音频密钥，Folia 自己的播放方式放不了它的歌（2024 年底以后注册的账号常见）。可以改用 Spotify 官方的 Soloist 播放：下载 Soloist 程序，用 Premium 账号生成一把 API 密钥，再在 Spotify 应用里选一次设备。歌单、歌词和搜索不受影响。"
+    },
+    "step": {
+      "program": "Soloist 程序",
+      "key": "API 密钥",
+      "pair": "配对设备",
+      "modeStandard": "播放方式：标准",
+      "modeSoloist": "播放方式：Soloist"
+    },
+    "mode": {
+      "standardNote": "Spotify 的歌曲由 Folia 自己播放。",
+      "soloistNote": "Spotify 的歌曲由 Soloist 播放。",
+      "noKeyNote": "Folia 自己的播放方式放不了这个账号的歌。"
+    },
+    "program": {
+      "todo": "从 Spotify 官方页面下载适合这台电脑的 Soloist，解压后选择里面的 soloist 程序（Windows 上是 soloist.exe）。Folia 不附带这个程序。",
+      "valid": "版本 {{version}}，{{expires}} 到期，还剩 {{days}} 天。",
+      "expiring": "版本 {{version}}，还剩 {{days}} 天就到期（{{expires}}）。每个构建只能用 90 天，请下载新版，解压后重新选择。",
+      "unknown": "版本 {{version}}。读不出这个构建的日期，不知道什么时候到期。每个构建只能用 90 天，到期后 Soloist 会拒绝启动。",
+      "clock": "这个构建的日期比这台电脑的时间还晚，可能是系统时间不对，剩余天数算不准。",
+      "expired": "这个构建已经过期（{{expires}}），Soloist 不会再启动。请下载新版，解压后重新选择。",
+      "missing": "找不到之前选的程序，可能被移动或删除了。请重新选择。",
+      "invalid": "选的文件不是能运行的 Soloist 程序。请重新选择。"
+    },
+    "key": {
+      "label": "Soloist API 密钥",
+      "todo": "用 Premium 账号打开 Spotify 开发者控制台，生成 Soloist 的 API 密钥，填在下面。密钥用系统钥匙串加密后保存在这台电脑上。Soloist 只能从命令行接收密钥，它运行时这台电脑上的其他用户能在进程列表里看到它。",
+      "saved": "密钥已加密保存。Soloist 只能从命令行接收密钥，它运行时这台电脑上的其他用户能在进程列表里看到它。",
+      "locked": "系统钥匙串现在打不开，读不出保存的密钥。解锁钥匙串后点「重新连接」。",
+      "noKeychain": "这台电脑没有可用的系统钥匙串（例如 Linux 的 basic_text），密钥无法安全保存，所以不保存。",
+      "unreadable": "保存的密钥读不出来（可能换过系统账号或钥匙串）。请重新填一次。"
+    },
+    "pair": {
+      "done": "已配对，可以播放。",
+      "waiting": "先完成上面两步。",
+      "todo": "在同一局域网里的 Spotify 应用（手机或电脑）上打开设备列表，选择「Folia」。只需要做一次，之后会自动登录。",
+      "starting": "Soloist 还没启动。",
+      "startFailed": "Soloist 没能启动。确认程序和密钥都对，然后点「重新连接」。"
+    },
+    "action": {
+      "useStandard": "改回标准播放",
+      "useSoloist": "改用 Soloist 播放",
+      "pick": "选择已下载的程序",
+      "pickAgain": "重新选择",
+      "download": "官方下载页",
+      "keyPage": "打开开发者控制台",
+      "saveKey": "保存密钥",
+      "reconnect": "重新连接"
+    },
+    "message": {
+      "picked": "已选好程序。",
+      "pickedExpired": "这个构建已经过期，没有使用。请下载新版。",
+      "pickedInvalid": "这个文件不是能运行的 Soloist 程序，没有使用。",
+      "keySaved": "密钥已保存。",
+      "keychain": "系统钥匙串不可用，密钥没有保存。",
+      "keyShape": "密钥格式不对：应该是一串不含空格的字符。",
+      "startFailed": "Soloist 没能启动。",
+      "failed": "操作没有完成，详情见运行日志。"
+    }
+  },
   "remote": {
     "backgroundDefault": "默认背景",
     "backgroundCover": "封面色彩",
@@ -5418,13 +5782,13 @@ export default {
       "lyric_export": "把本机缓存的歌词批量导成 .fia 和增强型 LRC，打成一个 zip。",
       "player_bar": "整条胶囊上有什么、右边两个按钮怎么就地换，以及停一下浮出来的快捷操作。",
       "player_page": "播放页上有什么、各在哪，以及随机播放怎么做。",
-      "ponder_basics": "悬停出提示、长按 G、整页 Ctrl+G，以及怎么把提示关掉。",
+      "ponder_basics": "悬停出提示、长按 G、整页 {{mod}}+G，以及怎么把提示关掉。",
       "settings_page": "设置怎么分组，以及从命令窗口直接跳过去。",
       "side_panel": "面板分几段、怎么换页。",
       "theme_settings": "预设、自定义配色从哪来，以及配色什么时候自己变。",
       "sign_in": "主页的登录按钮和右下角那一枚开的是同一个窗口。",
       "lyric_match": "给一首歌手动挑一份歌词：换来源、搜索、先看再保存。",
-      "scratchpad": "左缘那本速记簿：怎么收进歌、按来源分组处理、展开成画布整理。"
+      "scratchpad": "左缘那本速记簿：怎么收进歌、按来源分组处理、展开整页整理。"
     },
     "categories": {
       "basics": "上手",
@@ -5436,9 +5800,9 @@ export default {
     "noComponentsOnPage": "本页暂时没有单独的组件教程。",
     "onboarding": {
       "title": "认识思索模式",
-      "description": "按住 Ctrl + G，等进度走满，打开当前页面介绍。",
+      "description": "按住 {{mod}} + G，等进度走满，打开当前页面介绍。",
       "touchDescription": "现在点下面的按钮，打开当前页面的介绍。",
-      "shortcut": "按住 Ctrl + G",
+      "shortcut": "按住 {{mod}} + G",
       "required": "完成一次页面思索后才能继续。"
     },
     "allChaptersDone": "全部章节都看完了。",
@@ -5954,7 +6318,7 @@ export default {
         "rowActions": "行内按钮",
         "footer": "对全部的操作",
         "historyTab": "播放历史",
-        "expand": "展开成画布",
+        "expand": "展开整页",
         "canvas": "画布",
         "canvasGroup": "画布里的一组",
         "slot": "吸附的位置",
@@ -6175,7 +6539,7 @@ export default {
       "lyricMatchLocal": "本地歌曲多出来的三个开关",
       "scratchpadCollect": "收进来",
       "scratchpadDrawer": "打开与分组",
-      "scratchpadCanvas": "展开成画布",
+      "scratchpadCanvas": "展开整页",
       "playerBarQuickActions": "停一下，浮出快捷操作"
     },
     "captions": {
@@ -6189,7 +6553,7 @@ export default {
         "collectionAbout": "大标题下面是这一层的说明：歌单简介、专辑介绍。歌手页这一块是头像、名字和简介，排得像书勒口上的作者简介。正文长了会截断，点一下展开。",
         "collectionActions": "播放全部、加入队列，行尾的星标是收藏（能收藏的集合才有）。歌手页上这两颗只管热门歌曲。",
         "collectionList": "「列表」把信息条加宽成歌曲列表，面包屑多出一级「列表」。悬停一行，墙上同一首的磁贴跟着亮起；单击转到它，双击播放。返回先关列表。",
-        "homeTabs": "首页的信息条是一道窄缝：最上面是「书库」和折叠，下面竖排着一级页签——歌单、电台、专辑、本地、Navidrome。",
+        "homeTabs": "首页的信息条是一道窄缝：最上面是「书库」和折叠，下面竖排着一级页签——歌单、推荐、专辑、本地、Navidrome。",
         "homeFlip": "换页签时整条信息条翻一次，墙也整面换成那一页的内容。键盘上 F6 / Shift + F6 轮换页签。",
         "homeSections": "本地和 Navidrome 多一列二级切换（文件夹、专辑、艺术家、歌单……）。只有选中的那项竖着写出名字，其余只留图标，悬停看全名。切换只换墙上的内容，不进新的一层。",
         "homeShortcuts": "下面那几列竖排小字是直达入口：我喜欢的音乐、私人 FM、全部歌曲……点它和点墙上那张卡一样，私人 FM 直接开播。地方不够时，它们挪进「⋯」。",
@@ -6271,7 +6635,7 @@ export default {
       "customShortcut": {
         "alt": "左边固定为 Alt，右边录入字母。只支持 Alt + 字母。",
         "capture": "点第二颗键帽开始录入，下次按下的字母会绑定。修饰键忽略，按 Esc 取消。",
-        "taken": "已被占用的字母不能绑定，红字会说明原因。S、Ctrl+K 和其他命令的快捷键都算占用。",
+        "taken": "已被占用的字母不能绑定，红字会说明原因。S、{{mod}}+K 和其他命令的快捷键都算占用。",
         "clear": "录上之后键帽旁边会多一颗小小的 ✕，按它就把绑定清掉；在你重新录一颗之前，这条快捷键什么都不运行。",
         "filtered": "下拉框只列出可在所有页面使用的命令；依赖特定页面或面板的命令不会出现。",
         "goesQuiet": "快捷键执行时还会再次检查条件。命令失效或按键被占用时，它不会改做别的事，只会失效。"
@@ -6299,12 +6663,12 @@ export default {
         "derived": "有些改动不会写在配置里，但会随导入发生：例如切到自定义主题、删除已上传字体。它们不能单独取消，只能取消对应的主改动。"
       },
       "onboarding": {
-        "overviewCtrlG": "第一步：在任何页面按下 Ctrl + G，就能打开这一页的思索。",
+        "overviewCtrlG": "第一步：在任何页面按下 {{mod}} + G，就能打开这一页的思索。",
         "overviewWholePage": "思索会一步一步讲解当前页面：上面有什么，各在哪里，可以怎么操作。你现在看的就是一段思索。",
         "overviewHover": "第二步：有些按钮和组件比较复杂。把指针停在上面，旁边会出现思索提示。",
         "overviewHold": "第三步：看到提示后，按住 G 不放。进度走满后，会打开这个组件的思索；提前松手则取消。",
         "overviewSettings": "不需要这些提示时，可以在设置中关闭。点下方按钮可直接打开设置。",
-        "overviewCommandPalette": "在任何界面，按 Ctrl + K 呼出命令面板。命令面板是应用的主要操作方式。使用命令面板可以在任何页面进行常用功能调整。",
+        "overviewCommandPalette": "在任何界面，按 {{mod}} + K 呼出命令面板。命令面板是应用的主要操作方式。使用命令面板可以在任何页面进行常用功能调整。",
         "overviewExampleVolume": "例如在任何地方调节音量。",
         "overviewExampleQueue": "或者拉起队列搜索。",
         "overviewExampleFilter": "或者直接对当前歌单进行二次检索，然后送入播放队列。",
@@ -6312,14 +6676,14 @@ export default {
         "here": "这是当前页面的思索教程，不是视频。进度条可拖，方向键切换关键帧，Space 暂停，Esc 退出。",
         "hover": "悬停在按钮或组件上会出现提示。按住 G，进度走满后打开对应教程。",
         "hold": "按住不放，进度走满后打开教程；提前松手会取消。",
-        "wholePage": "不想找组件也行：在任意页面上按住 Ctrl + G，打开的是整页的教程 —— 这一页上有什么、各在哪、能怎么操作。",
+        "wholePage": "不想找组件也行：在任意页面上按住 {{mod}} + G，打开的是整页的教程 —— 这一页上有什么、各在哪、能怎么操作。",
         "touchBulb": "触屏没有悬停，所以用右上角灯泡打开本页教程。它出现几秒后会收起，点右上角可再次唤出。鼠标看不到它是正常的。",
         "mediaKeys": "Windows 用 SMTC，Linux 用 MPRIS；系统媒体键和媒体浮窗都可控制或显示当前歌曲。",
         "inAppTransport": "Space 播放/暂停，{{mod}} + ←/→ 切歌；播放页 ←/→ 快退或快进 5 秒。更多操作用命令窗口。",
         "shortcutK": "{{mod}} + K 打开命令窗口，功能和设置都可直接搜索。",
         "shortcutP": "{{mod}} + P 打开播放队列；输入行可筛选，也支持 @artist: 等条件。",
         "shortcutB": "{{mod}} + B 打开 Lattice；已在 Lattice 时返回。",
-        "shortcutG": "Ctrl + G 就是刚才那一下：打开当前页面的思索教程。任何时候迷路了，先按它。",
+        "shortcutG": "{{mod}} + G 就是刚才那一下：打开当前页面的思索教程。任何时候迷路了，先按它。",
         "hintSettings": "可在设置 · 通用关闭思索提示，或只提示未看过的区域。下方按钮可直接打开设置。",
         "docs": "这四章只是入门。命令、快捷键、在线来源、本地曲库、可视化和主题见文档站。"
       },
@@ -6328,7 +6692,7 @@ export default {
         "gridNavigation": "滚动、滑动或用方向键在卡片间移动，然后选中当前卡片进入其中。",
         "gridSearch": "网格处于当前页面时直接输入文字即可筛选本页内容；按 Esc 关闭筛选。",
         "gridHelp": "左侧齿轮打开帮助页；有新版本时，更新提示也会出现在这里。Help 内仍可打开版本更新说明和本页 Ponder。",
-        "gridTabs": "中间页签切换歌单、电台、专辑、本地库、Navidrome 与 Stage。Lattice 图标只在已有播放队列时出现。",
+        "gridTabs": "中间页签切换歌单、推荐、专辑、本地库、Navidrome 与 Stage。Lattice 图标只在已有播放队列时出现。",
         "gridSearchBox": "右侧是跨当前来源的歌曲搜索。输入后按 Enter 会进入搜索工作台；它不会筛选下方的集合海报。",
         "gridTabResult": "切换页签后，下方 3D 轨道会换成该来源的集合，并记住各来源最后聚焦的位置。",
         "gridSourceActions": "这一组只在当前来源需要时出现，例如本地库的导入、刷新和播放列表导入，或服务器库的重新加载。",
@@ -6337,7 +6701,7 @@ export default {
         "gridMap": "点顶部「全部」打开 GridMap 查看所有集合；{{mod}} + F 或直接输入可筛选集合。",
         "gridSearchResult": "提交右上角搜索后会打开独立搜索工作台，结果按歌曲列出，可播放、打开艺人/专辑或加入队列。",
         "gridCardKeys": "← / → 切换中央海报，Enter 打开当前集合；滚轮和水平拖动执行同样的焦点移动。",
-        "gridPageKeys": "Tab / Shift + Tab 切换页签；{{mod}} + K 命令；{{mod}} + B 进 Lattice（需有队列）；Ctrl + G 本页 Ponder。",
+        "gridPageKeys": "Tab / Shift + Tab 切换页签；{{mod}} + K 命令；{{mod}} + B 进 Lattice（需有队列）；{{mod}} + G 本页 Ponder。",
         "gridView": "集合网格展示刚才打开的卡片所包含的歌曲、专辑或艺人。返回时会回到上一级，并保留原来的位置。",
         "gridViewActions": "选中卡片可以播放或继续进入。页面操作区还会按集合能力提供全部播放、加入队列、编辑等动作。",
         "gridViewBack": "左上角返回按钮退出当前集合，并清理这次进入使用的导航记录。Esc 在没有更内层状态时也会返回。",
@@ -6375,7 +6739,7 @@ export default {
         "latticeLights": "灯光关闭后海报退暗，只保留必要层次；这是显示设置，不会暂停播放或修改队列。",
         "latticePosterKeys": "收起时 Enter/Space 展开；展开后 Enter 播放/暂停，Space 显示控制，Esc 收起。",
         "latticePageKeys": ": + C 当前歌曲；{{mod}} + P 队列；{{mod}} + B 返回；{{mod}} + K 命令；方向键移动。",
-        "help": "Folia 分开处理浏览、播放、命令和设置。Ctrl+G 说明当前页面，有特殊操作的组件也有独立教程。",
+        "help": "Folia 分开处理浏览、播放、命令和设置。{{mod}}+G 说明当前页面，有特殊操作的组件也有独立教程。",
         "helpCommands": "{{mod}} + K 可以搜索全部命令和设置。对于藏得较深的选项，直接搜名称通常比记住它在哪一级更快。",
         "helpOperatingModel": "网格选歌，Player 或 Lattice 播放；底部控制条负责播放，帮助和设置覆盖当前页面。",
         "settings": "左侧按界面、音乐、应用和高级分组列出类别；右侧显示当前类别里的具体设置。",
@@ -6470,7 +6834,7 @@ export default {
         "sourceExportFormats": "窗口上面是导入，接受 lrc、vtt、ttml、qrc、yrc、krc、txt 和 Folia 导出的 .fia；Navidrome 的歌曲不能导入，窗口里只有导出。中间两块把这一首导成文件：.fia 保留逐字时间轴、翻译、背景和声和你保存的分词，能原样导回来；.lrc 是增强型 LRC，别的播放器也能读，但这些 Folia 专有的信息会丢掉。",
         "sourceExportBatch": "最底下一行是批量导出：它会打开命令面板里的导出页，一次导出本机缓存的所有歌词。设置 · 存储与备份「缓存详情」里「歌词」那一行也有同一个入口。",
         "coverTab": "封面页就是这首歌：大封面，下面是歌名、歌手和专辑，再下面一行动作。这一页没有别的内容。",
-        "coverTabDetail": "点击歌手或专辑可进入对应集合。点击歌名复制歌曲信息，按住 Ctrl 点击可打开来源页面。",
+        "coverTabDetail": "点击歌手或专辑可进入对应集合。点击歌名复制歌曲信息，按住 {{mod}} 点击可打开来源页面。",
         "controlsTab": "控制页最上面是音量一行，下面三格是循环、智能过渡和音频效果器：前两格点一下就开关，第三格打开一个窗口。",
         "controlsTabDetail": "再往下是歌词样式、背景类型两行和「播放页透明背景」开关，最下面两行是主题：来源、当前主题、明暗和生成 AI 主题。音频增益与歌词偏移在来源页。",
         "queueTab": "播放列表页是当前播放队列的完整列表，顶上一行写着队列里有多少首。",
@@ -6652,18 +7016,18 @@ export default {
       "scratchpad": {
         "hover": "指针停在一首歌的卡片上，右上角出现两颗按钮，左边这颗把它加入速记簿。网格的卡片、Bravais 的磁贴和聚焦卡、搜索结果的每一行都有这一对。",
         "save": "右边那颗是收藏到歌单。能点喜欢的来源，选歌单的窗口第一行是「我喜欢的音乐」；也可以就地新建一个歌单再放进去。",
-        "notQueue": "加入速记簿不会动播放队列，正在放的照常放。指针移到左缘上部，把手展开，上面写着里面有几首；速记簿空着时，把手平时看不见。",
+        "notQueue": "加入速记簿不会动播放队列，正在放的照常放。左缘上部常驻一个小而半透明的记号；指针移过去，它展开成米白的标签，上面写着里面有几首。记号的样子在设置里换。",
         "otherWays": "正在播的这首：按 : 进执行模式再按 S，就记下来了。集合页上的「全部加入速记簿」把这一页的歌一次收进来，筛选过就只收筛出来的；网格在信息栏里，Bravais 在信息条的「⋯ 更多」里。",
         "open": "点把手，或者按 {{mod}} + J，打开速记簿；执行模式里是 J。再按一次就收起来。",
         "groups": "里面的歌按来源分组：一个在线平台一组，本地一组，Navidrome 一组。从哪个歌单、哪次搜索收来的，写在每一行歌手后面。",
         "groupActions": "组头右端是「本组全部入队」和「本组加入歌单…」。一个歌单只收一个来源的歌；按来源分了组，整组放进同一个歌单正好。",
         "rowActions": "指针停在一行上，右端出现插进队列播放、加入队列、加入歌单、移出速记簿。入了队、进了歌单，这一行也还留着，不要了自己移出。",
-        "footer": "最底下这一排：全部入队、用速记簿替换队列播放，以及清空。清空要连点两次。",
-        "history": "抽屉顶上的「播放历史」是第二页：最近 7 天在这台设备上放过的歌（在线平台、本地、Navidrome），按天分段，新的在前。每一行可以插进队列播放、加入队列、加入速记簿或收藏到歌单。",
-        "expand": "抽屉顶上、关闭左边那颗是「展开成画布」。",
-        "canvas": "展开之后每首歌是一张卡片，仍旧按来源分组；组头多一颗「选中本组」。Esc 先取消选择，没有选择时收回列表。",
+        "footer": "细纸带上面这一排：全部入队、用速记簿替换队列播放，以及清空。清空要连点两次。",
+        "history": "底部细纸带上的「播放历史」是第二页（点一下，它升到顶上当信息条，速记簿落到底部）：最近 7 天在这台设备上放过的歌（在线平台、本地、Navidrome），按天分段，新的在前，每首是一张小相片。每一行可以插进队列播放、加入队列、加入速记簿或收藏到歌单。",
+        "expand": "信息条右端那颗墨色的方钮是「展开整页」。",
+        "canvas": "展开整页之后整张纸斜着铺开：这一页的信息条横在上面，每首歌是一张笔记本卡，仍旧按来源分组，组头多一颗「选中本组」；右边一列是跳到栏和操作提示，另外两页收成细纸带压在左下角。Esc 先取消选择，没有选择时收回侧栏。",
         "drag": "拖动卡片整理顺序。只能在自己那一组里挪，松手时吸附到最近的位置。触屏上先按住卡片，拿起来了再拖。",
-        "select": "在空白处拖出一个框，框住的卡片就选中了；按住 {{mod}} 点卡片可以逐张加减。选中的卡片上方浮出一个菜单：入队、加入歌单、移出、取消选择。选中的来自不同来源时，加入歌单是灰的。"
+        "select": "在空白处拖出一个框，框住的卡片就选中了；按住 {{mod}} 点卡片可以逐张加减。选中的卡片旁边浮出一块板：入队、加入歌单、移出、取消选择。选中的来自不同来源时，加入歌单是灰的。"
       }
     }
   }

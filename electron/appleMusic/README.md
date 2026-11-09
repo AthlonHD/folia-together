@@ -25,8 +25,9 @@ npm run dev:electron
 
 ## Windows 与 Linux
 
-Windows 已提供 .NET Framework 4.8 / WebView2 Evergreen 宿主源码，未编译或验证 DRM，默认停用。
-仅开发实验开关允许启用；[构建与验收说明](windows/README.md)。正式包不分发 Windows 宿主。
+Windows 使用 .NET Framework 4.8 / WebView2 Evergreen 宿主，2026-11-04 起在 Windows 11 实测登录与整首播放，
+从 0.7.26 起默认启用：打包时 `build/beforePack.cjs` 用 MSBuild 编译（只支持 x64），随安装包放进
+`resources/apple-music/windows/`，`build/afterPack.cjs` 核对文件齐全。[构建与验收说明](windows/README.md)。
 Linux 入口显示「Linux 暂未支援」，不保留备用浏览器运行时。
 
 ## 模块
@@ -35,7 +36,7 @@ Linux 入口显示「Linux 暂未支援」，不保留备用浏览器运行时�
 - `nativePaths.cjs`：开发输出、正式资源与平台启用策略。
 - `nativeSpawn.cjs`：私有管道适配、文档代数、退出登录清理与超时换页恢复。
 - `macos/`、`windows/`：各自系统 WebView、导航白名单和登录窗口管理。
-- `companionRequests.cjs`：操作白名单、参数验证、串行调度与注入页面的受限读取函数。
+- `companionRequests.cjs`：操作白名单、参数验证、串行调度与注入页面的受限读取函数。音量（`setVolume`，0–1 线性）也在这里写进页面的 MusicKit，和播放命令同一条串行链。
 - `companionQueue.cjs`：最多两首后继的队列预备和复用。
 - `companionFavorites.cjs`、`companionPlaylist.cjs`：喜爱与歌单写入，不自动重试可能已成功的追加。
 - `companionStorefront.cjs`：将页面地区跟随账号，避免跨区目录导致队列就绪却无法播放。

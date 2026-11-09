@@ -35,23 +35,26 @@
 | --- | --- |
 | 1024+ | `src/types.ts` |
 | 256+ | `src/types/onlineMusic.ts` |
+| 128+ | `src/components/modal/settings/kit/index.ts` |
 | 128+ | `src/stores/usePlaybackStore.ts` |
 | 128+ | `src/types/ponder.ts` |
 | 128+ | `src/utils/appPlaybackGuards.ts` |
 | 64+ | `src/components/command-palette/types.ts` |
-| 64+ | `src/components/modal/settings/kit/index.ts` |
 | 64+ | `src/components/visualizer/definition.ts` |
 | 64+ | `src/i18n/config.ts` |
+| 64+ | `src/library/core/collection/collection.contract.ts` |
 | 64+ | `src/library/core/suite/suite.contract.ts` |
 | 64+ | `src/mods/folium/contract.ts` |
 | 64+ | `src/services/db.ts` |
 | 64+ | `src/services/onlineMusic/omni.ts` |
 | 64+ | `src/stores/useAppViewStore.ts` |
 | 64+ | `src/stores/useAudioSettingsStore.ts` |
+| 64+ | `src/stores/useOnlineProviderAccountStore.ts` |
 | 64+ | `src/stores/useStatusMessageStore.ts` |
 | 64+ | `src/types/hifi.ts` |
 | 64+ | `src/utils/lyrics/renderHints.ts` |
 | 32+ | `dev/probes/definition.ts` |
+| 32+ | `src/components/app/playback/currentSong.ts` |
 | 32+ | `src/components/command-palette/commandRegistry.ts` |
 | 32+ | `src/components/modal/settings/kit/kitTheme.ts` |
 | 32+ | `src/components/modal/settings/kit/motion.ts` |
@@ -65,8 +68,8 @@
 | 32+ | `src/components/visualizer/tuningRegistry.ts` |
 | 32+ | `src/components/wall/layout.ts` |
 | 32+ | `src/components/wall/wallSlots.ts` |
+| 32+ | `src/hooks/useReducedMotionFor.ts` |
 | 32+ | `src/library/core/account/account.contract.ts` |
-| 32+ | `src/library/core/collection/collection.contract.ts` |
 | 32+ | `src/library/core/directory/directory.contract.ts` |
 | 32+ | `src/library/core/home/homeModel.contract.ts` |
 | 32+ | `src/library/suites/bravais/bravaisLayer.ts` |
@@ -77,7 +80,6 @@
 | 32+ | `src/services/onlineMusic/songMetadata.ts` |
 | 32+ | `src/stores/motionSignals.ts` |
 | 32+ | `src/stores/useCollectionNavigationStore.ts` |
-| 32+ | `src/stores/useOnlineProviderAccountStore.ts` |
 | 32+ | `src/stores/usePlayerChromeSettingsStore.ts` |
 | 32+ | `src/stores/useSettingsModalStore.ts` |
 | 32+ | `src/stores/useThemeSettingsStore.ts` |
@@ -85,11 +87,11 @@
 | 32+ | `src/types/localLibrary.ts` |
 | 32+ | `src/types/navidrome.ts` |
 | 32+ | `src/utils/coverUrl.ts` |
-| 32+ | `src/utils/errorText.ts` |
 | 32+ | `src/utils/fontStacks.ts` |
 | 32+ | `src/utils/lyricRenderQuality.ts` |
 | 32+ | `src/utils/lyrics/graphemeTiming.ts` |
 | 32+ | `src/utils/lyrics/parserCore.ts` |
+| 32+ | `src/utils/platform.ts` |
 | 32+ | `test/component/fixtures.ts` |
 
 ## 动态注册点
@@ -330,33 +332,33 @@
 
 ## 分层边界违规
 
-规则是人定的（见 `codemap.mjs` 的 `BOUNDARY_RULES`），拿真实的值导入图去比对。
+规则是人定的（见 `dev/dedicatus/rules.mjs`），拿真实的值导入图去比对；行首是 Dedicatus 的代码（`npm run dedicatus`）。
 `import type` 不算——它在运行时不存在。
 
 下面这些边的依赖方向本身就是错的：
 
-- `src/components/wall/WallToolsQueueIslandHeader.tsx` → `src/components/app/crossPlaylist/crossPlaylistStore.ts`  —— wall 引擎不应依赖 Lattice（components/app）或资料库
-- `src/components/wall/useWallToolsCommonActions.ts` → `src/components/app/crossPlaylist/crossPlaylistStore.ts`  —— wall 引擎不应依赖 Lattice（components/app）或资料库
-- `src/stores/useVisualizerSettingsStore.ts` → `src/components/visualizer/registry.tsx`  —— store 不应依赖组件
-- `src/utils/heartbeatAdvance.ts` → `src/stores/usePlayQueueContextStore.ts`  —— 纯变换不应依赖 UI 或状态
-- `src/utils/heartbeatAvailability.ts` → `src/stores/usePlayQueueContextStore.ts`  —— 纯变换不应依赖 UI 或状态
-- `src/utils/heartbeatAvailability.ts` → `src/stores/usePlaybackStore.ts`  —— 纯变换不应依赖 UI 或状态
-- `src/utils/lyrics/lyricMatchSources.ts` → `src/stores/useOnlineProviderAccountStore.ts`  —— 纯变换不应依赖 UI 或状态
-- `src/utils/shuffleNavigation.ts` → `src/stores/useAudioSettingsStore.ts`  —— 纯变换不应依赖 UI 或状态
-- `src/utils/shuffleNavigation.ts` → `src/stores/usePlayOrderStore.ts`  —— 纯变换不应依赖 UI 或状态
+- D105 `src/components/wall/WallToolsQueueIslandHeader.tsx` → `src/components/app/crossPlaylist/crossPlaylistStore.ts`  —— wall 引擎不应依赖 Lattice（components/app）或资料库
+- D105 `src/components/wall/useWallToolsCommonActions.ts` → `src/components/app/crossPlaylist/crossPlaylistStore.ts`  —— wall 引擎不应依赖 Lattice（components/app）或资料库
+- D101 `src/stores/useVisualizerSettingsStore.ts` → `src/components/visualizer/registry.tsx`  —— store 不应依赖组件
+- D102 `src/utils/heartbeatAdvance.ts` → `src/stores/usePlayQueueContextStore.ts`  —— 纯变换不应依赖 UI 或状态
+- D102 `src/utils/heartbeatAvailability.ts` → `src/stores/usePlayQueueContextStore.ts`  —— 纯变换不应依赖 UI 或状态
+- D102 `src/utils/heartbeatAvailability.ts` → `src/stores/usePlaybackStore.ts`  —— 纯变换不应依赖 UI 或状态
+- D102 `src/utils/lyrics/lyricMatchSources.ts` → `src/stores/useOnlineProviderAccountStore.ts`  —— 纯变换不应依赖 UI 或状态
+- D102 `src/utils/shuffleNavigation.ts` → `src/stores/useAudioSettingsStore.ts`  —— 纯变换不应依赖 UI 或状态
+- D102 `src/utils/shuffleNavigation.ts` → `src/stores/usePlayOrderStore.ts`  —— 纯变换不应依赖 UI 或状态
 
 ### 目录归属存疑
 
 这些边命中了规则，但目标模块在运行时根本不含 UI（不传递依赖 react）。
 依赖方向没问题，是文件住在了 UI 目录（`src/components/`、`src/library/` 的 suites / app）下面。修法是移动文件，不是改依赖。
 
-- `src/components/wall/WallToolsQueueIslandHeader.tsx` → `src/components/app/crossPlaylist/crossPlaylistModel.ts`
-- `src/services/obs/visualSettingsConfig.ts` → `src/components/visualizer/tuningRegistry.ts`
-- `src/services/ponder/pagePonderTarget.ts` → `src/components/modal/settings/navigation/settingsAnchorModel.ts`
-- `src/services/sync/settingsSnapshot.ts` → `src/components/visualizer/tuningRegistry.ts`
-- `src/stores/useExploreFeedStore.ts` → `src/components/app/home/explore/exploreFeedMemory.ts`
-- `src/stores/usePlaybackStore.ts` → `src/components/app/playback/createCoverUrlResolver.ts`
-- `src/stores/useSettingsModalStore.ts` → `src/components/command-palette/pinnedCommandPreferences.ts`
-- `src/stores/useVisualizerSettingsStore.ts` → `src/components/visualizer/tuningRegistry.ts`
-- `src/utils/themeColorMath.ts` → `src/components/visualizer/colorMix.ts`
+- D190 `src/components/wall/WallToolsQueueIslandHeader.tsx` → `src/components/app/crossPlaylist/crossPlaylistModel.ts`
+- D190 `src/services/obs/visualSettingsConfig.ts` → `src/components/visualizer/tuningRegistry.ts`
+- D190 `src/services/ponder/pagePonderTarget.ts` → `src/components/modal/settings/navigation/settingsAnchorModel.ts`
+- D190 `src/services/sync/settingsSnapshot.ts` → `src/components/visualizer/tuningRegistry.ts`
+- D190 `src/stores/useExploreFeedStore.ts` → `src/components/app/home/explore/exploreFeedMemory.ts`
+- D190 `src/stores/usePlaybackStore.ts` → `src/components/app/playback/createCoverUrlResolver.ts`
+- D190 `src/stores/useSettingsModalStore.ts` → `src/components/command-palette/pinnedCommandPreferences.ts`
+- D190 `src/stores/useVisualizerSettingsStore.ts` → `src/components/visualizer/tuningRegistry.ts`
+- D190 `src/utils/themeColorMath.ts` → `src/components/visualizer/colorMix.ts`
 

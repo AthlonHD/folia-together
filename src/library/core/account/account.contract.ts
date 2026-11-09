@@ -10,6 +10,7 @@ import type {
     OnlineProviderId,
     ProviderAccountSummary,
     ProviderCapabilities,
+    ProviderSetupView,
 } from '../../../types/onlineMusic';
 
 // src/library/core/account/account.contract.ts
@@ -27,14 +28,16 @@ import type {
  * - resolving-methods：正在等 provider 说它有哪几种登录方式（`resolveLoginMethods`）；
  * - choosing-method：provider 声明了多种方式、还没选，不向平台要码（QQ 两步式的第一步）；
  * - ready：在浏览器里确认的登录，等用的人按「打开浏览器」（沿着平台那一列走不会开出浏览器）；
- * - loading：正在要二维码或开始浏览器登录；waiting / scanned / confirmed / expired / error：平台报的状态（`LoginState`）。
+ * - loading：正在要二维码或开始浏览器登录；waiting / scanned / confirmed / expired / error：平台报的状态（`LoginState`）；
+ * - checking：账号读到了，正在做平台声明的登录后检查（`checkAfterLogin`），之后要么完成，要么停在配置清单上。
  */
 export type LibraryLoginPhase =
     | 'resolving-methods'
     | 'choosing-method'
     | 'ready'
     | 'loading'
-    | LoginState['state'];
+    | LoginState['state']
+    | 'checking';
 
 /**
  * 登录要靠的本地服务（桌面端内嵌的后端，provider 经 `auth.localService` 声明）此刻的样子。
@@ -126,6 +129,20 @@ export type LibraryLoginSessionSnapshot = {
     localService: LibraryLoginLocalServiceState;
     /** 这个平台自己的登录标题和说明（i18n key）；没有声明时为 null。 */
     texts: LoginTexts | null;
+    /** 读到账号之后平台还要多查一步（步骤标记多一格）。 */
+    checksAfterLogin: boolean;
+};
+
+/**
+ * 开着的配置清单（同一时间最多一份）。sign-in：登录之后的检查给的，做完（finishSetup）才报这一次登录的完成；
+ * account：从账号那一幅打开的，做完就收起，回到账号那一幅。
+ */
+export type LibraryProviderSetupSnapshot = {
+    providerId: OnlineProviderId;
+    view: ProviderSetupView;
+    /** 正在做一个操作：清单上的按钮都不可按。 */
+    busy: boolean;
+    origin: 'sign-in' | 'account';
 };
 
 /**
@@ -146,6 +163,12 @@ export type LibraryProviderSwitchRequest = {
 
 /** 登出进度：同一时间最多一个登出在途（含问用的人的那一会儿）。idle 时 providerId 为 null。 */
 export type LibraryAccountLogoutState = {
+    providerId: OnlineProviderId | null;
+    status: 'idle' | 'pending';
+};
+
+/** 同步账户数据（重新读账号、歌单与红心）的进度：同一时间最多一个平台在同步。idle 时 providerId 为 null。 */
+export type LibraryAccountSyncState = {
     providerId: OnlineProviderId | null;
     status: 'idle' | 'pending';
 };
@@ -171,7 +194,9 @@ export type LibraryAccountSnapshot = {
     login: LibraryLoginSessionSnapshot | null;
     pendingSwitch: LibraryProviderSwitchRequest | null;
     logout: LibraryAccountLogoutState;
+    sync: LibraryAccountSyncState;
     lastLoginCompletion: LibraryLoginCompletion | null;
+    setup: LibraryProviderSetupSnapshot | null;
 };
 
 // ─── 动作结果（判别式，文案由 UI 自己翻译） ─────────────────────────────
@@ -259,6 +284,19 @@ export type LibraryLocalServiceRestartResult =
     | { status: 'no-session' }
     | { status: 'rejected'; reason: 'not-restartable' };
 
+/** 打开配置清单：平台此刻没有要配置的是 none；平台不在列表里、或者没有清单是 unavailable。 */
+export type LibrarySetupOpenResult =
+    | { status: 'opened'; providerId: OnlineProviderId }
+    | { status: 'none'; providerId: OnlineProviderId }
+    | { status: 'unavailable'; providerId: OnlineProviderId };
+
+/** 做清单上的一个操作：没有开着的清单是 no-setup；另一个操作还没做完是 busy；平台抛了错是 failed（清单不变）。 */
+export type LibrarySetupActionResult =
+    | { status: 'done' }
+    | { status: 'no-setup' }
+    | { status: 'busy' }
+    | { status: 'failed' };
+
 /** 诊断报告（services/onlineMusic/login/loginDiagnosticReport 的格式）；从没开始过登录时 no-session。 */
 export type LibraryLoginDiagnosticResult =
     | { status: 'ok'; report: string }
@@ -274,6 +312,20 @@ export type LibraryLogoutResult =
     | { status: 'rejected'; providerId: OnlineProviderId; reason: LibraryLogoutRejectReason }
     | { status: 'busy'; providerId: OnlineProviderId }
     | { status: 'failed'; providerId: OnlineProviderId; message: string };
+
+/** 同步被拒的原因（core/account/accountRules 的 resolveAccountSyncEligibility）：只有有账号的平台可以同步。 */
+export type LibraryAccountSyncRejectReason = 'unknown-provider' | 'not-signed-in';
+
+/**
+ * 同步账户数据的结局：读到了是 synced；平台说登录已经失效（账号离开了）是 ran-out；其余没读成的是 failed。
+ * 没有账号的平台被拒（同步途中这个平台被退出了也是）；已经有一个在同步时是 busy。
+ */
+export type LibraryAccountSyncResult =
+    | { status: 'synced'; providerId: OnlineProviderId }
+    | { status: 'ran-out'; providerId: OnlineProviderId }
+    | { status: 'failed'; providerId: OnlineProviderId }
+    | { status: 'rejected'; providerId: OnlineProviderId; reason: LibraryAccountSyncRejectReason }
+    | { status: 'busy'; providerId: OnlineProviderId };
 
 // ─── controller ─────────────────────────────────────────────────────────
 
@@ -323,6 +375,14 @@ export interface LibraryAccountController {
     submitFormLogin(providerId: OnlineProviderId, values: Record<string, string>): Promise<LibraryLoginCompletion>;
     /** 只对已登录的平台；先经宿主问用的人，答应后把这个平台的歌移出播放器，再走宿主注入的登出。 */
     logout(providerId: OnlineProviderId): Promise<LibraryLogoutResult>;
+    /** 只对有账号的平台：重新读它的账号、歌单与红心（面板账户页与登录窗口账号那一幅的「同步数据」）。 */
+    syncAccount(providerId: OnlineProviderId): Promise<LibraryAccountSyncResult>;
+    /** 从账号那一幅打开这个平台的配置清单（先停下正在进行的登录）。 */
+    openSetup(providerId: OnlineProviderId): Promise<LibrarySetupOpenResult>;
+    /** 做开着的清单上的一个操作；value 是密码框交出的内容。 */
+    runSetupAction(stepId: string, actionId: string, value?: string): Promise<LibrarySetupActionResult>;
+    /** 收起清单。登录之后的那一份：再报这一次登录的完成（登录窗口据它放动画、关窗）。 */
+    finishSetup(): Promise<void>;
     /** 宿主卸载：关闭登录会话（keyed 取消），待确认切换按 declined / disposed 结算。 */
     dispose(): void;
 }
@@ -357,6 +417,13 @@ export type LibraryAccountAuthPort = {
     /** 主动自检；没有可检查的对象时 resolve null，自检本身出错时 reject。 */
     runLoginSelfCheck(providerId: OnlineProviderId): Promise<LoginSelfCheckResult | null>;
     getProviderCapabilities(providerId: OnlineProviderId): Pick<ProviderCapabilities, 'auth'>;
+    /** 读到账号之后还要不要多查一步（同步回答，步骤标记据此多一格）。 */
+    checksAfterLogin(providerId: OnlineProviderId): boolean;
+    /** 登录之后的检查：回配置清单或 null；可能 reject。 */
+    checkAfterLogin(providerId: OnlineProviderId, methodId: string | null): Promise<ProviderSetupView | null>;
+    hasSetup(providerId: OnlineProviderId): boolean;
+    getSetup(providerId: OnlineProviderId): Promise<ProviderSetupView | null>;
+    runSetupAction(providerId: OnlineProviderId, stepId: string, actionId: string, value?: string): Promise<ProviderSetupView>;
     /** 此刻还在计时的登录请求不再计时（services/onlineMusic/login/loginRequestLimit）；停下一次登录时调。 */
     dropRequestLimits(): void;
 };
@@ -377,8 +444,8 @@ export type LibraryAccountStorePort = {
     subscribe(listener: () => void): () => void;
 };
 
-/** 读账号的时机：登录确认之后、切到这个平台之后。 */
-export type LibraryAccountRefreshReason = 'sign-in' | 'switch';
+/** 读账号的时机：登录确认之后、切到这个平台之后、用的人按了「同步数据」。 */
+export type LibraryAccountRefreshReason = 'sign-in' | 'switch' | 'sync';
 
 /**
  * 账户的读、退出与退出前的那一问。默认装配：读账号走 omni.readAccount（services/onlineMusic/account/accountRead），
@@ -386,7 +453,7 @@ export type LibraryAccountRefreshReason = 'sign-in' | 'switch';
  * 函数形状而不是记录：宿主可以用 ref 指向每次渲染的最新实现，controller 不必重建。
  */
 export type LibraryProviderAccountPort = {
-    /** 读这个平台的账号；sign-in 时回 false 表示确认了却没有人登录着（失败）。从不 reject。 */
+    /** 读这个平台的账号；sign-in 时回 false 表示确认了却没有人登录着（失败），sync 时回 false 表示没读全。从不 reject。 */
     refresh(providerId: OnlineProviderId, reason: LibraryAccountRefreshReason): Promise<boolean>;
     /** 提交表单式登录（FormLogin 渲染的字段，走 provider 的 submitLoginForm）。失败抛错，由表单显示。 */
     submitLoginForm(providerId: OnlineProviderId, values: Record<string, string>): Promise<void>;

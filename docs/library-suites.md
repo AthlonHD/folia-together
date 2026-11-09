@@ -55,7 +55,7 @@ core 按功能分文件夹：`account/`、`artist/`、`collection/`（含 `resou
 | state | `use*Store.ts` | zustand store：浏览会话、目录会话、隐藏项、当前 suite、外观动作注册 |
 | binding | 其余 `use*.ts(x)` | React hooks：订阅资源、读写会话、拿到动作、注册外观动作 |
 
-没写后缀的文件按 model 查：它去调 service 或读状态，分层检查当场失败。判断写在 `dev/mcp/ts-code-map/libraryLayers.mjs` 一处，`test/unit/library/layerBoundaries.test.ts`、`test/unit/stores/storeContract.test.ts` 和 `dev/mcp/ts-code-map/codemap.mjs` 的 `BOUNDARY_RULES` 都读它，违反会直接报错。
+没写后缀的文件按 model 查：它去调 service 或读状态，分层检查当场失败。判断写在 `dev/mcp/ts-code-map/libraryLayers.mjs` 一处，`test/unit/library/layerBoundaries.test.ts`、`test/unit/stores/storeContract.test.ts` 和 `dev/dedicatus/rules.mjs` 的 `BOUNDARY_RULES`（Dedicatus）都读它，违反会直接报错。
 
 ## 环境与依赖注入
 
@@ -329,6 +329,7 @@ suite 自己的外观操作（bravais 的缝等级、打开面板、定位正在
 | `open-artist` | 打开歌曲上的其他歌手 | 推荐 | `onOpenArtist` |
 | `reload` / `resume-sync` | 加载失败时重试、专辑分页中断时续页 | 推荐 | `resource.reload()` / `resource.retryAlbums()` |
 | `edit-entity` | 编辑本地歌手实体 | 可选 | `onEditEntity`（对话框由宿主提供） |
+| `open-all-songs` | 打开在线歌手的「全部歌曲」（热门之外还有歌时；#918） | 可选 | `useArtistView` 的 `actions.openAllSongs()`：用 `artistSongsCollection` 拼出一层在线集合（type `artist_songs`）交给宿主的 `onOpenCollection`，由集合页渲染 |
 
 歌手资源的状态：`idle` / `loading` 显示加载中；`ready` 但没有 `detail` 是空态；`error` 显示加载失败。
 

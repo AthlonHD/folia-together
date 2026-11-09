@@ -436,6 +436,10 @@ declare global {
     lastCheckedAt: number | null;
     lastSeenVersion: string | null;
     updateSeen: boolean;
+    /** Where the found version came from: GitHub, or a public proxy when GitHub could not be read. */
+    checkedVia?: 'github' | 'mirror' | null;
+    /** The last request to GitHub for this update (the check, or the download) failed. */
+    githubFailed?: boolean;
     downloadProgress?: {
       percent: number;
       transferred?: number;
@@ -1022,7 +1026,6 @@ declare global {
         operation: import('./services/onlineMusic/ytm/ytmTransport').YtmOperation,
         params?: import('./services/onlineMusic/ytm/ytmTransport').YtmParams,
       ) => Promise<import('./services/onlineMusic/ytm/ytmTransport').YtmBridgeResult>;
-      appleMusicWindowsExperimental?: boolean;
       appleMusicRequest: (
         operation: import('./services/onlineMusic/appleMusic/appleMusicTransport').AppleMusicOperation,
         params?: import('./services/onlineMusic/appleMusic/appleMusicTransport').AppleMusicParams,

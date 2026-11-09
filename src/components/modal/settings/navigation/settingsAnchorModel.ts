@@ -35,6 +35,7 @@ export const SETTINGS_ANCHOR_DEFINITIONS = {
     rememberHomeCardPosition: { section: 'home' },
     gridViewCardSettings: { section: 'home' },
     searchOrder: { section: 'home' },
+    scratchpadSettings: { section: 'home' },
 
     // pages/LyricsPage
     localLyricFormatOrder: { section: 'lyrics' },
