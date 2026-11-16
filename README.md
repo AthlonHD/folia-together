@@ -34,9 +34,10 @@ Lyrics Reimagined // 辞曲新境 —— 一台机器放歌，一群人遥控
 
 Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器（上游项目：[chthollyphile/folia-major](https://github.com/chthollyphile/folia-major)），支持网易云、QQ 音乐、酷狗、Navidrome 和本地音乐库，桌面端还支持波点音乐、YouTube Music、Spotify 和汽水音乐，通过智能歌词匹配、AI 生成配色主题以及多种全屏歌词动画，提供独特的听歌体验。
 
-**本仓库（[AthlonHD/folia-together](https://github.com/AthlonHD/folia-together)）是它的长期维护 Fork**。GitHub 默认分支与开发分支均为 `stage-remote`（`upstream-sync` 只用来对齐上游，不要在上面开发）。在保留上游全部播放与歌词能力的基础上，围绕三个方向做了扩展：
+**本仓库（[AthlonHD/folia-together](https://github.com/AthlonHD/folia-together)）是它的长期维护 Fork**。GitHub 默认分支与开发分支均为 `stage-remote`（`upstream-sync` 只用来对齐上游，不要在上面开发）。在保留上游全部播放与歌词能力的基础上，围绕这些方向做了扩展：
 
-- **Hi-Fi 直通（Windows 桌面版，本 Fork 的重点）**：绕开浏览器音频栈，独占时绕过 Windows 共享混音器，支持 WASAPI 独占 / 共享输出；整数采样、只做一次重采样（rubato 或 SoXR 可选）、链路显示稳态 PCM 判定和转换情况。详见下一节。
+- **Hi-Fi 直通（Windows 桌面版，重点之一）**：绕开浏览器音频栈，独占时绕过 Windows 共享混音器，支持 WASAPI 独占 / 共享输出；整数采样、只做一次重采样（rubato 或 SoXR 可选）、链路显示稳态 PCM 判定和转换情况。详见下方「重点：Hi-Fi 直通」。
+- **桌面音乐 MCP（桌面版，重点之一）**：本机 Agent 经 loopback 读取多平台资料、建单与控播；不依赖 Stage 遥控。详见下方「重点：桌面音乐 MCP」。
 - **一台机器放歌、一群人遥控**：服务器（或常开的电脑）上的浏览器出声，朋友和家人用手机、电脑打开同一个网址点歌、切歌、管队列。
 - **手机也能完整使用**：独立的手机布局，功能与电脑一致。
 
@@ -58,12 +59,23 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 - **多种音源**：在线歌曲、本地文件、Navidrome，以及 Spotify / YouTube Music 解密后的流；超过双声道回落普通播放，避免丢弃环绕声道。
 - **老实说边界**：播放器这一段是透明的，但「设备接受」不等于「设备内部不转换」，有损源也不会变无损；端到端是否逐位一致取决于你的下游（如虚拟声卡）。这些都写在文档里。
 
+## 重点：桌面音乐 MCP
+
+> 桌面版专有（设置 → 连接与集成 → 音乐 MCP）。Folia 需在运行（窗口可收起）；**不需要** Stage 中继。完整工具表、鉴权与排错见 **[桌面音乐 MCP](docs/music-mcp.md)**。
+
+把已登录平台账号上的音乐能力交给同机 Agent（Cursor 等）：读歌单 / 收藏 / 推荐 / 收听记录，在指定平台建单并回读，也可点歌与控播。
+
+- **本机 loopback**：默认 `http://127.0.0.1:38451/mcp`，Bearer 鉴权；设置里一键「复制 Agent 配置」。
+- **读写分开**：默认可读；建单、喜欢、播放控制需另开「允许写入和播放控制」。
+- **走 Omni**：搜索、歌词、歌单、推荐与跨平台匹配经统一入口；网易云 / QQ / Spotify / FnMusic 等可建原生歌单，`folia` / `local` 可读跨平台与本地库。
+- **安全边界**：只绑本机、密钥可密封存储；关开关即停服务。密钥不要提交仓库或发到公开聊天。
+
 ## 本 Fork 的功能与修复
 
 | 方向 | 新增内容 |
 | --- | --- |
-| **Hi-Fi 直通（桌面版）** | 自研 WASAPI helper（与上游 mpv HiFi 不同）：独占 / 共享、整数倍优先重采样、真实链路读数、边下边放；可覆盖在线等更多音源。对照见 [Hi-Fi 直通](docs/hifi.md#与上游-mpv-hifi-的关系)。 |
-| **桌面音乐 MCP** | 本机 Agent 经 `127.0.0.1:38451/mcp` 读取多平台歌单 / 推荐 / 收听记录，并可在指定平台账号建单、控播；设置里开关与复制 Agent 配置。详见 [桌面音乐 MCP](docs/music-mcp.md)。 |
+| **Hi-Fi 直通（桌面版，重点）** | 自研 WASAPI helper（与上游 mpv HiFi 不同）：独占 / 共享、整数倍优先重采样、真实链路读数、边下边放；可覆盖在线等更多音源。对照见 [Hi-Fi 直通](docs/hifi.md#与上游-mpv-hifi-的关系)。 |
+| **桌面音乐 MCP（重点）** | 本机 Agent 经 `127.0.0.1:38451/mcp` 读多平台资料、建单与控播；设置里开关并复制配置。详见上方重点节与 [music-mcp.md](docs/music-mcp.md)。 |
 | 桌面版 | 自己的 Windows 安装包与免安装便携版（每次推送由 GitHub Actions 构建）、自己的检测更新、桌面版当遥控端（打开服务器的遥控页）、Spotify / YouTube Music 代理设置。 |
 | 服务器播放 + 多人遥控 | Host 页在服务器上出声，其他人用网址遥控；访问令牌鉴权与限流；遥控端可切回「本机播放」，账号与队列互相独立；可浏览 Host 本地曲库；Host 防后台卡顿。详见 [Stage Remote 使用文档](docs/stage-remote.md)。 |
 | 多平台 | 接入 QQ 音乐、酷狗；网页版也能用 Spotify（桥在服务器上，需会员，登录在服务器上做一次）；多平台歌可混排进同一队列，切换平台不清队列；混排时播放条与队列列表标出平台；搜索按平台分标签；「+」选歌单跟随歌曲所属平台；启动默认平台按 网易云 > QQ > 酷狗 选第一个已登录的。 |
@@ -140,7 +152,7 @@ scripts\start-stage.cmd
 ## 上游的安装包
 
 > [!NOTE]
-> 以下是**上游**发布的桌面安装包，不包含本 Fork 的 Hi-Fi 直通、遥控、手机布局等功能；要本 Fork 的桌面版请用上文「下载桌面版」。
+> 以下是**上游**发布的桌面安装包，不包含本 Fork 的 Hi-Fi 直通、音乐 MCP、遥控、手机布局等功能；要本 Fork 的桌面版请用上文「下载桌面版」。
 >
 > - **GitHub**：[Latest Release](https://github.com/chthollyphile/folia-major/releases/latest)，提供 Windows / macOS / Linux 全平台安装包。
 > - **网盘**：[夸克网盘](https://pan.quark.cn/s/6e4c6fa3bc6f) · [百度云](https://pan.baidu.com/s/1f0x3g-8PMcNCO-TJ5z1rPw?pwd=flia)（提取码 `flia`），适合国内网络，仅提供 Windows 与 Apple silicon 的正式版安装包。
@@ -229,7 +241,8 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 
 | 模块 | 说明 |
 | --- | --- |
-| Hi-Fi 直通 | 本 Fork 新增，Windows 桌面版，见 [Hi-Fi 直通](docs/hifi.md)。 |
+| Hi-Fi 直通 | 本 Fork 重点，Windows 桌面版，见 [Hi-Fi 直通](docs/hifi.md)。 |
+| 桌面音乐 MCP | 本 Fork 重点，桌面版为本机 Agent 提供音乐 API，见 [桌面音乐 MCP](docs/music-mcp.md)。 |
 | 服务器播放与多人遥控 | 本 Fork 新增，见上文与 [Stage Remote 使用文档](docs/stage-remote.md)。 |
 | 多平台在线音乐 | 网易云、QQ 音乐、酷狗，搜索、歌单、收藏、混排队列（QQ / 酷狗的 Fork 侧改动见 [Fork 功能与修复清单](docs/fork-features.md)）。 |
 | 手机布局 | 本 Fork 新增，独立的手机外壳与页面。 |
@@ -244,7 +257,7 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 ## 文档
 
 - [文档索引](docs/README.md)：本 Fork 文档与上游文档的分类入口
-- [Hi-Fi 直通](docs/hifi.md) · [Fork 功能与修复清单](docs/fork-features.md) · [Stage Remote](docs/stage-remote.md)
+- [Hi-Fi 直通](docs/hifi.md) · [桌面音乐 MCP](docs/music-mcp.md) · [Fork 功能与修复清单](docs/fork-features.md) · [Stage Remote](docs/stage-remote.md)
 - [技术与开发说明](docs/technical.md)：环境变量、本地开发、脚本、技术栈
 - [贡献指南](CONTRIBUTING.md)：包含本 Fork 的提交与反馈约定
 - 上游使用指南与站点：[Folia Guide](https://folia-site.cielaniska.top/guide/)
