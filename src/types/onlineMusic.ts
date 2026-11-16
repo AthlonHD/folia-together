@@ -888,6 +888,7 @@ export interface OnlineCatalogProvider {
     canResolveSongCatalogRefs?(song: UnifiedSong): boolean;
     resolveSongCatalogRefs?(song: UnifiedSong): Promise<UnifiedSong>;
     getPlaylistTracks?(id: MediaId, limit: number, offset: number, collection?: ProviderCollection): Promise<ProviderPage<UnifiedSong>>;
+    getPlaylistPageUrl?(id: MediaId): string;
     getPlaylistDetail?(id: MediaId, collection?: ProviderCollection): Promise<ProviderCollection | null>;
     getCloudTracks?(limit: number, offset: number, collection?: ProviderCollection): Promise<ProviderPage<UnifiedSong>>;
     /** The ranking's songs in the platform's order, each with the `listenCount` it gives where it gives one. */
@@ -1112,9 +1113,10 @@ export interface OnlineMutationProvider {
         operation: 'add' | 'del',
         playlist: MediaId | ProviderCollection,
         tracks: Array<MediaId | SongResult>,
+        expectedAccountId?: MediaId,
     ): Promise<void>;
     /** Makes an empty playlist of the account's own; without it, the app offers none to make. */
-    createPlaylist?(name: string): Promise<ProviderCollection>;
+    createPlaylist?(name: string, expectedAccountId?: MediaId): Promise<ProviderCollection>;
     /** Whether this album or playlist can be saved to the account's library; without it, any can. */
     canSubscribe?(collection: ProviderCollection): boolean;
     subscribePlaylist?(playlist: MediaId | ProviderCollection, subscribed: boolean): Promise<void>;
@@ -1158,13 +1160,14 @@ export interface OnlineRawRequestProvider {
     // （cookie、token 等，见 rawResponse.ts）一起剥掉。
     credentialFields?: readonly string[];
     // 一个接口属于哪一类；不在表里回 null。
+    listEndpoints?(): string[];
     describeEndpoint(endpoint: string): ProviderRawEndpoint | null;
     // 检查参数的取值，名字之外的那一层：后端会把一些参数原样拼进上游请求的路径（例如 id），这些参数只收
     // 平台认得的格式，免得 `../` 之类的取值把带着会话的请求引到表外的接口。有问题回一句说明，没有回 null。
     checkParams?(endpoint: string, params: Record<string, JsonValue>): string | null;
     // 发出请求，回平台原始的回答。参数已经过 omni 校验；`signal` 中止时请求跟着中止。时限由 provider
     // 自己定（照它别的在线请求）。登录失效抛 auth-required，被限流抛带 HTTP 429 的 OnlineProviderError。
-    request(endpoint: string, params: Record<string, JsonValue>, signal: AbortSignal): Promise<unknown>;
+    request(endpoint: string, params: Record<string, JsonValue>, signal: AbortSignal, expectedAccountId?: MediaId): Promise<unknown>;
 }
 
 export interface OnlineMusicProvider {

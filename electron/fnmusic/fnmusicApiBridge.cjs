@@ -447,10 +447,17 @@ const createFnmusicApiBridge = ({ store, safeStorage }) => {
     },
 
     /** 通用请求（搜索/歌词/歌单等）：path 为完整 API 路径；base/token 由主进程配置提供。 */
-    async request({ path, method, params, body }) {
+    async request({ path, method, params, body, expectedAccountId }) {
       const config = readConfig();
       if (!config?.base) {
         return { ok: false, status: 0, error: { code: 'unconfigured', message: '飞牛尚未配置服务器' } };
+      }
+      // Use the same config for both the identity check and the credentials passed to the request.
+      if (expectedAccountId !== undefined) {
+        const accountId = config.userId || `${config.username || 'fnmusic-user'}@${new URL(config.base).host}`;
+        if (!config.token || accountId !== String(expectedAccountId)) {
+          return { ok: false, status: 403, error: { code: 'auth-required', message: 'Selected music account changed' } };
+        }
       }
       return performRequest({ base: config.base, method: method || 'GET', path, params, body, token: config.token, relay: usesRelayCookie(config.base) });
     },

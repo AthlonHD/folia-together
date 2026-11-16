@@ -1,3 +1,5 @@
+import type { MediaId } from '../../../types/onlineMusic';
+import { normalizeQqUser } from './qqNormalize';
 import { OnlineProviderError } from '../../../types/onlineMusic';
 import { readProviderSessionValue, removeProviderSessionValue, writeProviderSessionValue } from '../providerStorage';
 import { withLoginRequestLimit } from '../login/loginRequestLimit';
@@ -421,6 +423,7 @@ export const requestQq = async <T = unknown>(
     operation: QqOperation,
     params: QqParams = {},
     payload?: Record<string, unknown>,
+    options?: { expectedAccountId?: MediaId; capturedSession?: string },
 ): Promise<T> => {
     const isPost = POST_OPERATIONS.has(operation);
     if (isPost !== (payload !== undefined)) {
@@ -430,7 +433,14 @@ export const requestQq = async <T = unknown>(
             'qq',
         );
     }
-    const stored = getWebSessionCookie();
+    const stored = options?.capturedSession ?? getWebSessionCookie();
+    if (options?.expectedAccountId !== undefined) {
+        if (!stored) throw new OnlineProviderError('auth-required', 'Selected account is not signed in', 'qq');
+        const reply = await requestQq('login_status', {}, undefined, { capturedSession: stored });
+        if (String(normalizeQqUser(reply).id) !== String(options.expectedAccountId) || stored !== getWebSessionCookie()) {
+            throw new OnlineProviderError('auth-required', 'Selected account changed', 'qq');
+        }
+    }
     const base = await resolveApiBase();
     // The session parked for this run is not sent (isQqSessionParked). The status is read once the backend has a port.
     const cookie = stored && await isQqSessionStoreUnreadable() ? '' : stored;
@@ -465,7 +475,7 @@ export const requestQq = async <T = unknown>(
         return { response: answer, body: await readJsonBody(answer) };
     };
     const { response, body } = await (LOGIN_REQUESTS.has(operation) ? withLoginRequestLimit(send)
-        : ONLINE_REQUESTS.has(operation) ? withOnlineRequestLimit(send, QQ_ONLINE_REQUEST_LIMIT_MS) : send());
+        : (isPost || ONLINE_REQUESTS.has(operation)) ? withOnlineRequestLimit(send, QQ_ONLINE_REQUEST_LIMIT_MS) : send());
     if (!response.ok) {
         // A missing, expired, rejected, or non-persisted backend session is surfaced uniformly as 401.
         // The session does not go at once: any route answers 401 when QQ refuses that one call (upstream 1000 / 104401 /

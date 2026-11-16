@@ -189,7 +189,8 @@ const buildStableUrlAuthParams = (config: NavidromeConfig, scope: string): URLSe
 const fetchSubsonic = async <T>(
     config: NavidromeConfig,
     endpoint: string,
-    extraParams?: Record<string, SubsonicParamValue>
+    extraParams?: Record<string, SubsonicParamValue>,
+    signal?: AbortSignal,
 ): Promise<SubsonicResponse<T>> => {
     const url = new URL(`${config.serverUrl}/rest/${endpoint}`);
     const authParams = buildAuthParams(config);
@@ -211,7 +212,7 @@ const fetchSubsonic = async <T>(
         });
     }
 
-    const response = await fetch(url.toString());
+    const response = signal ? await fetch(url.toString(), { signal }) : await fetch(url.toString());
     if (!response.ok) {
         throw new Error(`HTTP error: ${response.status}`);
     }
@@ -383,9 +384,9 @@ export const navidromeApi = {
         return [];
     },
 
-    getPlaylist: async (config: NavidromeConfig, id: string): Promise<SubsonicPlaylist | null> => {
+    getPlaylist: async (config: NavidromeConfig, id: string, signal?: AbortSignal): Promise<SubsonicPlaylist | null> => {
         try {
-            const res = await fetchSubsonic<PlaylistResponse>(config, 'getPlaylist', { id });
+            const res = await fetchSubsonic<PlaylistResponse>(config, 'getPlaylist', { id }, signal);
             if (res['subsonic-response'].status === 'ok') {
                 return res['subsonic-response'].playlist;
             }
@@ -398,13 +399,14 @@ export const navidromeApi = {
     createPlaylist: async (
         config: NavidromeConfig,
         name: string,
-        songIds: string[] = []
+        songIds: string[] = [],
+        signal?: AbortSignal,
     ): Promise<SubsonicPlaylist | null> => {
         try {
             const res = await fetchSubsonic<CreatePlaylistResponse>(config, 'createPlaylist', {
                 name,
                 songId: songIds,
-            });
+            }, signal);
             if (res['subsonic-response'].status === 'ok') {
                 return res['subsonic-response'].playlist || null;
             }

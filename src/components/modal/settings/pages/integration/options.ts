@@ -10,6 +10,8 @@ export const STREAMING: SettingsGroupDef = { id: 'streaming', titleKey: 'options
 
 
 export const O = {
+    musicMcp: option(SERVICES, 'musicMcp', 'options.musicMcp', { electronOnly: true }),
+    musicMcpWrite: option(SERVICES, 'musicMcpWrite', 'options.musicMcpWrite', { electronOnly: true }),
     navidrome: option(SERVICES, 'navidrome', 'navidrome.enable'),
     navidromeUrl: option(SERVICES, 'navidromeServerUrl', 'navidrome.serverUrl'),
     navidromeUsername: option(SERVICES, 'navidromeUsername', 'navidrome.username'),

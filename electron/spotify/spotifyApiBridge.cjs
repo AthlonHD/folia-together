@@ -167,30 +167,33 @@ function createSpotifyApiBridge({
     renewing = { token, answer };
     return answer;
   };
-  const accessToken = async (fresh = false) => {
+  const accessToken = async (fresh = false, expectedAccountId) => {
     const session = repo.get();
     if (!session) throw spotifyError('auth-required', 'Spotify sign-in is required');
+    if (expectedAccountId !== undefined && session.user.id !== String(expectedAccountId)) {
+      throw spotifyError('auth-required', 'Selected Spotify account changed');
+    }
     if (!fresh && session.credentials.expires_at - now() > RENEW_AHEAD_MS) return session.credentials.access_token;
     return renew(session);
   };
 
   // One request as the account. `token` is given for the account that is only now signing in.
   // A 401 is answered once with a renewed token; `absent` is what a 404 reads as.
-  const call = async (url, { token, absent, ...init } = {}) => {
+  const call = async (url, { token, absent, expectedAccountId, ...init } = {}) => {
     const send = async bearer => fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_LIMIT_MS), headers: {
       Accept: 'application/json', 'Accept-Language': PAGE_LANGUAGES[language()] ?? 'en', ...init.headers, Authorization: `Bearer ${bearer}`,
     } });
-    let response = await send(token ?? await accessToken());
-    if (response.status === 401 && !token) response = await send(await accessToken(true));
+    let response = await send(token ?? await accessToken(false, expectedAccountId));
+    if (response.status === 401 && !token) response = await send(await accessToken(true, expectedAccountId));
     if (response.status === 404 && absent !== undefined) return absent;
     if (!response.ok) throw statusError(response.status, 'unavailable', 'Spotify refused the request', `HTTP ${response.status}`);
     return response.json();
   };
 
   // One named operation of the query service: its `data`, and what Spotify said went wrong.
-  const ask = async (name, hash, variables, token) => {
+  const ask = async (name, hash, variables, token, expectedAccountId) => {
     const answer = await call(QUERY_URL, {
-      token, method: 'POST', headers: { 'Content-Type': 'application/json' },
+      token, expectedAccountId, method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ variables, operationName: name, extensions: { persistedQuery: { version: 1, sha256Hash: hash } } }),
     });
     const said = Array.isArray(answer?.errors) ? answer.errors.map(error => error?.message).filter(Boolean).join(' | ').slice(0, 160) : '';
@@ -204,8 +207,8 @@ function createSpotifyApiBridge({
   };
   // A change has been made only when Spotify answers it without an error and names its result:
   // a refused one comes back with status 200 and an error beside empty data.
-  const change = async (name, variables) => {
-    const { data, said, refused } = await ask(name, CHANGES[name], variables);
+  const change = async (name, variables, expectedAccountId) => {
+    const { data, said, refused } = await ask(name, CHANGES[name], variables, undefined, expectedAccountId);
     const results = data && typeof data === 'object' ? Object.values(data) : [];
     if (refused || results.length === 0 || results.some(result => result === null)) {
       throw spotifyError('unavailable', 'Spotify refused the change', `${name}: ${said || 'no result'}`);
@@ -218,11 +221,11 @@ function createSpotifyApiBridge({
   // Only a whole read will do: from part of a playlist a song would be put in twice, or one
   // reported taken out that is still there. So an answer Spotify gave in part (it says so beside
   // the data), one without the rows, and a playlist longer than is read here are all refused.
-  const playlistRows = async uri => {
+  const playlistRows = async (uri, expectedAccountId) => {
     const rows = new Map();
     let offset = 0;
     for (let request = 0; request < LIST_MAX_REQUESTS; request += 1) {
-      const { data, said, refused } = await ask('fetchPlaylist', QUERIES.fetchPlaylist, { uri, offset, limit: LIST_ROWS, enableWatchFeedEntrypoint: false });
+      const { data, said, refused } = await ask('fetchPlaylist', QUERIES.fetchPlaylist, { uri, offset, limit: LIST_ROWS, enableWatchFeedEntrypoint: false }, undefined, expectedAccountId);
       const list = data?.playlistV2;
       if (refused || !list) throw spotifyError('invalid-response', 'Spotify did not give the playlist whole', `fetchPlaylist: ${said || 'no data'}`);
       if (list.currentUserCapabilities?.canEditItems !== true) {
@@ -548,17 +551,17 @@ function createSpotifyApiBridge({
         || !ids.every(id => typeof id === 'string' && TRACK_ID.test(id))) {
         throw spotifyError('invalid-response', 'Invalid Spotify playlist change');
       }
-      const rows = await playlistRows(uri);
+      const rows = await playlistRows(uri, params.expectedAccountId);
       const songs = ids.map(id => `spotify:track:${id}`);
       if (params.action === 'add') {
         const fresh = songs.filter(song => !rows.has(song));
         if (fresh.length > 0) {
-          await change('addToPlaylist', { playlistItemUris: fresh, playlistUri: uri, newPosition: { moveType: 'BOTTOM_OF_PLAYLIST', fromUid: null } });
+          await change('addToPlaylist', { playlistItemUris: fresh, playlistUri: uri, newPosition: { moveType: 'BOTTOM_OF_PLAYLIST', fromUid: null } }, params.expectedAccountId);
         }
         log(`[Spotify] ${fresh.length} of ${songs.length} songs were put in a playlist${fresh.length < songs.length ? '; it held the others' : ''}`);
       } else {
         const uids = songs.flatMap(song => rows.get(song) ?? []);
-        if (uids.length > 0) await change('removeFromPlaylist', { playlistUri: uri, uids });
+        if (uids.length > 0) await change('removeFromPlaylist', { playlistUri: uri, uids }, params.expectedAccountId);
         log(`[Spotify] ${uids.length} rows of ${songs.length} songs were taken out of a playlist`);
       }
       return true;
@@ -570,11 +573,12 @@ function createSpotifyApiBridge({
       const name = typeof params.name === 'string' ? params.name.trim() : '';
       if (!name || name.length > MAX_NAME_LENGTH) throw spotifyError('invalid-response', 'Invalid Spotify playlist name');
       const made = await call(`${SPCLIENT_URL}/playlist/v2/playlist?format=json`, {
+        expectedAccountId: params.expectedAccountId,
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ops: [{ kind: 'UPDATE_LIST_ATTRIBUTES', updateListAttributes: { newAttributes: { values: { name } } } }] }),
       });
       if (typeof made?.uri !== 'string' || !PLAYLIST_URI.test(made.uri)) throw spotifyError('invalid-response', 'Spotify did not name the new playlist');
-      await change('addItemsToRootlist', { uris: [made.uri] });
+      await change('addItemsToRootlist', { uris: [made.uri] }, params.expectedAccountId);
       log('[Spotify] A playlist was made and put in the library');
       return { uri: made.uri };
     },

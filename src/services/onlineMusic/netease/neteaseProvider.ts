@@ -154,6 +154,7 @@ const normalizeCollection = (raw: any, type = 'playlist'): ProviderCollection =>
     const aliases = normalizeStringList(raw?.alias || raw?.aliases);
     const publishedAt = Number(raw?.publishedAt ?? raw?.publishTime);
     const playCount = Number(raw?.playCount);
+    const owned = (raw as { isOwned?: unknown } | null)?.isOwned;
     const updatedAt = Number(raw?.updatedAt ?? raw?.updateTime);
     const tracksUpdatedAt = Number(raw?.tracksUpdatedAt ?? raw?.trackUpdateTime);
 
@@ -178,6 +179,7 @@ const normalizeCollection = (raw: any, type = 'playlist'): ProviderCollection =>
         ...(Number.isFinite(playCount) && playCount >= 0 ? { playCount } : {}),
         ...(Number.isFinite(updatedAt) && updatedAt > 0 ? { updatedAt } : {}),
         ...(Number.isFinite(tracksUpdatedAt) && tracksUpdatedAt > 0 ? { tracksUpdatedAt } : {}),
+        ...(typeof owned === 'boolean' ? { isOwned: owned } : {}),
         ...(raw?.specialType === 'liked' || raw?.isLiked === true ? { isLiked: true } : {}),
     };
 };
@@ -708,11 +710,17 @@ export const neteaseProvider: OnlineMusicProvider = {
     },
     library: {
         async getUserPlaylists(userId, limit, offset) {
-            const response = await neteaseApi.getUserPlaylists(toNeteaseId(userId), limit, offset);
+            type ListedPlaylist = { creator?: { userId?: MediaId }; userId?: MediaId };
+            const response = await neteaseApi.getUserPlaylists(toNeteaseId(userId), limit, offset) as { playlist?: ListedPlaylist[] } | null;
             // 只有用户歌单列表知道「这是谁的歌单」，「我喜欢的音乐」在这里标 isLiked；归一化结果带着它进缓存，回灌时照样保留。
-            const items = (response?.playlist || []).map((item: any) => normalizeCollection(
-                isOwnNeteaseLikedPlaylist(item, userId) ? { ...item, isLiked: true } : item,
-            ));
+            const items = (response?.playlist || []).map(item => {
+                const creatorId = item.creator?.userId ?? item.userId;
+                return normalizeCollection({
+                    ...item,
+                    isOwned: creatorId !== undefined && String(creatorId) === String(userId),
+                    ...(isOwnNeteaseLikedPlaylist(item, userId) ? { isLiked: true } : {}),
+                });
+            });
             return { items, hasMore: items.length === limit, nextOffset: offset + items.length };
         },
         async getLikedSongIds(userId) {
@@ -765,6 +773,12 @@ export const neteaseProvider: OnlineMusicProvider = {
         },
     },
     catalog: {
+        getPlaylistPageUrl: id => 'https://music.163.com/#/playlist?id=' + encodeURIComponent(String(id)),
+        async getPlaylistDetail(id) {
+            const response = await neteaseApi.getPlaylistDetail(toNeteaseId(id)) as { code?: number; playlist?: { id?: MediaId } } | null;
+            if (isRefusedNeteaseAnswer(response)) throw neteaseAnswerError(response, 'the playlist detail');
+            return response?.playlist?.id ? normalizeCollection(response.playlist) : null;
+        },
         async getPlaylistTracks(id, limit, offset) {
             const response = await neteaseApi.getPlaylistTracks(toNeteaseId(id), limit, offset);
             if (isRefusedNeteaseAnswer(response)) throw neteaseAnswerError(response, 'the playlist tracks');
@@ -926,13 +940,34 @@ export const neteaseProvider: OnlineMusicProvider = {
     // The explore page is in neteaseExplore.ts, which gets this file's normalizers handed in.
     explore: createNeteaseExplore({ song: normalizeNeteaseSong, collection: normalizeCollection }),
     mutations: {
+        async createPlaylist(name, expectedAccountId) {
+            type CreatedPlaylist = { code?: unknown; id?: unknown; playlist?: { id?: unknown; name?: unknown } };
+            const response = await neteaseApi.createPlaylist(name, expectedAccountId) as (CreatedPlaylist & { body?: CreatedPlaylist }) | null;
+            const body = response?.body ?? response;
+            const id = body?.playlist?.id ?? body?.id;
+            if (Number(body?.code) !== 200 || (typeof id !== 'string' && typeof id !== 'number') || !id) {
+                throw neteaseAnswerError(body, 'creating a playlist');
+            }
+            return {
+                ...normalizeCollection({ ...body?.playlist, id, name: body?.playlist?.name ?? name }),
+                type: 'playlist',
+                isOwned: true,
+            };
+        },
         async likeSong(song, liked) {
             await neteaseApi.likeSong(toNeteaseId(typeof song === 'object' ? song.id : song), liked);
         },
-        async updatePlaylistTracks(operation, playlist, tracks) {
+        async updatePlaylistTracks(operation, playlist, tracks, expectedAccountId) {
             const playlistId = typeof playlist === 'object' ? playlist.id : playlist;
             const trackIds = tracks.map(track => typeof track === 'object' ? track.id : track);
-            const response = await neteaseApi.updatePlaylistTracks(operation, toNeteaseId(playlistId), trackIds.map(toNeteaseId));
+            const id = toNeteaseId(playlistId);
+            const ids = trackIds.map(toNeteaseId);
+            const response = (expectedAccountId === undefined
+                ? await neteaseApi.updatePlaylistTracks(operation, id, ids)
+                : await neteaseApi.updatePlaylistTracks(operation, id, ids, expectedAccountId)) as {
+                    code?: unknown;
+                    body?: { code?: unknown };
+                } | null;
             // The API answers a refusal (a song already in the playlist, not the owner's list, signed out) with
             // HTTP 200 and NetEase's own body; a success comes wrapped as { status, body: { code } }.
             const code = Number(response?.body?.code ?? response?.code);

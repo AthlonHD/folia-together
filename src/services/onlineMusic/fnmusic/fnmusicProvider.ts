@@ -190,7 +190,7 @@ export const fnMusicLibrary = {
             page: Math.floor(offset / limit) + 1,
             size: limit,
         });
-        const items = list.map(collectionOf('playlist'));
+        const items = list.map(item => ({ ...collectionOf('playlist')(item), isOwned: true }));
         return { items, total, hasMore: offset + items.length < total, nextOffset: offset + items.length };
     },
 
@@ -247,14 +247,17 @@ export const fnMusicMutations = {
     },
     canSubscribe: () => false,
     canAddToPlaylist: () => true,
-    async createPlaylist(name: string): Promise<ProviderCollection> {
-        const raw = await fnmusicRequest<unknown>('/music/api/v1/playlist/create', undefined, { method: 'POST', body: { name } });
-        return collectionOf('playlist')(raw);
+    async createPlaylist(name: string, expectedAccountId?: MediaId): Promise<ProviderCollection> {
+        const raw = await fnmusicRequest<unknown>('/music/api/v1/playlist/create', undefined, { method: 'POST', body: { name }, expectedAccountId });
+        const playlist = collectionOf('playlist')(raw);
+        if (!playlist.id) throw new OnlineProviderError('invalid-response', 'FnMusic did not name the new playlist');
+        return { ...playlist, isOwned: true };
     },
     async updatePlaylistTracks(
         operation: 'add' | 'del',
         playlist: MediaId | ProviderCollection,
         tracks: Array<MediaId | SongResult>,
+        expectedAccountId?: MediaId,
     ): Promise<void> {
         const playlistId = typeof playlist === 'string' ? playlist : (typeof playlist === 'number' ? String(playlist) : playlist.id);
         const trackGUIDs = tracks.map((track) => (
@@ -263,7 +266,7 @@ export const fnMusicMutations = {
         await fnmusicRequest<unknown>(
             operation === 'add' ? '/music/api/v1/playlist/add-track' : '/music/api/v1/playlist/remove-track',
             undefined,
-            { method: 'POST', body: { guid: playlistId, trackGUIDs } },
+            { method: 'POST', body: { guid: playlistId, trackGUIDs }, expectedAccountId },
         );
     },
 } as const;

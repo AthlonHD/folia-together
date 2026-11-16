@@ -87,6 +87,8 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 - 桌面版自带全套后端和本机播放，**只当遥控端、不能被遥控**：在「设置 → 播放控制 → 遥控服务器」填服务器地址和令牌，即可打开服务器的遥控页。
 - 直通模式用法见 [Hi-Fi 直通](docs/hifi.md)。
 
+桌面版可为本机 Agent 提供音乐 MCP，读取多平台资料并在指定平台账号内建单。启用和配置见 [桌面音乐 MCP](docs/music-mcp.md)。
+
 ## 部署与启动（服务端）
 
 > 本 Fork 的服务端形态是**单机自托管**：一台常开的 Windows 机器同时跑前端、Stage 中继和各音乐 API。上游的 Vercel / Cloudflare 一键部署、Docker 全栈部署**不包含本 Fork 的 Stage 中继与遥控能力**，需要这些形态请到[上游仓库](https://github.com/chthollyphile/folia-major)查看；在这些形态里运行的是上游的功能集。服务端用 `start-stage.cmd --auto-update` 启动后会自己跟上本分支的新提交，与桌面版出自同一份代码。

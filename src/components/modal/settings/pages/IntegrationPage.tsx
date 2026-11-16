@@ -6,6 +6,7 @@ import { useAudioSettingsStore } from '../../../../stores/useAudioSettingsStore'
 import { usePlayerChromeSettingsStore } from '../../../../stores/usePlayerChromeSettingsStore';
 import { useStageSettingsStore } from '../../../../stores/useStageSettingsStore';
 import { Button, CopyValue, Group, Reveal, Row, Status, Toggle, Value, type SettingsOptionDef } from '../kit';
+import MusicMcpRows from './integration/MusicMcpRows';
 import NavidromeRows from './integration/NavidromeRows';
 import { O, SERVICES, STREAMING } from './integration/options';
 import NetworkProxyGroup, { NETWORK_PROXY_OPTIONS } from './integration/NetworkProxyGroup';
@@ -51,6 +52,7 @@ const IntegrationPage: React.FC = () => {
     return (
         <>
             <Group def={SERVICES}>
+                {isElectron && <MusicMcpRows />}
                 <NavidromeRows />
                 <SyncServerRows />
                 {isElectron && (

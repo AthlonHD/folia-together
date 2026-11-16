@@ -67,12 +67,15 @@ const resolveQqSongId = async (song: MediaId | SongResult): Promise<number> => {
 };
 
 /** 没有改动时，读回的结果是不是已经是用户要的样子（加歌：都在；删歌：都不在）。 */
-const alreadyApplied = (operation: 'add' | 'del', response: any): boolean => {
+type PlaylistTracksAnswer = { changed?: boolean; verification?: { status?: string } };
+type PlaylistCreateAnswer = { tid?: unknown; dirId?: unknown; name?: unknown };
+
+const alreadyApplied = (operation: 'add' | 'del', response: PlaylistTracksAnswer | null): boolean => {
     const status = response?.verification?.status;
     return operation === 'add' ? status === 'present' : status === 'absent';
 };
 
-const updatePlaylistTracks: NonNullable<OnlineMutationProvider['updatePlaylistTracks']> = async (operation, playlist, tracks) => {
+const updatePlaylistTracks: NonNullable<OnlineMutationProvider['updatePlaylistTracks']> = async (operation, playlist, tracks, expectedAccountId) => {
     if (typeof playlist === 'object' && !canEditQqPlaylistTracks(playlist)) {
         throw new OnlineProviderError('unsupported', 'QQ playlist does not accept track mutations', 'qq');
     }
@@ -84,7 +87,10 @@ const updatePlaylistTracks: NonNullable<OnlineMutationProvider['updatePlaylistTr
     const songIds = [...new Set(await Promise.all(tracks.map(resolveQqSongId)))];
     for (let start = 0; start < songIds.length; start += QQ_TRACKS_PER_WRITE) {
         const songs = songIds.slice(start, start + QQ_TRACKS_PER_WRITE).map(id => ({ id, type: 0 }));
-        const response = await requestQq<any>('user_playlist_tracks', {}, { tid: String(tid), op: operation, songs });
+        const payload = { tid: String(tid), op: operation, songs };
+        const response = expectedAccountId === undefined
+            ? await requestQq<PlaylistTracksAnswer | null>('user_playlist_tracks', {}, payload)
+            : await requestQq<PlaylistTracksAnswer | null>('user_playlist_tracks', {}, payload, { expectedAccountId });
         // changed:false 是上游明说这次没有改动。3.3.1 起后端会读回歌单说明这批歌现在在不在：加歌时都在、删歌时都不在，
         // 就是用户要的结果，算成功；其余（方向不对、读不出来、旧后端没有这个字段）不当成功，
         // 免得界面说「已更新」或把没删掉的歌从列表里拿掉。
@@ -156,9 +162,11 @@ export const getQqSubscriptionStatus = async (type: 'playlist' | 'album', id: Me
  * 建一张自己的空歌单（qq-music-api 3.3.3）。后端写一次、从自建清单读回才回成功，名称也是读回的；
  * 结果不明时回 502，可能已经建好了，这里不重送。
  */
-const createPlaylist: NonNullable<OnlineMutationProvider['createPlaylist']> = async name => {
-    const response = await requestQq<any>('user_playlist_create', {}, { name });
-    if (positiveInteger(response?.tid) === null || positiveInteger(response?.dirId) === null) {
+const createPlaylist: NonNullable<OnlineMutationProvider['createPlaylist']> = async (name, expectedAccountId) => {
+    const response = expectedAccountId === undefined
+        ? await requestQq<PlaylistCreateAnswer | null>('user_playlist_create', {}, { name })
+        : await requestQq<PlaylistCreateAnswer | null>('user_playlist_create', {}, { name }, { expectedAccountId });
+    if (!response || positiveInteger(response.tid) === null || positiveInteger(response.dirId) === null) {
         throw new OnlineProviderError('invalid-response', 'QQMusicApi user_playlist_create returned no playlist', 'qq', response);
     }
     // 和自建清单里的条目同一个形状（有 dirName 就是自建的），读账号时也就是同一张。

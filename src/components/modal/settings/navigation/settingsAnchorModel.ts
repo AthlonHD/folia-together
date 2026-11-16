@@ -75,6 +75,7 @@ export const SETTINGS_ANCHOR_DEFINITIONS = {
     lyricApi: { section: 'integration' },
     stageMode: { section: 'integration' },
     navidrome: { section: 'integration' },
+    musicMcp: { section: 'integration' },
 
     // pages/StoragePage, and the sync server on pages/IntegrationPage
     cacheDetails: { section: 'storage' },

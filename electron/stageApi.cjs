@@ -2585,6 +2585,8 @@ function createStageApi({
     clearStageState,
     clearStageStateData,
     completeStageExternalPlayRequest,
+    requestStageSongPlay,
+    requestStagePlayerControl,
     completeStagePlayerControlRequest,
     completeStagePlayerQueueRequest,
     completeStagePlayerSearchRequest,

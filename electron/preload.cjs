@@ -383,6 +383,16 @@ contextBridge.exposeInMainWorld('electron', {
     publishStagePlayerSnapshot: (snapshot, options) => ipcRenderer.invoke('stage-publish-player-snapshot', snapshot, options),
     completeStagePlayerControlRequest: (result) => ipcRenderer.invoke('stage-complete-player-control', result),
     completeStagePlayerQueueRequest: (result) => ipcRenderer.invoke('stage-complete-player-queue', result),
+    getMusicMcpStatus: () => ipcRenderer.invoke('music-mcp-settings', 'status'),
+    setMusicMcpEnabled: (enabled) => ipcRenderer.invoke('music-mcp-settings', 'enabled', enabled),
+    setMusicMcpWriteEnabled: (enabled) => ipcRenderer.invoke('music-mcp-settings', 'write', enabled),
+    copyMusicMcpConfig: () => ipcRenderer.invoke('music-mcp-settings', 'copy-config'),
+    onMusicMcpRequest: (callback) => {
+        const listener = (_event, request) => callback(request);
+        ipcRenderer.on('music-mcp-request', listener);
+        return () => ipcRenderer.removeListener('music-mcp-request', listener);
+    },
+    completeMusicMcpRequest: (result) => ipcRenderer.invoke('music-mcp-complete', result),
     completeStagePlayerSearchRequest: (result) => ipcRenderer.invoke('stage-complete-player-search', result),
     onStageSessionUpdated: (callback) => {
         const listener = (_event, status) => callback(status);

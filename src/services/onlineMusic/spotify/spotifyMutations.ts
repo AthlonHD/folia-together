@@ -41,19 +41,19 @@ export const spotifyMutations: OnlineMutationProvider = {
         await keep(spotifyUri('playlist', String(typeof playlist === 'object' ? playlist.id : playlist)), subscribed);
     },
     // A song already in the playlist is not added a second time; removing a song takes every copy of it.
-    async updatePlaylistTracks(operation, playlist, tracks) {
+    async updatePlaylistTracks(operation, playlist, tracks, expectedAccountId) {
         if (typeof playlist === 'object' && !isOwnPlaylist(playlist)) {
             throw new OnlineProviderError('unsupported', 'Playlist is not one the account may change the songs of', 'spotify');
         }
         const id = String(typeof playlist === 'object' ? playlist.id : playlist);
         const ids = tracks.map(songId);
         for (let start = 0; start < ids.length; start += SONGS_PER_REQUEST) {
-            await requestSpotify('playlist_edit', { id, action: operation === 'add' ? 'add' : 'remove', tracks: ids.slice(start, start + SONGS_PER_REQUEST) });
+            await requestSpotify('playlist_edit', { id, action: operation === 'add' ? 'add' : 'remove', tracks: ids.slice(start, start + SONGS_PER_REQUEST), ...(expectedAccountId === undefined ? {} : { expectedAccountId }) });
         }
     },
     // The playlist then shows in the account's library in every Spotify app.
-    async createPlaylist(name) {
-        const made = await requestSpotify<SpotifyWireMadePlaylist>('playlist_create', { name });
+    async createPlaylist(name, expectedAccountId) {
+        const made = await requestSpotify<SpotifyWireMadePlaylist>('playlist_create', { name, ...(expectedAccountId === undefined ? {} : { expectedAccountId }) });
         const id = spotifyId(made?.uri, 'playlist');
         if (!id) throw new OnlineProviderError('invalid-response', 'Spotify did not name the new playlist', 'spotify');
         return { providerId: 'spotify', id, type: 'playlist', name: name.trim(), coverUrl: '', description: '', trackCount: 0, isOwned: true };

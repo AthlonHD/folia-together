@@ -150,6 +150,8 @@ export const IPC_CHANNELS = {
     'stage-complete-external-play': { level: 'first-party', why: '现状：有来源校验' },
     'stage-complete-player-control': { level: 'first-party', why: '现状：有来源校验' },
     'stage-complete-player-queue': { level: 'first-party', why: '现状：有来源校验' },
+    'music-mcp-settings': { level: 'first-party', why: '仅主播放器顶层页面可修改 MCP 设置并复制配置' },
+    'music-mcp-complete': { level: 'first-party', why: '仅主播放器顶层页面可完成对应的 MCP 请求' },
     'stage-complete-player-search': { level: 'first-party', why: '现状：有来源校验' },
     'stage-get-status': { level: 'first-party', why: '舞台状态，含接口令牌和正在播放的内容（firstParty）' },
     'stage-publish-player-snapshot': { level: 'first-party', why: '现状：有来源校验' },

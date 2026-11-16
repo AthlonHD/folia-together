@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, session, screen, dialog, shell, nativeImage, webContents: electronWebContents, Menu, Tray, nativeTheme, powerSaveBlocker, safeStorage, protocol, crashReporter, net: electronNet } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, session, screen, dialog, clipboard, shell, nativeImage, webContents: electronWebContents, Menu, Tray, nativeTheme, powerSaveBlocker, safeStorage, protocol, crashReporter, net: electronNet } = require('electron');
 // 必须先于其它模块加载：TEMP / TMP 里没展开的 %USERPROFILE% 会让 os.tmpdir() 变成相对路径（#690）。
 for (const repair of require('./tempDirEnvironment.cjs').repairTempDirEnvironment()) {
   console.warn(`[TempDir] expanded ${repair.key}: ${repair.from} -> ${repair.to}`);
@@ -9,6 +9,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const Store = require('electron-store').default || require('electron-store');
 const crypto = require('crypto');
+const { startMusicMcp } = require('./mcp/server.cjs');
 const { createStageApi } = require('./stageApi.cjs');
 const { resolveStageConnectionFilePath } = require('./stageConnectionFile.cjs');
 const { isCursorInsideUnlockHotspot, createUnlockHoverRequests, resolveUnlockHotspot } = require('./mainWindowClickThrough.cjs');
@@ -6446,6 +6447,17 @@ app.whenReady().then(async () => {
   if (startupResult === 'spawned') {
     return;
   }
+  const stopMusicMcp = startMusicMcp({
+    ipcMain,
+    getWindow: () => mainWindow,
+    player: stageApi,
+    store,
+    safeStorage,
+    clipboard,
+    isTrustedSender: event => isTrustedMainWindowContents(event.sender)
+      && event.senderFrame === event.sender.mainFrame,
+  });
+  app.once('will-quit', stopMusicMcp);
   // Partial mpv downloads and half-extracted runtimes that an exit cut off (app.exit, a crash, a
   // forced kill) go once per launch, also for someone who never downloads again. Only the instance
   // holding the single-instance lock sweeps them: a second launch on its way out would delete the

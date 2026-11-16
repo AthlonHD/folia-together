@@ -9839,7 +9839,7 @@
   },
   "src/services/onlineMusic/netease/neteaseProvider.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 23
+      "count": 22
     },
     "@typescript-eslint/no-non-null-assertion": {
       "count": 2
@@ -9851,13 +9851,13 @@
       "count": 2
     },
     "@typescript-eslint/no-unsafe-assignment": {
-      "count": 119
+      "count": 115
     },
     "@typescript-eslint/no-unsafe-call": {
       "count": 28
     },
     "@typescript-eslint/no-unsafe-member-access": {
-      "count": 244
+      "count": 240
     },
     "@typescript-eslint/no-unsafe-return": {
       "count": 10
@@ -9866,7 +9866,7 @@
       "count": 1
     },
     "@typescript-eslint/restrict-plus-operands": {
-      "count": 12
+      "count": 11
     },
     "@typescript-eslint/use-unknown-in-catch-callback-variable": {
       "count": 1
@@ -9877,9 +9877,6 @@
       "count": 1
     },
     "@typescript-eslint/no-unnecessary-condition": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unsafe-assignment": {
       "count": 1
     },
     "@typescript-eslint/no-unsafe-member-access": {
@@ -10185,19 +10182,19 @@
       "count": 2
     },
     "@typescript-eslint/no-explicit-any": {
-      "count": 8
+      "count": 5
     },
     "@typescript-eslint/no-unnecessary-condition": {
       "count": 3
     },
     "@typescript-eslint/no-unsafe-assignment": {
-      "count": 12
+      "count": 6
     },
     "@typescript-eslint/no-unsafe-call": {
       "count": 1
     },
     "@typescript-eslint/no-unsafe-member-access": {
-      "count": 17
+      "count": 8
     }
   },
   "src/services/onlineMusic/qq/qqNormalize.ts": {

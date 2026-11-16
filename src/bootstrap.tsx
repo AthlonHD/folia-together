@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './i18n/config';
 import './index.css';
 import App from './App';
+import { installMusicMcpBridge } from './components/app/musicMcp/musicMcpBridge';
 import AppSplashGate from './components/AppSplashGate';
 import RemoteControlApp from './components/remote/RemoteControlApp';
 import ObsBrowserSourceApp from './components/obs/ObsBrowserSourceApp';
@@ -49,6 +50,7 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
+if (isMainAppSurface) installMusicMcpBridge();
 const root = ReactDOM.createRoot(rootElement);
 // The performance check's window, loaded only there.
 const PerfCheckApp = React.lazy(() => import('./components/perfCheck/PerfCheckApp'));

@@ -189,3 +189,7 @@
 - **设置存储**：新增设置项的 localStorage 键记录在 `test/unit/stores/storeContract.test.ts` 的快照里，新增或改名时需要更新快照。
 - **推送即出包**：每次推送 `stage-remote` 都会自动生成新的安装包发布（见上一节）；推送后要到 Actions 里确认这次构建成功，失败了要修。
 - **不提交**：`.env.local`、令牌文件（`~/.folia-stage/token`）、任何账号 Cookie 与 API Key。
+
+## 桌面音乐 MCP
+
+桌面版可将 Omni 音乐能力和已允许的平台原始 API 提供给本机 Agent，并在指定平台创建和验证歌单。在「设置 → 连接与集成 → 音乐 MCP」启用并复制 Agent 配置。支持范围及写入行为见 [桌面音乐 MCP](music-mcp.md)。

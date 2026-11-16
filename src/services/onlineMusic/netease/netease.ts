@@ -1,7 +1,7 @@
 import { NoCopyrightRecommendation, SongPrivilege, SongResult } from "../../../types";
 import { readProviderSessionValue, removeProviderSessionValue, writeProviderSessionValue } from '../providerStorage';
 import { OnlineProviderError } from '../../../types/onlineMusic';
-import type { PersonalFmRequestOptions, ProviderSongAvailability } from '../../../types/onlineMusic';
+import type { MediaId, PersonalFmRequestOptions, ProviderSongAvailability } from '../../../types/onlineMusic';
 import { withLoginRequestLimit } from '../login/loginRequestLimit';
 import { withOnlineRequestLimit } from '../failure/onlineRequestLimit';
 import { errorFields } from '../../../utils/errorText';
@@ -182,7 +182,7 @@ const eitherSignal = (caller: AbortSignal | null | undefined, limit: AbortSignal
 // local backend's port above is not counted. 'sign-in': one of the requests a sign-in waits for, with
 // the sign-in's limit; an HTTP error answer to it throws NeteaseLoginHttpError instead of being read as
 // an answer. 'online': a song's address or a collection's tracks, with the limit of online requests.
-const fetchWithCreds = async (endpoint: string, options: RequestInit = {}, limit?: 'sign-in' | 'online') => {
+const fetchWithCreds = async (endpoint: string, options: RequestInit = {}, limit?: 'sign-in' | 'online', sessionCookie?: string) => {
   const base = await getApiBase();
   const url = `${base}${endpoint}`;
   // Ensure we send credentials to persist session (cookies)
@@ -209,7 +209,7 @@ const fetchWithCreds = async (endpoint: string, options: RequestInit = {}, limit
   // Note: For Vercel hosted APIs, we rely on the `cookie` query param if cross-site cookies are blocked,
   // or `credentials: 'include'` if the server allows it. 
 
-  const storedCookie = readProviderSessionValue('netease', 'cookie', ['netease_cookie']);
+  const storedCookie = sessionCookie ?? readProviderSessionValue('netease', 'cookie', ['netease_cookie']);
 
   let cookieToUse = storedCookie;
 
@@ -288,9 +288,25 @@ const fetchWithCreds = async (endpoint: string, options: RequestInit = {}, limit
  * (`/user/record`), `query` the parameters already written as a query string. The session is added like
  * for every other request; it gets the limit of online requests, and `signal` aborts it as well.
  */
-export const requestNeteaseRoute = (route: string, query: string, signal: AbortSignal) => (
-  fetchWithCreds(query ? `${route}?${query}` : route, { signal }, 'online')
-);
+async function verifiedNeteaseSession(expectedAccountId?: MediaId): Promise<string | undefined> {
+  if (expectedAccountId === undefined) return undefined;
+  const cookie = readProviderSessionValue('netease', 'cookie', ['netease_cookie']);
+  if (!cookie) throw new OnlineProviderError('auth-required', 'Selected account is not signed in');
+  const result = await fetchWithCreds('/user/account', {}, 'online', cookie) as {
+    account?: { id?: MediaId };
+    profile?: { userId?: MediaId };
+  } | null;
+  if (String(result?.account?.id ?? result?.profile?.userId) !== String(expectedAccountId)
+    || cookie !== readProviderSessionValue('netease', 'cookie', ['netease_cookie'])) {
+    throw new OnlineProviderError('auth-required', 'Selected account changed');
+  }
+  return cookie;
+}
+
+export const requestNeteaseRoute = async (route: string, query: string, signal: AbortSignal, expectedAccountId?: MediaId): Promise<unknown> => {
+  const cookie = await verifiedNeteaseSession(expectedAccountId);
+  return fetchWithCreds(query ? `${route}?${query}` : route, { signal }, 'online', cookie);
+};
 
 const toHttps = (url?: unknown) => {
   if (typeof url !== 'string' || !url) return '';
@@ -838,9 +854,16 @@ export const neteaseApi = {
     return res;
   },
 
-  updatePlaylistTracks: async (op: 'add' | 'del', pid: number, tracks: number[] | number) => {
+  createPlaylist: async (name: string, expectedAccountId?: MediaId): Promise<unknown> => {
+    const query = new URLSearchParams({ name, privacy: '10', timestamp: String(Date.now()) });
+    return fetchWithCreds(`/playlist/create?${query}`, {}, 'online', await verifiedNeteaseSession(expectedAccountId));
+  },
+
+  updatePlaylistTracks: async (op: 'add' | 'del', pid: number, tracks: number[] | number, expectedAccountId?: MediaId): Promise<unknown> => {
     const trackParam = Array.isArray(tracks) ? tracks.join(',') : String(tracks);
-    return fetchWithCreds(`/playlist/tracks?op=${op}&pid=${pid}&tracks=${trackParam}&timestamp=${Date.now()}`);
+    const route = `/playlist/tracks?op=${op}&pid=${pid}&tracks=${trackParam}&timestamp=${Date.now()}`;
+    if (expectedAccountId === undefined) return fetchWithCreds(route);
+    return fetchWithCreds(route, {}, 'online', await verifiedNeteaseSession(expectedAccountId));
   },
 
   getAlbum: async (id: number) => {

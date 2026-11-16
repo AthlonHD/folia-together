@@ -1,6 +1,6 @@
 import { name as backendName, version as backendVersion } from '@neteasecloudmusicapienhanced/api/package.json';
 import { OnlineProviderError } from '../../../types/onlineMusic';
-import type { JsonValue, OnlineRawRequestProvider, ProviderRawEndpoint } from '../../../types/onlineMusic';
+import type { JsonValue, MediaId, OnlineRawRequestProvider, ProviderRawEndpoint } from '../../../types/onlineMusic';
 import { httpErrorStatusOf, requestNeteaseRoute } from './netease';
 import { describeNeteaseFailure, neteaseAnswerError } from './neteaseFailure';
 
@@ -171,10 +171,17 @@ const checkParams = (endpoint: string, params: Record<string, JsonValue>): strin
 // NetEase's code for "too many requests".
 const RATE_LIMITED_CODE = 405;
 
-const request = async (endpoint: string, params: Record<string, JsonValue>, signal: AbortSignal): Promise<unknown> => {
+let lastWriteTimestamp = 0;
+
+const request = async (endpoint: string, params: Record<string, JsonValue>, signal: AbortSignal, expectedAccountId?: MediaId): Promise<unknown> => {
     let answer: any;
     try {
-        answer = await requestNeteaseRoute(neteaseRouteOf(endpoint), neteaseRawQuery(params), signal);
+        const writes = NETEASE_RAW_ENDPOINTS[endpoint].access === 'write';
+        if (writes) lastWriteTimestamp = Math.max(lastWriteTimestamp + 1, Date.now());
+        const query = neteaseRawQuery(writes ? { ...params, timestamp: lastWriteTimestamp } : params);
+        answer = expectedAccountId === undefined
+            ? await requestNeteaseRoute(neteaseRouteOf(endpoint), query, signal)
+            : await requestNeteaseRoute(neteaseRouteOf(endpoint), query, signal, expectedAccountId);
     } catch (error) {
         if (error instanceof OnlineProviderError || (error as { name?: unknown } | null)?.name === 'AbortError') throw error;
         // The backend could not be reached or did not answer with JSON: the network's, unless this build
@@ -195,6 +202,7 @@ export const neteaseRaw: OnlineRawRequestProvider = {
     backend: { name: backendName, version: backendVersion },
     reservedParams: RESERVED_PARAMS,
     credentialFields: CREDENTIAL_FIELDS,
+    listEndpoints: () => Object.keys(NETEASE_RAW_ENDPOINTS).filter(endpoint => NETEASE_RAW_ENDPOINTS[endpoint].access !== 'denied'),
     describeEndpoint: (endpoint) => (Object.hasOwn(NETEASE_RAW_ENDPOINTS, endpoint) ? NETEASE_RAW_ENDPOINTS[endpoint] : null),
     checkParams,
     request,

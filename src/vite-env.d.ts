@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+import type { MusicMcpRequest } from './components/app/musicMcp/musicMcpBridge';
+
 import type { ModClearCacheResult, ModExportProgress, ModFfmpegStatus, ModLogEntry, ModMainCallStats, ModRpcMessage, ModRuntimeInfo, ModRuntimeSnapshot, ModSecretChange, ModStorageUsageResult } from './mods/types';
 import type { PerfCheckProcessMemory, PerfCheckSettings } from './components/perfCheck/perfCheckTypes';
 
@@ -610,6 +612,15 @@ declare global {
     result?: unknown;
   }
 
+  interface MusicMcpStatus {
+    enabled: boolean;
+    writeEnabled: boolean;
+    running: boolean;
+    address: string;
+    tokenPersistent: boolean;
+    error: 'port-in-use' | 'listen-failed' | null;
+  }
+
   interface StageStatus {
     domain?: 'stage-input';
     direction?: 'outside-in';
@@ -1162,6 +1173,12 @@ declare global {
       publishStagePlayerSnapshot: (snapshot: StagePlayerSnapshot, options?: { forcePlaybackEvent?: boolean }) => Promise<StagePlayerSnapshot>;
       completeStagePlayerControlRequest: (result: StagePlayerRequestResult) => Promise<boolean>;
       completeStagePlayerQueueRequest: (result: StagePlayerRequestResult) => Promise<boolean>;
+      getMusicMcpStatus: () => Promise<MusicMcpStatus>;
+      setMusicMcpEnabled: (enabled: boolean) => Promise<MusicMcpStatus>;
+      setMusicMcpWriteEnabled: (enabled: boolean) => Promise<MusicMcpStatus>;
+      copyMusicMcpConfig: () => Promise<boolean>;
+      onMusicMcpRequest: (callback: (request: MusicMcpRequest) => void) => () => void;
+      completeMusicMcpRequest: (response: { id: string; result: unknown }) => Promise<void>;
       completeStagePlayerSearchRequest: (result: StagePlayerSearchResult) => Promise<boolean>;
       onStageSessionUpdated: (callback: (status: StageStatus) => void) => () => void;
       onStageSessionCleared: (callback: (status: StageStatus) => void) => () => void;

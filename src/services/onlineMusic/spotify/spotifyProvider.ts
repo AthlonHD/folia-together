@@ -251,7 +251,10 @@ export const spotifyProvider: OnlineMusicProvider = {
         runSetupAction: runSpotifySetupAction,
     },
     externalPlayback: spotifySoloistPlayback,
-    catalog: spotifyCatalog,
+    catalog: {
+        ...spotifyCatalog,
+        getPlaylistPageUrl: id => 'https://open.spotify.com/playlist/' + encodeURIComponent(String(id)),
+    },
     library: spotifyLibrary,
     mutations: spotifyMutations,
     recommendations: spotifyRecommendations,

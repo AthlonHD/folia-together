@@ -125,6 +125,7 @@ exports[`command palette registry contract > keeps the registered command order 
   "settings-local-lyric-format-order",
   "settings-integration",
   "settings-navidrome",
+  "settings-music-mcp",
   "settings-stage-mode",
   "automix-toggle",
   "transition-mode-crossfade",

@@ -1209,6 +1209,7 @@ export const qqProvider: OnlineMusicProvider = {
         getListeningRankCollections: getQqListeningRankCollections,
     },
     catalog: {
+        getPlaylistPageUrl: id => 'https://y.qq.com/n/ryqq/playlist/' + encodeURIComponent(String(id)),
         // 只要拿得到 songmid 就补得回 mid，所以能否导航等同于这首歌是不是 QQ 的歌。
         canResolveSongCatalogRefs: song => Boolean(getQqSongMid(song)),
         resolveSongCatalogRefs: resolveQqSongCatalogRefs,

@@ -498,7 +498,11 @@ const accountMoments = createAccountMoments({
 let activeRequestGeneration = 0;
 
 // Rejects late active-provider responses after an account switch transaction begins.
-const withActiveProvider = async <T>(run: (provider: OnlineMusicProvider) => Promise<T>): Promise<T> => {
+const withActiveProvider = async <T>(
+    run: (provider: OnlineMusicProvider) => Promise<T>,
+    explicitProviderId?: OmniProviderId,
+): Promise<T> => {
+    if (explicitProviderId !== undefined) return run(requireOnlineMusicProvider(explicitProviderId));
     const providerId = activeProviderId();
     const generation = activeRequestGeneration;
     const result = await run(requireOnlineMusicProvider(providerId));
@@ -908,8 +912,8 @@ export const omni = {
         return Boolean(provider?.mutations?.subscribePlaylist);
     },
 
-    async getUserAlbums(userId: MediaId, page: PageInput): Promise<OmniPage<OmniCollection>> {
-        return withActiveProvider(async provider => provider.library?.getUserAlbums?.(userId, page.limit, page.offset) ?? emptyPage(page.offset));
+    async getUserAlbums(userId: MediaId, page: PageInput, providerId?: OmniProviderId): Promise<OmniPage<OmniCollection>> {
+        return withActiveProvider(async provider => provider.library?.getUserAlbums?.(userId, page.limit, page.offset) ?? emptyPage(page.offset), providerId);
     },
 
     // A provider without this read answers with nothing read, and not whole: nothing held is taken away.
@@ -921,8 +925,8 @@ export const omni = {
         return requireOnlineMusicProvider(providerId).library?.getLikedSongIds?.(userId) ?? { ids: [], whole: false };
     },
 
-    async getCloudCollection(user?: OmniUser): Promise<OmniCollection | null> {
-        return withActiveProvider(async provider => provider.library?.getCloudCollection?.(user) ?? null);
+    async getCloudCollection(user?: OmniUser, providerId?: OmniProviderId): Promise<OmniCollection | null> {
+        return withActiveProvider(async provider => provider.library?.getCloudCollection?.(user) ?? null, providerId);
     },
 
     async getHomeFeed(limit = 35): Promise<{
@@ -969,8 +973,8 @@ export const omni = {
         return (await requireOnlineMusicProvider(providerId).recommendations?.getPersonalFmCatalog?.(station)) ?? null;
     },
 
-    async getPersonalFm(options?: PersonalFmRequestOptions): Promise<UnifiedSong[]> {
-        return withActiveProvider(async provider => provider.recommendations?.getPersonalFm?.(options) ?? []);
+    async getPersonalFm(options?: PersonalFmRequestOptions, providerId?: OmniProviderId): Promise<UnifiedSong[]> {
+        return withActiveProvider(async provider => provider.recommendations?.getPersonalFm?.(options) ?? [], providerId);
     },
 
     /** 心动模式:由这首歌所属的平台(目前只有网易云)按它与歌单推荐相似的歌;平台不支持时返回空。 */
@@ -979,40 +983,40 @@ export const omni = {
         return provider.recommendations?.getHeartbeatSongs?.(song.id, playlistId, count) ?? [];
     },
 
-    async getDailySongs(refresh?: boolean): Promise<UnifiedSong[]> {
-        return withActiveProvider(async provider => provider.recommendations?.getDailySongs?.(refresh) ?? []);
+    async getDailySongs(refresh?: boolean, providerId?: OmniProviderId): Promise<UnifiedSong[]> {
+        return withActiveProvider(async provider => provider.recommendations?.getDailySongs?.(refresh) ?? [], providerId);
     },
 
-    async getRecommendationHistory(): Promise<OmniHistoryEntry[]> {
-        return withActiveProvider(async provider => provider.recommendations?.getHistoryEntries?.() ?? []);
+    async getRecommendationHistory(providerId?: OmniProviderId): Promise<OmniHistoryEntry[]> {
+        return withActiveProvider(async provider => provider.recommendations?.getHistoryEntries?.() ?? [], providerId);
     },
 
     async getRecommendationHistoryDates(): Promise<string[]> {
         return withActiveProvider(async provider => provider.recommendations?.getHistoryDates?.() ?? []);
     },
 
-    async getRecommendationHistorySongs(entry: OmniHistoryEntry | string): Promise<UnifiedSong[]> {
-        return withActiveProvider(async provider => provider.recommendations?.getHistorySongs?.(entry) ?? []);
+    async getRecommendationHistorySongs(entry: OmniHistoryEntry | string, providerId?: OmniProviderId): Promise<UnifiedSong[]> {
+        return withActiveProvider(async provider => provider.recommendations?.getHistorySongs?.(entry) ?? [], providerId);
     },
 
     // Style recommendations (capability `dailyStyleRecommendations`): the style groups, the daily songs
     // of the picked styles, and saving a pick.
-    async getDailyStyleGroups(): Promise<DailyStyleGroup[]> {
-        return withActiveProvider(async provider => provider.recommendations?.getDailyStyleGroups?.() ?? []);
+    async getDailyStyleGroups(providerId?: OmniProviderId): Promise<DailyStyleGroup[]> {
+        return withActiveProvider(async provider => provider.recommendations?.getDailyStyleGroups?.() ?? [], providerId);
     },
 
-    async getDailyStyleSongs(): Promise<DailyStyleSongs> {
+    async getDailyStyleSongs(providerId?: OmniProviderId): Promise<DailyStyleSongs> {
         return withActiveProvider(async provider => (
             provider.recommendations?.getDailyStyleSongs?.() ?? { songs: [], selection: null }
-        ));
+        ), providerId);
     },
 
-    async setDailyStyle(selection: DailyStyleSelection): Promise<void> {
+    async setDailyStyle(selection: DailyStyleSelection, providerId?: OmniProviderId): Promise<void> {
         return withActiveProvider(async provider => {
             const setStyle = provider.recommendations?.setDailyStyle;
             if (!setStyle) throw new OnlineProviderError('unsupported', `Daily styles are not supported by ${provider.id}`, provider.id);
             await setStyle.call(provider.recommendations, selection);
-        });
+        }, providerId);
     },
 
     // Recommendation preferences (capability `recommendationPreferences`): whether the active provider
@@ -1029,15 +1033,15 @@ export const omni = {
             : [];
     },
 
-    async getRecommendationPreferences(): Promise<RecommendationPreferences> {
+    async getRecommendationPreferences(providerId?: OmniProviderId): Promise<RecommendationPreferences> {
         return withActiveProvider(async provider => {
             if (!hasRecommendationPreferences(provider)) throw unsupportedPreferences(provider);
             const recommendations = provider.recommendations!;
             return normalizeRecommendationPreferences(await recommendations.getRecommendationPreferences!.call(recommendations));
-        });
+        }, providerId);
     },
 
-    async saveRecommendationPreferences(changes: RecommendationPreferenceChanges): Promise<RecommendationPreferencesSaveResult> {
+    async saveRecommendationPreferences(changes: RecommendationPreferenceChanges, providerId?: OmniProviderId): Promise<RecommendationPreferencesSaveResult> {
         const checked = checkRecommendationPreferenceChanges(changes);
         return withActiveProvider(async provider => {
             if (!hasRecommendationPreferences(provider)) throw unsupportedPreferences(provider);
@@ -1048,7 +1052,7 @@ export const omni = {
             // The write reached that account whatever is active by now, so the listeners hear of it first.
             tellPreferencesSaved(provider.id);
             return { confirmed: result?.confirmed === true };
-        });
+        }, providerId);
     },
 
     /** Hears which provider's account preferences were written; a provider that fails to save is not told of. */
@@ -1066,12 +1070,12 @@ export const omni = {
 
     // The active provider's own recommendation page; `cursor` asks for its further sections, and
     // `listened` (see `OnlineExploreProvider`) goes with a read from the start.
-    async getExploreFeed(cursor?: string, listened?: UnifiedSong[]): Promise<OmniExplorePage> {
-        return withActiveProvider(async provider => provider.explore?.getFeed(cursor, listened) ?? { sections: [] });
+    async getExploreFeed(cursor?: string, listened?: UnifiedSong[], providerId?: OmniProviderId): Promise<OmniExplorePage> {
+        return withActiveProvider(async provider => provider.explore?.getFeed(cursor, listened) ?? { sections: [] }, providerId);
     },
 
-    async getExploreSectionItems(cursor: string): Promise<OmniExploreItemsPage> {
-        return withActiveProvider(async provider => provider.explore?.getSectionItems?.(cursor) ?? { items: [] });
+    async getExploreSectionItems(cursor: string, providerId?: OmniProviderId): Promise<OmniExploreItemsPage> {
+        return withActiveProvider(async provider => provider.explore?.getSectionItems?.(cursor) ?? { items: [] }, providerId);
     },
 
     // The provider's `explore.songsShownAs`, or null where it has none (see `OnlineExploreProvider`).
@@ -1392,6 +1396,11 @@ export const omni = {
         });
     },
 
+    getPlaylistPageUrl(collection: OmniCollection): string | null {
+        if (collection.type !== 'playlist') return null;
+        return providerForCollection(collection).catalog?.getPlaylistPageUrl?.(collection.id) ?? null;
+    },
+
     async getAlbumDetail(collection: OmniCollection): Promise<OmniCollection | null> {
         return providerForCollection(collection).catalog?.getAlbumDetail?.(collection.id, collection) ?? null;
     },
@@ -1434,7 +1443,7 @@ export const omni = {
         return mutations.subscribePlaylist(collection, subscribed);
     },
 
-    async updateCollectionTracks(collection: OmniCollection, operation: 'add' | 'del', tracks: SongResult[]): Promise<void> {
+    async updateCollectionTracks(collection: OmniCollection, operation: 'add' | 'del', tracks: SongResult[], expectedAccountId?: MediaId): Promise<void> {
         const provider = providerForCollection(collection);
         const mutations = provider.mutations;
         if (
@@ -1445,7 +1454,32 @@ export const omni = {
         ) {
             return unsupported(collection.providerId, 'playlist-track-mutations');
         }
-        return mutations.updatePlaylistTracks(operation, collection, tracks);
+        return expectedAccountId === undefined
+            ? mutations.updatePlaylistTracks(operation, collection, tracks)
+            : mutations.updatePlaylistTracks(operation, collection, tracks, expectedAccountId);
+    },
+
+    /** Reports native playlist creation separately from appending to existing playlists. */
+    canCreateProviderPlaylist(providerId: OmniProviderId): boolean {
+        const provider = getOnlineMusicProvider(providerId);
+        return Boolean(provider?.mutations?.createPlaylist && provider.mutations.updatePlaylistTracks
+            && providerSupports(provider, 'playlistTrackMutations'));
+    },
+
+    /** Verifies the current platform session against the account selected for an external write. */
+    async isCurrentProviderAccount(providerId: OmniProviderId, accountId: MediaId): Promise<boolean> {
+        const provider = requireOnlineMusicProvider(providerId);
+        const user = await provider.auth?.getLoginStatus();
+        return user !== null && user !== undefined && String(user.id) === String(accountId);
+    },
+
+    /** Creates an empty playlist on the explicitly selected account and returns its platform identity. */
+    async createProviderPlaylist(providerId: OmniProviderId, name: string, expectedAccountId: MediaId): Promise<OmniCollection> {
+        const provider = requireOnlineMusicProvider(providerId);
+        if (!this.canCreateProviderPlaylist(providerId) || !provider.mutations?.createPlaylist) {
+            throw new OnlineProviderError('unsupported', 'Platform does not support creating playlists', providerId);
+        }
+        return provider.mutations.createPlaylist(name, expectedAccountId);
     },
 
     // Makes a playlist on the song's provider and puts the song in it.
@@ -1667,6 +1701,10 @@ export const omni = {
     },
 
     // 一个接口在平台分类表里的那一行；不能直通的平台、表外的接口回 null。
+    listRawEndpoints(providerId: OmniProviderId): string[] {
+        return getOnlineMusicProvider(providerId)?.raw?.listEndpoints?.() ?? [];
+    },
+
     describeRawEndpoint(providerId: OmniProviderId, endpoint: string): ProviderRawEndpoint | null {
         return getOnlineMusicProvider(providerId)?.raw?.describeEndpoint(endpoint) ?? null;
     },
@@ -1685,6 +1723,7 @@ export const omni = {
         endpoint: string,
         params: Record<string, JsonValue>,
         signal: AbortSignal,
+        expectedAccountId?: MediaId,
     ): Promise<JsonValue> {
         const raw = getOnlineMusicProvider(providerId)?.raw;
         if (!raw) return unsupported(providerId, 'raw-requests');
@@ -1708,7 +1747,10 @@ export const omni = {
             }
             sent = { ...params, [rule.selfParam]: userId };
         }
-        return withoutCredentials(await raw.request(endpoint, sent, signal), raw.credentialFields);
+        const answer = expectedAccountId === undefined
+            ? await raw.request(endpoint, sent, signal)
+            : await raw.request(endpoint, sent, signal, expectedAccountId);
+        return withoutCredentials(answer, raw.credentialFields);
     },
 };
 

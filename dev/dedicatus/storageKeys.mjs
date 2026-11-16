@@ -7,6 +7,9 @@
 
 export const STORAGE_KEYS = [
     // Fork 已发布的设置与 Stage 会话键，保留原名。
+    'main:MUSIC_MCP_ENABLED',
+    'main:MUSIC_MCP_WRITE',
+    'main:MUSIC_MCP_TOKEN_SEALED',
     'main:STAGE_REMOTE_TOKEN',
     'main:STAGE_REMOTE_TOKEN_SEALED',
     'main:STAGE_REMOTE_URL',

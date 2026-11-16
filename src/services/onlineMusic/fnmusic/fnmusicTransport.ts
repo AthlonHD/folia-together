@@ -1,3 +1,4 @@
+import type { MediaId } from '../../../types/onlineMusic';
 import { OnlineProviderError } from '../../../types/onlineMusic';
 
 // src/services/onlineMusic/fnmusic/fnmusicTransport.ts
@@ -17,7 +18,7 @@ import { OnlineProviderError } from '../../../types/onlineMusic';
 
 export type FnMusicBridgeParams =
     | { base: string; username: string; password: string }              // login（deviceId 由主进程复用已存值）
-    | { path: string; method: 'GET' | 'POST'; params?: Record<string, string | number | boolean | undefined>; body?: Record<string, unknown> } // request
+    | { path: string; method: 'GET' | 'POST'; params?: Record<string, string | number | boolean | undefined>; body?: Record<string, unknown>; expectedAccountId?: MediaId } // request
     | { trackId: string }                                                      // stream
     | { coverId: string; size?: number }                                       // coverUrl
     | {};                                                                      // logout / getStatus
@@ -84,13 +85,13 @@ const bridgeError = (result: FnMusicBridgeResult & { ok: false }, operation: str
 export async function fnmusicRequest<T = unknown>(
     path: string,
     params?: Record<string, string | number | boolean | undefined>,
-    options?: { method?: 'GET' | 'POST'; body?: Record<string, unknown>; signal?: AbortSignal },
+    options?: { method?: 'GET' | 'POST'; body?: Record<string, unknown>; signal?: AbortSignal; expectedAccountId?: MediaId },
 ): Promise<T> {
     if (!hasElectronBridge()) {
         throw new OnlineProviderError('unavailable', '飞牛音乐仅支持桌面端（需主进程桥）', 'fnmusic');
     }
     const result = await (window as any).electron.fnmusicRequest('request', {
-        path, method: options?.method ?? 'GET', params, body: options?.body,
+        path, method: options?.method ?? 'GET', params, body: options?.body, expectedAccountId: options?.expectedAccountId,
     } as FnMusicBridgeParams) as FnMusicBridgeResult;
     if (!result.ok) throw bridgeError(result, path);
     return result.data as T;
