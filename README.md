@@ -42,7 +42,7 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 
 上游的更新会持续合并进来；**凡是与上游重复的说明（桌面版安装包、Vercel / Cloudflare 一键部署、Folium 模组系统、Sync Server、使用指南等），本仓库不再重复维护，统一链接到上游查看**。本 Fork 的部署方式与上游不同，请以本文「部署与启动」为准。
 
-上游 mpv HiFi 与本 Fork 直通模式均保留；Windows 开启直通模式时，后续起播优先走本 Fork helper。使用 mpv 请先关闭直通模式，详见 [两套引擎的关系](docs/hifi.md#与上游-mpv-hifi-的关系)。
+上游另有一套 **mpv HiFi**（主要服务本地 / Navidrome，在线歌仍走浏览器）；本 Fork **直通**是自研 WASAPI helper，Windows 上可覆盖更多音源。两套并存、不是同一个功能。Windows 开启直通时后续起播优先 helper；要用 mpv 请先关直通。对照表见 [与上游 mpv HiFi 的关系](docs/hifi.md#与上游-mpv-hifi-的关系)。
 
 ## 重点：Hi-Fi 直通
 
@@ -62,7 +62,7 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 
 | 方向 | 新增内容 |
 | --- | --- |
-| **Hi-Fi 直通（桌面版）** | WASAPI 独占 / 共享直出、整数采样、整数倍优先、单次重采样（rubato / SoXR 可选）、播放条显示真实链路、边下边放。详见 [Hi-Fi 直通](docs/hifi.md)。 |
+| **Hi-Fi 直通（桌面版）** | 自研 WASAPI helper（与上游 mpv HiFi 不同）：独占 / 共享、整数倍优先重采样、真实链路读数、边下边放；可覆盖在线等更多音源。对照见 [Hi-Fi 直通](docs/hifi.md#与上游-mpv-hifi-的关系)。 |
 | **桌面音乐 MCP** | 本机 Agent 经 `127.0.0.1:38451/mcp` 读取多平台歌单 / 推荐 / 收听记录，并可在指定平台账号建单、控播；设置里开关与复制 Agent 配置。详见 [桌面音乐 MCP](docs/music-mcp.md)。 |
 | 桌面版 | 自己的 Windows 安装包与免安装便携版（每次推送由 GitHub Actions 构建）、自己的检测更新、桌面版当遥控端（打开服务器的遥控页）、Spotify / YouTube Music 代理设置。 |
 | 服务器播放 + 多人遥控 | Host 页在服务器上出声，其他人用网址遥控；访问令牌鉴权与限流；遥控端可切回「本机播放」，账号与队列互相独立；可浏览 Host 本地曲库；Host 防后台卡顿。详见 [Stage Remote 使用文档](docs/stage-remote.md)。 |

@@ -17,9 +17,34 @@
 
 ## 与上游 mpv HiFi 的关系
 
-上游 mpv HiFi 与本 Fork 直通模式同时保留：mpv 用于本地 / Navidrome 歌曲；Windows 桌面版开启本 Fork 直通模式时，后续起播优先使用 helper。正在由 mpv 播放的歌曲继续使用 mpv，切歌时再按设置选择；mpv 播放期间 helper 停止，不再同步浏览器时钟。使用 mpv 时请先关闭本 Fork 直通模式。
+上游后来也加了一套 **mpv HiFi**（设置 → 播放控制 → 播放引擎）：本地 / Navidrome 交给 mpv 子进程，按源格式开输出。本 Fork 的 **直通模式**是另一条、更早的路线——自研 `folia-audio-helper`，不经过 mpv。两套**同时保留、互不替代**；不要把它们当成同一种「Hi-Fi」。
 
-上游引擎的能力与限制见 [mpv HiFi 说明](../src/services/hifi/README.md)。
+### 差别对照
+
+| | **本 Fork：直通（helper）** | **上游：mpv HiFi** |
+| --- | --- | --- |
+| 引擎 | 随包的 Rust 播放器 `folia-audio-helper.exe`，主进程用 JSON 行协议控制 | 外挂 / 下载的 **mpv** 子进程，主进程经 JSON IPC 控制 |
+| 平台 | **仅 Windows** 桌面版 | Windows / macOS / Linux（Linux 不请求独占） |
+| 覆盖曲目 | 能取得音频字节的来源：在线下载、本地、Navidrome、Spotify / YouTube Music 解密流、飞牛协议等 | **只**本地曲库，以及可选的 Navidrome；**在线平台歌仍走浏览器 Web Audio** |
+| 输出路径 | 自己解码 → WASAPI 独占或共享，送到所选设备 | mpv 的 AO（WASAPI / Core Audio / ALSA 等）；不设固定采样率时按源格式开设备 |
+| 重采样 | 应用内显式策略：跟随音源 / 固定采样率、**整数倍优先**；rubato 或 SoXR，有可复现的升采样误差数据 | 交 mpv；格式变化时由 mpv 重开输出（`gapless-audio=weak`），本 Fork 不另做 SoXR/rubato 对照表 |
+| 链路读数 | 播放条 `PassthroughChainBadge`：采样率/位深、独占或共享、是否「稳态 PCM 未改动」、用了哪种重采样 | 信号链路面板：源 → 解复用 → 解码 → 处理 → 输出逐级比对；Linux 还可探 PipeWire |
+| 时钟 | `<audio>` 静音跑当作传输时钟，以 helper 位置为准纠偏 | mpv 约 4 Hz 推位置，渲染端外推；另有 media shim 给系统媒体控制等 |
+| 无缝 / 预载 | 边下边放（GrowingFile）；切歌即停旧歌 | mpv `loadfile append` 预载下一首 |
+| 设置入口 | 「直通模式」一组（设备、独占/共享、重采样、采样率策略） | 「播放引擎」选 mpv 后出现输出 / DSD 等项；与直通是两套开关 |
+| 代码位置 | `packaging/windows/audio-helper/`、`electron/audioHelper/`、`src/components/app/passthrough/` | `electron/hifi/`、`src/services/hifi/`、`src/components/hifi/` |
+
+一句话：**mpv HiFi 解决「本地（和 Navidrome）别走浏览器音频」；本 Fork 直通解决「Windows 上尽量多音源走自研 WASAPI 链路，并标明这一路做了什么」。**
+
+### 同时开着时谁优先
+
+- Windows 上若打开了本 Fork **直通模式**，**后续起播优先走 helper**（含本来可以交给 mpv 的本地 / Navidrome）。
+- 正在由 mpv 播放的那一首会继续用 mpv，直到切歌；切歌后再按当前设置选路线。
+- mpv 在播时 helper 停止，不再同步浏览器时钟。
+- **要用上游 mpv：请先关闭本 Fork 直通模式**，再在「播放引擎」里选 mpv。
+- 非 Windows、或未开直通时，本地 / Navidrome 仍可按上游逻辑走 mpv。
+
+上游引擎的能力、错误码与 Linux 细节见 [mpv HiFi 说明](../src/services/hifi/README.md)。两边都没有做「helper vs mpv 输出录回」对照；现有正弦升采样数据不能证明哪边听感更好。
 
 ## 它做到了什么
 
