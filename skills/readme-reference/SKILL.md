@@ -9,7 +9,7 @@ README 是导航线索，不是代码真相。先按任务读取相关小片段�
 
 ## Source selection
 
-- 产品能力、部署与启动、Fork 范围：`README.md`（本 Fork 的门面文档，随 Fork 功能同步维护）；本 Fork 的功能清单与维护约定：`docs/fork-features.md`；服务器播放与遥控：`docs/stage-remote.md`；文档分类入口：`docs/README.md`。上游沿用的内容（桌面版、Vercel / Cloudflare、Folium、Sync Server）以上游为准，文档里只放链接。
+- 产品能力、部署与启动、Fork 范围：`README.md`（本 Fork 的门面文档，随 Fork 功能同步维护）；本 Fork 的功能清单与维护约定：`docs/fork-features.md`；服务器播放与遥控：`docs/stage-remote.md`；桌面音乐 MCP：`docs/music-mcp.md`；文档分类入口：`docs/README.md`。上游沿用的内容（桌面版、Vercel / Cloudflare、Folium、Sync Server）以上游为准，文档里只放链接。
 - `src/` 入口、模块职责、app-level 装配：`src/README.md`。
 - visualizer 共享入口、模式、背景、性能约定，以及加一个歌词动画样式的清单：`src/components/visualizer/README.md`。
 - Partita layout、sticky punctuation、预热和缓存：`src/components/visualizer/partita/README.md`；Tempera：`src/components/visualizer/tempera/README.md`。

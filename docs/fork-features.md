@@ -5,10 +5,12 @@
 - 上游的功能说明、使用指南与许可证条款不变，见根目录 [README](../README.md)。
 - 与上游重叠的部分，原则是「不改上游行为，只加不替换」：新增能力放在独立模块或受开关控制，上游新版本通过合并（merge）引入，冲突在本 Fork 内解决。
 - 上游新增的 Stage 指定平台搜索仍只接入 Electron；Web Host 的 Stage 通道尚未接入该新增接口，原有搜索路径保留。
-- 当前已合并上游 main 至 `1f73b512e`（**v0.7.28**）：新增 Apple Music 伴随播放器、速记簿播放队列页、Stage 外部播放器时钟与封面接口；同步快捷键、歌词别名搜索、Navidrome 专辑与界面修复。保留本 Fork 的 Stage 中继、手机布局、跨平台歌单、随机播放和代理设置。Apple Music 的平台支持与限制见 [上游实现说明](../electron/appleMusic/README.md)。完整记录见 [Fork 更新日志](../FORK_CHANGELOG.md)。
+- 当前已合并上游 main 至 `1f73b512e`（**v0.7.28**）：新增 Apple Music 伴随播放器、速记簿播放队列页、Stage 外部播放器时钟与封面接口；同步快捷键、歌词别名搜索、Navidrome 专辑与界面修复。保留本 Fork 的 Stage 中继、手机布局、跨平台歌单、随机播放、代理设置和桌面音乐 MCP。Apple Music 的平台支持与限制见 [上游实现说明](../electron/appleMusic/README.md)。完整记录见 [Fork 更新日志](../FORK_CHANGELOG.md)。
 - 本次合并兼容修复：飞牛音源接入直通；表单登录在开发模式失败后可重试，关窗或换平台后旧请求不再清掉新登录或切回旧平台。
 
 **重点功能：[Hi-Fi 直通（桌面版）](hifi.md)**——WASAPI 独占 / 共享直出、整数采样、整数倍优先、单次重采样（rubato / SoXR）、真实链路读数。完整说明、实测数据与边界在 [hifi.md](hifi.md)，本文第 8 节只保留与其他功能交叉的部分、构建与脚本。
+
+**近期桌面扩展：[桌面音乐 MCP](music-mcp.md)**（第 9.2 节）——本机 Agent 经 loopback 读取多平台资料并在指定账号建单 / 控播。
 
 ---
 
@@ -46,6 +48,7 @@
 - **实际音质显示**:播放条标题下显示平台**实际给的**音质(如 `Hi-Res · FLAC`、`Ogg Vorbis · 320k`);比「设置」里选的低时带 ↓ 并用琥珀色,悬停可见所选与实际。数据来自平台自己的响应:网易云(level / br / type)、Spotify(文件格式)、YouTube Music(itag / 码率);平台不说、或从媒体缓存里放出的旧副本不显示(不拿请求的档位冒充)。Spotify 本身只有 160 / 320 kbit/s,选 hires 会显示降级。手机布局同样显示。
 - **各平台自己的音质档位**:音质下拉只列当前平台真有的档,并标实际规格。网易云 标准 128k / 极高 320k / 无损 FLAC / Hi-Res / **高清臻音 / 超清母带**(新增两档,拿不到时按 母带→臻音→Hi-Res→无损→极高→标准 逐档降;杜比全景声、沉浸环绕声是多声道格式,浏览器放不了,不列);QQ 标准 128k / 极高 320k / 无损 FLAC(后端没有 Hi-Res);酷狗 128k / 320k / FLAC / 高解析;Spotify 160 / 320 kbit/s;YouTube Music 标准 / 极高 /(会员)超高。偏好仍是一个全局值,平台没有的档自动落到它最接近且不高于的那一档。
 - **底部控制条槽位**：右侧原来的「歌词时间轴」默认位换成「喜欢」（加入「我喜欢的音乐」），旧默认自动迁移，仍可在设置里改回。
+- **混排队列的平台标记**：队列里混了多个在线平台时，播放条与三处队列列表（队列面板、命令面板队列、墙面工具队列）标出每首歌来自哪个平台；只有一个平台时不显示。代码：`src/components/shared/SongPlatformBadge.tsx`、`songPlatform.ts`。
 
 ## 4. 手机适配（独立的手机布局）
 
@@ -144,6 +147,18 @@
 - **Spotify 播放只能走 HTTP 代理**：上游的 `@lox-audioserver/node-librespot` 没有代理选项，安装包用 `packaging/windows/librespot-proxy/`（`npm run build:librespot-proxy`，需要 Rust MSVC）给 `createSession` 补一个 `proxy` 字段后重新编译，CI（`together-installer.yml`）在打包前执行。补丁在包版本变了、对不上时直接报错（`test/unit/electron/librespotProxyPatch.test.ts` 对着真实包源码检查）。选了 SOCKS 代理时，浏览和登录走代理，播放直连，日志里有 `[NetworkProxy]` 提示。没有补丁版组件（非 Windows、本地开发）时 `proxy` 被忽略，播放直连。
 - 代码位置：`electron/networkProxy/`（设置、地址解析、探测）、`electron/main.cjs`（会话与 IPC `network-proxy-*`）、`src/components/modal/settings/pages/integration/NetworkProxyGroup.tsx`（设置页）。
 
+## 9.2 桌面音乐 MCP
+
+桌面版为本机 Agent 提供音乐 MCP（Together v1.9.0 起）：读取多平台歌单、收藏、推荐与 Folia 收听记录，并在已登录的平台账号内建单、加歌、控制播放。网页版与 Stage Host **没有**该端口。
+
+- **入口**：设置 → 连接与集成 → 音乐 MCP；命令面板可搜「音乐 MCP」。复制 Agent 配置（含 Bearer 密钥）粘到 Cursor 等客户端。
+- **地址**：默认 `http://127.0.0.1:38451/mcp`，只绑定本机；另有 stdio 桥 `electron/mcp/stdio.cjs`。
+- **两个开关**：启用服务；允许写入和播放控制（关则 Agent 侧看不到写入类工具）。
+- **能力概要**：`list_sources` 发现登录与建单能力；搜索 / 歌词 / 歌单 / 推荐；`match_playlist_tracks` → `create_playlist` / `create_folia_playlist`；`play_track` / `control_playback`。建单目前主要走 Omni：网易云、QQ、Spotify、FnMusic；`local` / `folia` 可读本地与跨平台歌单；网易云另有一批白名单原始只读端点。
+- **安全**：loopback + token；写入闸门；同刻只允许一个写入；密钥尽量密封存储。
+- **代码**：`electron/mcp/`（主进程）、`src/components/app/musicMcp/`（渲染调度）、`MusicMcpRows.tsx`（设置）、`test/unit/musicMcp/`。
+- **完整说明**：工具表、环境变量、排错见 [桌面音乐 MCP](music-mcp.md)。
+
 ---
 
 ## 9.5 服务端与桌面版：哪些共用，哪些不共用
@@ -160,8 +175,9 @@
 | Spotify | `server/stage-relay/spotify.cjs` | `electron/spotify/` | 中继直接用桌面版的桥接代码 |
 | 酷狗 | `scripts/start-kugou-api.cjs`（库自带的 HTTP 服务 + 一处内存补丁） | `electron/kugou/kugouApiBridge.cjs`（进程内、白名单操作、加密会话） | **包同一个，调用方式不同，有意不合并**：桌面版不开端口、只放行白名单操作，服务端的库只绑本机、前面有中继 |
 | 版本与更新 | 从仓库 `git pull`（`start-stage.cmd --auto-update`） | 从同一个提交构建的安装包（应用内更新） | 同一个提交，见第 10 节 |
+| 音乐 MCP | 无 | `electron/mcp/` + `src/components/app/musicMcp/` | **仅桌面**（loopback，不经中继） |
 
-只在一边的功能（有意）：桌面版有直通播放、遥控窗口、检测更新、本地文件与登录窗口、壁纸；网页版有中继、Host 页、手机遥控。
+只在一边的功能（有意）：桌面版有直通播放、遥控窗口、检测更新、本地文件与登录窗口、壁纸、**音乐 MCP**；网页版有中继、Host 页、手机遥控。
 
 还没有合进来的两条部署路径：`deploy/docker/`（自带的网易云、酷狗镜像与网关）和 Vercel 的 `api/` 函数，它们各有自己的后端，改后端行为时要单独看一眼。
 
@@ -188,8 +204,4 @@
 - **提交规范**：`feat(范围): …` / `fix(范围): …` / `chore(范围): …`，范围如 `stage-remote`、`library`、`layout`、`playback`、`ai`、`scripts`。
 - **设置存储**：新增设置项的 localStorage 键记录在 `test/unit/stores/storeContract.test.ts` 的快照里，新增或改名时需要更新快照。
 - **推送即出包**：每次推送 `stage-remote` 都会自动生成新的安装包发布（见上一节）；推送后要到 Actions 里确认这次构建成功，失败了要修。
-- **不提交**：`.env.local`、令牌文件（`~/.folia-stage/token`）、任何账号 Cookie 与 API Key。
-
-## 桌面音乐 MCP
-
-桌面版可将 Omni 音乐能力和已允许的平台原始 API 提供给本机 Agent，并在指定平台创建和验证歌单。在「设置 → 连接与集成 → 音乐 MCP」启用并复制 Agent 配置。支持范围及写入行为见 [桌面音乐 MCP](music-mcp.md)。
+- **不提交**：`.env.local`、令牌文件（`~/.folia-stage/token`）、任何账号 Cookie 与 API Key、音乐 MCP 连接密钥。

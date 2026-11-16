@@ -12,6 +12,7 @@
 | [根 README](../README.md) | Fork 概览、部署与启动、反馈约定 |
 | [Fork 更新日志](../FORK_CHANGELOG.md) | Fork 自己的版本号规则与各版本变更（独立于上游版本号） |
 | [Hi-Fi 直通](hifi.md) | **本 Fork 的重点功能**：Windows 桌面版的 WASAPI 直通、整数采样、重采样（rubato / SoXR）、真实链路读数、能保证与不能保证的边界 |
+| [桌面音乐 MCP](music-mcp.md) | 桌面版为本机 Agent 提供的音乐 MCP：启用、HTTP / stdio、工具一览、安全边界、排错 |
 | [Fork 功能与修复清单](fork-features.md) | 相对上游多出来的全部功能与修复、已知限制、维护约定 |
 | [Stage Remote 使用文档](stage-remote.md) | 服务器本机播放与多人遥控：角色、端口、启动脚本、令牌、账号共享、排错 |
 | [QQ 音乐部署指南](qq-music-deployment.md) | QQ 音乐在 Vercel / Cloudflare / Docker 上的部署（本 Fork 单机形态直接用 `start-stage.cmd`，不需要这篇） |
