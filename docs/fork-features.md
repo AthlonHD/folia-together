@@ -199,8 +199,8 @@
 ## 维护约定
 
 - **版本号**：Fork 有自己的版本号（根目录 `FORK_VERSION`，从 `1.0.0` 起，当前值见该文件），与上游 `package.json` 的版本互不影响；规则与每个版本的变更见 [Fork 更新日志](../FORK_CHANGELOG.md)。
-- **分支**：`stage-remote` 为 Fork 的主开发分支，所有改动先在这里提交与验证。
-- **同步上游**：`git fetch upstream`（`https://github.com/chthollyphile/folia-major.git`）后合并，冲突就地解决，随后跑 `npx tsc --noEmit -p .` 与 `npx vitest run -c vitest.config.ts`，并更新本文档。
+- **分支**：GitHub 默认分支与主开发分支均为 `stage-remote`；`upstream-sync` 对齐上游（跟踪 `upstream/main`），不在其上做 Fork 功能开发。已删除旧的 `main` 与过期实验分支。
+- **同步上游**：`git fetch upstream`（`https://github.com/chthollyphile/folia-major.git`）后把 `upstream/main`（或已更新的 `upstream-sync`）合并进 `stage-remote`，冲突就地解决，随后跑 `npx tsc --noEmit -p .` 与 `npx vitest run -c vitest.config.ts`，并更新本文档；需要时把 `upstream-sync` 快进推到 origin。
 - **提交规范**：`feat(范围): …` / `fix(范围): …` / `chore(范围): …`，范围如 `stage-remote`、`library`、`layout`、`playback`、`ai`、`scripts`。
 - **设置存储**：新增设置项的 localStorage 键记录在 `test/unit/stores/storeContract.test.ts` 的快照里，新增或改名时需要更新快照。
 - **推送即出包**：每次推送 `stage-remote` 都会自动生成新的安装包发布（见上一节）；推送后要到 Actions 里确认这次构建成功，失败了要修。

@@ -34,7 +34,7 @@ Lyrics Reimagined // 辞曲新境 —— 一台机器放歌，一群人遥控
 
 Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器（上游项目：[chthollyphile/folia-major](https://github.com/chthollyphile/folia-major)），支持网易云、QQ 音乐、酷狗、Navidrome 和本地音乐库，桌面端还支持波点音乐、YouTube Music、Spotify 和汽水音乐，通过智能歌词匹配、AI 生成配色主题以及多种全屏歌词动画，提供独特的听歌体验。
 
-**本仓库（[AthlonHD/folia-together](https://github.com/AthlonHD/folia-together)）是它的长期维护 Fork**，开发分支为 `stage-remote`。在保留上游全部播放与歌词能力的基础上，围绕三个方向做了扩展：
+**本仓库（[AthlonHD/folia-together](https://github.com/AthlonHD/folia-together)）是它的长期维护 Fork**。GitHub 默认分支与开发分支均为 `stage-remote`（`upstream-sync` 只用来对齐上游，不要在上面开发）。在保留上游全部播放与歌词能力的基础上，围绕三个方向做了扩展：
 
 - **Hi-Fi 直通（Windows 桌面版，本 Fork 的重点）**：绕开浏览器音频栈，独占时绕过 Windows 共享混音器，支持 WASAPI 独占 / 共享输出；整数采样、只做一次重采样（rubato 或 SoXR 可选）、链路显示稳态 PCM 判定和转换情况。详见下一节。
 - **一台机器放歌、一群人遥控**：服务器（或常开的电脑）上的浏览器出声，朋友和家人用手机、电脑打开同一个网址点歌、切歌、管队列。

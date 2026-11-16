@@ -84,7 +84,7 @@
 
 ## Fork 约定
 
-本仓库是 [chthollyphile/folia-major](https://github.com/chthollyphile/folia-major)（上游）的长期维护 Fork，开发分支 `stage-remote`。
+本仓库是 [chthollyphile/folia-major](https://github.com/chthollyphile/folia-major)（上游）的长期维护 Fork。GitHub 默认分支与开发分支均为 `stage-remote`；`upstream-sync` 用于对齐上游（跟踪 `upstream/main`），不在其上开发 Fork 功能。
 
 - 新增或修改 Fork 功能（遥控 / Stage 中继、手机布局、QQ / 酷狗、启动脚本、AI 接口、音乐 MCP 等）时，**同步更新** `docs/fork-features.md`；涉及部署、端口、令牌、脚本参数的，还要更新 `docs/stage-remote.md` 与根 `README.md` 的「部署与启动」。
 - 与上游重复的说明不要在本仓库重写，用链接指向上游；上游沿用文档只在顶部加「Fork 说明」，不改正文，以减少合并冲突。
@@ -93,7 +93,7 @@
 - 服务端与桌面版的后端尽量共用：不依赖 Electron 的模块放在 `electron/` 里，服务端的启动脚本（`scripts/start-*-api.cjs`）直接用它，不要在 `scripts/` 或 `server/` 里另写一份；哪些共用、哪些有意不同见 `docs/fork-features.md` 第 9.5 节。
 - 改直通播放（`packaging/windows/audio-helper/`、`electron/audioHelper/`、`src/components/app/passthrough/`、`src/services/passthrough/`）的行为、数据或界面时，同步更新 `docs/hifi.md`；它是本 Fork 的重点功能，文档里写的实测数据要能用文中的命令重现，写不到的边界要如实写出来，不夸大。
 - 改桌面音乐 MCP（`electron/mcp/`、`src/components/app/musicMcp/`、设置页 `MusicMcpRows.tsx`）的工具、鉴权、端口或写入行为时，同步更新 `docs/music-mcp.md`，并核对本节与 `docs/fork-features.md` 第 9.2 节、根 `README.md` 功能表是否仍准确；连接密钥不进文档示例以外的仓库文件。
-- **每次出新安装包（推送 `stage-remote`）之前，先 `git fetch upstream` 并合并 `upstream/main`**，解决冲突、跑 `npx tsc --noEmit` 与全量测试后再发布，保证每个包都跟上游最新版本；上游没有新提交就在回复里说一句。只合并上游不单独升 Fork 版本号，在更新日志里写明并入到哪个提交。
+- **每次出新安装包（推送 `stage-remote`）之前，先 `git fetch upstream` 并合并 `upstream/main`**（可顺手快进 `upstream-sync`），解决冲突、跑 `npx tsc --noEmit` 与全量测试后再发布，保证每个包都跟上游最新版本；上游没有新提交就在回复里说一句。只合并上游不单独升 Fork 版本号，在更新日志里写明并入到哪个提交。
 - 每次推送 `stage-remote` 都会由 `.github/workflows/together-installer.yml` 构建并发布新的安装包（`together-latest`）；推送后确认这次构建成功。
 - 提交信息：`feat(范围): …` / `fix(范围): …` / `chore(范围): …`。不要提交 `.env.local`、令牌文件、账号 Cookie 与 API Key。
 
