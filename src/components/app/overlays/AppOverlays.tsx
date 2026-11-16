@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import FloatingPlayerControls from '../../FloatingPlayerControls';
 import SearchWorkspace from '../search/SearchWorkspace';
 import DevDebugOverlay from '../../DevDebugOverlay';
@@ -13,6 +13,7 @@ import { useIsPhoneLayout } from '../../../hooks/useLayoutMode';
 import { useBottomDockStore } from '../../../stores/useBottomDockStore';
 import { useBottomLayoutTracking } from '../../../hooks/useBottomLayoutTracking';
 import { useNowPlayingCardLayoutStore } from './now-playing-toast/nowPlayingCardLayoutStore';
+import { useTrackEndCountdownStore, withTrackEndCountdown } from './now-playing-toast/trackEndCountdownStore';
 import { useTransitionBorderCue } from './now-playing-toast/useTransitionBorderCue';
 
 // Centralized app-level overlay renderer so App.tsx does not mount leaf overlays directly.
@@ -29,14 +30,19 @@ const AppOverlays: React.FC<AppOverlaysProps> = ({ model }) => {
     useBottomLayoutTracking();
     const isCompact = useBottomDockStore(state => state.layout === 'compact');
     const isPositioningCard = useNowPlayingCardLayoutStore(state => state.isPositioning);
-    const {
-        searchOverlay,
-        debugOverlay,
-        memoryMonitor,
-        floatingControls,
-        nowPlayingToast,
-        phoneChrome,
-    } = model;
+    const { searchOverlay, debugOverlay, memoryMonitor, phoneChrome } = model;
+    // 模型里的 isNextUp 只算混音。普通曲末的倒计时每首歌翻两次，放在 App 里每翻一次整棵重渲染一遍，
+    // 所以在这里读，合进卡片和胶囊拿到的 props；没在倒计时就原样传下去。
+    const isTrackEndCountdownActive = useTrackEndCountdownStore(state => state.active);
+    const nowPlayingToast = useMemo(
+        () => withTrackEndCountdown(model.nowPlayingToast, isTrackEndCountdownActive),
+        [model.nowPlayingToast, isTrackEndCountdownActive],
+    );
+    const floatingControls = useMemo(() => {
+        const controls = model.floatingControls;
+        const card = withTrackEndCountdown(controls?.card, isTrackEndCountdownActive);
+        return controls && card !== controls.card ? { ...controls, card } : controls;
+    }, [model.floatingControls, isTrackEndCountdownActive]);
 
     const showsCapsule = Boolean(floatingControls)
         && (floatingControls?.currentView !== 'lattice' || !isCurrentSongPosterVisible);

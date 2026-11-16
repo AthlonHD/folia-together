@@ -108,7 +108,7 @@ const fakeBrowser = (found: string | null = BROWSER) => {
     const state = { folder: false, holds: false, ends: true, cookies: [] as unknown, windows: [] as Array<{ end: (outcome: string) => void; stop: ReturnType<typeof vi.fn> }> };
     return Object.assign(state, {
         endLeftBrowsers: vi.fn(async (_dir: string) => state.ends),
-        findBrowser: vi.fn(() => found),
+        findBrowser: vi.fn((): string | null | Promise<string | null> => found),
         openSignIn: vi.fn((_browser: string, _dir: string) => {
             state.folder = true;
             let end!: (outcome: string) => void;
@@ -321,6 +321,40 @@ describe('YouTube Music web sign-in, from the browser window to the stored accou
         await expect(flow.start()).rejects.toMatchObject({ name: 'YtmError', code: 'unsupported' });
         expect(browser.openSignIn).not.toHaveBeenCalled();
         expect(flow.check()).toEqual({ state: 'expired' });
+    });
+
+    it.each(['cancel', 'quit'] as const)('does not open a browser after %s while looking for one', async action => {
+        const { flow, browser } = signInFlow();
+        let resolveBrowser!: (path: string) => void;
+        const found = new Promise<string>(resolve => { resolveBrowser = resolve; });
+        browser.findBrowser.mockReturnValueOnce(found);
+
+        const start = flow.start();
+        flow[action]();
+        resolveBrowser(BROWSER);
+
+        await expect(start).rejects.toMatchObject({ code: 'unavailable' });
+        expect(browser.openSignIn).not.toHaveBeenCalled();
+        expect(flow.check()).toEqual({ state: 'expired' });
+    });
+
+    it('keeps the newer start when an older browser lookup finishes last', async () => {
+        const { flow, browser } = signInFlow();
+        let resolveBrowser!: (path: string) => void;
+        const found = new Promise<string>(resolve => { resolveBrowser = resolve; });
+        browser.findBrowser.mockReturnValueOnce(found);
+
+        const first = flow.start();
+        await flow.start();
+        resolveBrowser(BROWSER);
+
+        await expect(first).rejects.toMatchObject({ code: 'unavailable' });
+        expect(browser.openSignIn).toHaveBeenCalledTimes(1);
+        expect(browser.windows[0].stop).not.toHaveBeenCalled();
+        expect(flow.check()).toEqual({ state: 'waiting' });
+        flow.cancel();
+        browser.windows[0].end('stopped');
+        await settled();
     });
 
     it('lets a second start take the place of the first, once the first browser has ended and its folder is gone', async () => {

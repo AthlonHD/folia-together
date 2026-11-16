@@ -88,7 +88,8 @@ export interface LibraryHomeData {
     /** Opens the window of the cross-platform playlists (kept on this device; the app leaves it out where there are none, on a remote controller). */
     onOpenCrossPlaylists?: () => void;
     navidromeEnabled?: boolean;
-    onPlayAll?: (songs: SongResult[], from?: GridViewCollectionDescriptor) => void;
+    /** `options.shuffle`：随机播放，这批歌打乱后再成为队列。 */
+    onPlayAll?: (songs: SongResult[], from?: GridViewCollectionDescriptor, options?: { shuffle?: boolean }) => void;
     onAddAllToQueue?: (songs: SongResult[], options?: { suppressToast?: boolean }) => number | void;
     onAddSongToQueue?: (song: SongResult) => void;
     onStatusMessage?: (message: StatusMessage) => void;

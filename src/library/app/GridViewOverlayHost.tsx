@@ -325,7 +325,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({
             ? {
                 ...surfaceProps,
                 onPlaySong: (track, queue) => surfaceProps.onPlaySong(track, queue, false, selectedCollection),
-                onPlayAll: surfaceProps.onPlayAll && ((songs) => surfaceProps.onPlayAll?.(songs, selectedCollection)),
+                onPlayAll: surfaceProps.onPlayAll && ((songs, _from, options) => surfaceProps.onPlayAll?.(songs, selectedCollection, options)),
             }
             : surfaceProps,
         liveSelectedCollection,

@@ -16,6 +16,7 @@ import { isStageRemoteMode } from '../../services/stageMode';
 import { canHoldInCrossPlaylist, visiblePlaylists } from './crossPlaylist/crossPlaylistModel';
 import { useCrossPlaylistStore } from './crossPlaylist/crossPlaylistStore';
 import { setStatusMessage } from '../../stores/useStatusMessageStore';
+import { onlineMutationFailureText } from '../../services/onlineMusic/failure/onlineMutationFailure';
 
 // src/components/app/AddToPlaylistHost.tsx
 // The playlist picker for the current song (and for the songs a scratchpad row or group, or a library
@@ -269,7 +270,7 @@ export const AddToPlaylistHost: React.FC<AddToPlaylistHostProps> = ({
     // by the platform, or lose a song from the library under it), and the dialog closes as on success.
     const reportFailure = (error: unknown, text = t('status.playlistUpdateFailed')) => {
         console.warn('[AddToPlaylist] add failed', { count: targetSongs.length }, error);
-        setStatusMessage({ type: 'error', text });
+        setStatusMessage({ type: 'error', text: onlineMutationFailureText(error, text, t) });
     };
 
     // 星标这几首 Navidrome 歌，并写进播放页红心读的那个星标集合。

@@ -169,6 +169,8 @@ function createYtmWebSignIn({
   // What a quit waits for: resolves once the browser of the last sign-in has ended and its
   // folder was removed, or could not be. null when no browser is to end and no folder to remove.
   let leaving = null;
+  // Invalidates starts still looking for a browser, before they have a login to end.
+  let startGeneration = 0;
   // Whether a folder may be on disk that nothing is about to remove. Not known until this run
   // has looked (an earlier run may have left one); after that, what the last removal answered.
   let mayBeLeft = true;
@@ -277,8 +279,10 @@ function createYtmWebSignIn({
   return {
     // Opens the sign-in window and answers at once; `check()` says how the sign-in stands.
     async start() {
+      const generation = ++startGeneration;
       const dir = profileDir();
-      const browserPath = dir ? browser.findBrowser() : null;
+      const browserPath = dir ? await browser.findBrowser() : null;
+      if (generation !== startGeneration) throw ytmError('unavailable', 'YouTube Music sign-in was cancelled or started again');
       if (!browserPath) throw ytmError('unsupported', 'No browser for the YouTube Music sign-in was found', undefined, 'no-browser');
       // A second start takes the place of a sign-in under way.
       end(current, 'replaced by a new start');
@@ -286,7 +290,10 @@ function createYtmWebSignIn({
       current = login;
       const cleared = await sweep();
       // Cancelled or started again while the folder was being cleared.
-      if (login.state !== 'waiting') throw ytmError('unavailable', 'YouTube Music sign-in was cancelled or started again');
+      if (generation !== startGeneration || login.state !== 'waiting') {
+        end(login, 'replaced by a new start');
+        throw ytmError('unavailable', 'YouTube Music sign-in was cancelled or started again');
+      }
       // A browser an earlier run left could not be ended, or something still holds the folder.
       // No second browser is started there: it would hand its start over to the first.
       if (!cleared) {
@@ -314,6 +321,7 @@ function createYtmWebSignIn({
       return { state, ...(user ? { user } : {}), ...failure };
     },
     cancel(words = 'cancelled') {
+      startGeneration += 1;
       end(current, words);
       current = null;
     },

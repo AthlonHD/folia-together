@@ -12,7 +12,9 @@ export const SETTINGS_ANCHOR_DEFINITIONS = {
     // pages/AppearancePage
     lyricsRenderer: { section: 'appearance' },
     themePresets: { section: 'appearance' },
-    electronSettings: { section: 'appearance' },
+
+    // pages/AiServicePage — the one AI connection every AI feature reads
+    electronSettings: { section: 'ai' },
 
     // 本 Fork:pages/PlaybackPage 的「播放位置」(只在配置了 Stage 中继时画)与 pages/GeneralPage 的「界面布局」
     playTarget: { section: 'playback' },
@@ -87,6 +89,10 @@ export const SETTINGS_ANCHOR_DEFINITIONS = {
     desktopTrayBehavior: { section: 'desktop' },
     wallpaperMode: { section: 'desktop' },
     updateCheck: { section: 'general' },
+
+    // pages/RemotePage (desktop app only)
+    remoteControl: { section: 'remote' },
+    remoteLyrics: { section: 'remote' },
 
     // pages/GraphicsPage; the render GPU row only in the Windows desktop app.
     graphicsPerformance: { section: 'graphics' },

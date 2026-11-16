@@ -4,12 +4,16 @@ const { controlQueue } = require('./companionQueue.cjs');
 const { updateFavorite } = require('./companionFavorites.cjs');
 const { addPlaylistTracks } = require('./companionPlaylist.cjs');
 const { readPersonalStation } = require('./companionRadio.cjs');
+const { alignStorefront } = require('./companionStorefront.cjs');
 
 // Define the only data requests the parent may send to the isolated Apple Music page.
 const REQUEST_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const RESOURCE_ID = /^[a-zA-Z0-9._-]{1,200}$/;
+// What a song is played, liked and added to a playlist by: its catalog id, or the library id of an upload
+// Apple has no catalog song for (MusicKit queues `i.` ids from the user's library, as Apple's web player does).
+const PLAYBACK_SONG_ID = /^(?:\d{1,40}|i\.[a-zA-Z0-9]{1,100})$/;
 // Folia chooses the order; the companion may prepare a bounded tail but cannot invent next tracks.
-const PLAYBACK_COMMANDS = new Set(['playStation', 'playSong', 'pause', 'resume', 'seek', 'setVolume', 'prepareNext']);
+const PLAYBACK_COMMANDS = new Set(['playStation', 'playSong', 'pause', 'resume', 'seek', 'setVolume', 'setRepeatOne', 'prepareNext']);
 const OPERATIONS = new Set(['songOriginal', 'catalogSong', 'catalogAlbum', 'catalogAlbumTracks', 'catalogArtist', 'catalogArtistSongs', 'catalogArtistAlbums', 'libraryAlbums', 'librarySongs', 'libraryAlbumTracks', 'stations', 'station', 'personalFm', 'showWindow', 'hideWindow', 'logout', 'accountStatus', 'search', 'playlists', 'playlistTracks', 'playlistTrackCount', 'lyrics', 'playbackStatus', 'likeSong', 'addPlaylistTracks', ...PLAYBACK_COMMANDS]);
 
 function validateRequest(message) {
@@ -33,26 +37,31 @@ function validateRequest(message) {
         if (typeof params.volume !== 'number' || !Number.isFinite(params.volume) || params.volume < 0 || params.volume > 1) return null;
         return { id, operation, params: { volume: params.volume } };
     }
+    if (operation === 'setRepeatOne') {
+        if (typeof params.enabled !== 'boolean') return null;
+        return { id, operation, params: { enabled: params.enabled } };
+    }
     if (operation === 'addPlaylistTracks') {
         if (typeof params.playlistId !== 'string' || !/^p\.[a-zA-Z0-9._-]{1,198}$/.test(params.playlistId)
             || !Array.isArray(params.catalogIds) || params.catalogIds.length < 1 || params.catalogIds.length > 100
-            || params.catalogIds.some(id => typeof id !== 'string' || !/^\d{1,40}$/.test(id))) return null;
+            || params.catalogIds.some(id => typeof id !== 'string' || !PLAYBACK_SONG_ID.test(id))) return null;
         return { id, operation, params: { playlistId: params.playlistId, catalogIds: [...new Set(params.catalogIds)] } };
     }
     if (operation === 'likeSong') {
-        if (typeof params.catalogId !== 'string' || !/^\d{1,40}$/.test(params.catalogId) || typeof params.liked !== 'boolean') return null;
+        if (typeof params.catalogId !== 'string' || !PLAYBACK_SONG_ID.test(params.catalogId) || typeof params.liked !== 'boolean') return null;
         return { id, operation, params: { catalogId: params.catalogId, liked: params.liked } };
     }
     if (operation === 'prepareNext') {
-        if (typeof params.catalogId !== 'string' || !/^\d{1,40}$/.test(params.catalogId)
+        if (typeof params.catalogId !== 'string' || !PLAYBACK_SONG_ID.test(params.catalogId)
             || !Array.isArray(params.nextIds) || params.nextIds.length > 2
+            // The tail stays catalog-only: an upload starts through playSong, not a prepared queue.
             || params.nextIds.some(id => typeof id !== 'string' || !/^\d{1,40}$/.test(id))
             || new Set([params.catalogId, ...params.nextIds]).size !== params.nextIds.length + 1) return null;
         return { id, operation, params: { catalogId: params.catalogId, nextIds: params.nextIds.slice() } };
     }
     if (operation === 'playSong') {
         const { catalogId, startSec = 0, requestKey, adoptCurrent = false } = params;
-        if (typeof catalogId !== 'string' || !/^\d{1,40}$/.test(catalogId)) return null;
+        if (typeof catalogId !== 'string' || !PLAYBACK_SONG_ID.test(catalogId)) return null;
         if (typeof startSec !== 'number' || !Number.isFinite(startSec) || startSec < 0 || startSec > 604800) return null;
         if (requestKey !== undefined && (typeof requestKey !== 'string' || !REQUEST_ID.test(requestKey))) return null;
         if (typeof adoptCurrent !== 'boolean') return null;
@@ -86,7 +95,7 @@ function validateRequest(message) {
 }
 
 // This function runs inside the Apple page; return only fields required by the provider.
-async function readFromPage(request, controlQueue, updateFavorite, addPlaylistTracks, readPersonalStation) {
+async function readFromPage(request, controlQueue, updateFavorite, addPlaylistTracks, readPersonalStation, alignStorefront) {
     try {
         const mk = window.MusicKit?.getInstance();
         const modern = mk?.api?.v3;
@@ -98,6 +107,10 @@ async function readFromPage(request, controlQueue, updateFavorite, addPlaylistTr
                 ? legacy.music(path, query, options.fetchOptions) : legacy.music(path, query)
                 : null;
         if (!call) return { ok: false, error: 'not-ready' };
+        // Starts and prepared queues play in the account's region, whatever region the page is in.
+        if (['playSong', 'playStation', 'prepareNext'].includes(request.operation)) {
+            try { await alignStorefront(mk); } catch { /* The start goes on in the page's own region. */ }
+        }
         if (request.operation === 'addPlaylistTracks') return await addPlaylistTracks(call, request.params);
         if (request.operation === 'likeSong') return await updateFavorite(call, request.params);
         if (request.operation === 'prepareNext') return await controlQueue(mk, request.operation, request.params);
@@ -131,6 +144,7 @@ async function readFromPage(request, controlQueue, updateFavorite, addPlaylistTr
                 ...(window.__foliaStart?.pending && !window.__foliaStart.cancelled ? { starting: true } : {}),
                 // MusicKit's own state tells "stopped" and "ended" apart from a pause.
                 state: Number.isInteger(state) ? state : null,
+                repeatMode: Number.isInteger(mk.repeatMode) ? mk.repeatMode : null,
                 queueLength,
                 queueKeys: queue ? Object.keys(queue).slice(0, 12) : null,
                 positionMs: Number.isFinite(position) && position >= 0 ? Math.round(position * 1000) : 0,
@@ -151,6 +165,8 @@ async function readFromPage(request, controlQueue, updateFavorite, addPlaylistTr
                     mk.setQueue = clearStationOnQueueChange;
                     window.__foliaStationQueueHook = clearStationOnQueueChange;
                 }
+                // A live station never repeats one track, whatever the song before it did.
+                if (typeof mk.setRepeatMode === 'function') mk.setRepeatMode(0);
                 await mk.setQueue({ station: request.params.stationId, startPlaying: false });
                 window.__foliaLiveStation = request.params.stationId;
                 window.__foliaPreparedQueue = [];
@@ -163,6 +179,18 @@ async function readFromPage(request, controlQueue, updateFavorite, addPlaylistTr
             if (typeof mk.volume !== 'number') return { ok: false, error: 'unsupported' };
             mk.volume = request.params.volume;
             return { ok: true, data: {} };
+        }
+        if (request.operation === 'setRepeatOne') {
+            // MusicKit's PlayerRepeatMode: none 0, one 1 (all 2 is never set: Folia's queue decides what
+            // follows). A start (playSong) turns it off again; the renderer sends it after every start.
+            const mode = request.params.enabled ? 1 : 0;
+            try {
+                if (typeof mk.setRepeatMode === 'function') mk.setRepeatMode(mode);
+                else if ('repeatMode' in mk) mk.repeatMode = mode;
+                else return { ok: false, error: 'unsupported' };
+            } catch { return { ok: false, error: 'playback-failed' }; }
+            // What the player holds afterwards, read back: the caller logs it (a number, no words).
+            return { ok: true, data: { repeatMode: Number.isInteger(mk.repeatMode) ? mk.repeatMode : null } };
         }
         const methods = { pause: 'pause', resume: 'play', seek: 'seekToTime' };
         if (request.operation === 'playSong') {
@@ -205,6 +233,11 @@ async function readFromPage(request, controlQueue, updateFavorite, addPlaylistTr
                 isPlaying: mk.isPlaying === true,
                 itemId: typeof mk.nowPlayingItem?.id === 'string' ? mk.nowPlayingItem.id : '',
                 queueKeys: mk.queue ? Object.keys(mk.queue).slice(0, 12) : null,
+                // A start that will only sound a preview says so here, with the region it plays in and,
+                // where the page is in another region, what Apple said of the subscription (null: nothing yet).
+                previewOnly: mk.previewOnly === true,
+                storefront: typeof mk.storefrontId === 'string' ? mk.storefrontId.slice(0, 8) : '',
+                subscribed: typeof window.__foliaSubscribed === 'boolean' ? window.__foliaSubscribed : null,
             } };
         }
         if (Object.prototype.hasOwnProperty.call(methods, request.operation)) {
@@ -401,7 +434,7 @@ async function readFromPage(request, controlQueue, updateFavorite, addPlaylistTr
 
 // Embed validated JSON only; the parent cannot supply executable JavaScript.
 function requestExpression(request) {
-    return `(${readFromPage.toString()})(${JSON.stringify(request)}, (${controlQueue.toString()}), (${updateFavorite.toString()}), (${addPlaylistTracks.toString()}), (${readPersonalStation.toString()}))`;
+    return `(${readFromPage.toString()})(${JSON.stringify(request)}, (${controlQueue.toString()}), (${updateFavorite.toString()}), (${addPlaylistTracks.toString()}), (${readPersonalStation.toString()}), (${alignStorefront.toString()}))`;
 }
 
 // A timed-out playback can still produce sound later. Recover the document before accepting more work.

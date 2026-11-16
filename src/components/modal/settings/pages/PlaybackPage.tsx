@@ -44,6 +44,7 @@ const O = {
     queueBehavior: option(BEHAVIOR, 'queueDefaultBehavior', 'options.queueDefaultBehavior'),
     autoSkipUnplayable: option(BEHAVIOR, 'autoSkipUnplayable', 'options.autoSkipUnplayable'),
     heartbeatInterval: option(BEHAVIOR, 'heartbeatInterval', 'options.heartbeatInterval'),
+    shuffleRoundNoRepeat: option(BEHAVIOR, 'shuffleRoundNoRepeat', 'options.shuffleRoundNoRepeat'),
     preventSleep: option(BEHAVIOR, 'preventDisplaySleepDuringPlayback', 'options.preventDisplaySleepDuringPlayback', { electronOnly: true }),
     voiceInputPause: option(BEHAVIOR, 'voiceInputPause', 'options.voiceInputPause', { electronOnly: true, available: () => runsOnWindows() }),
 };
@@ -85,11 +86,13 @@ const PlaybackPage: React.FC = () => {
         autoSkipUnplayable: state.autoSkipUnplayable,
         heartbeatInterval: state.heartbeatInterval,
         setHeartbeatInterval: state.handleSetHeartbeatInterval,
+        shuffleRoundNoRepeat: state.shuffleRoundNoRepeat,
         setMediaCache: state.handleToggleMediaCache,
         setFade: state.handleTogglePlaybackFade,
         setTranscode: state.handleToggleTranscodeFallback,
         setQueueBehavior: state.handleSetQueueAddBehavior,
         setAutoSkipUnplayable: state.handleToggleAutoSkipUnplayable,
+        setShuffleRoundNoRepeat: state.handleToggleShuffleRoundNoRepeat,
     })));
     // With pass-through on, the sound is made by the separate player: the web player's output device, ReplayGain and fade do nothing to it.
     const passthroughOn = usePassthroughSettingsStore(state => state.passthroughEnabled) && Boolean(window.electron?.audioHelper) && runsOnWindows();
@@ -253,6 +256,9 @@ const PlaybackPage: React.FC = () => {
                         options={HEARTBEAT_INTERVAL_OPTIONS.map(value => ({ value: String(value), label: t(`options.heartbeatInterval_${value}`) }))}
                         onChange={value => audio.setHeartbeatInterval(Number(value) as typeof HEARTBEAT_INTERVAL_OPTIONS[number])}
                     />
+                </Row>
+                <Row option={O.shuffleRoundNoRepeat} note={t('options.shuffleRoundNoRepeatDesc')}>
+                    <Toggle checked={audio.shuffleRoundNoRepeat} onChange={audio.setShuffleRoundNoRepeat} />
                 </Row>
                 {isElectron && (
                     <Row option={O.preventSleep} hint={t('options.preventDisplaySleepDuringPlaybackDesc')}>

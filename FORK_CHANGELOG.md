@@ -15,6 +15,8 @@
 
 ## [Unreleased]
 
+- 并入上游 main 至 1f73b512e（v0.7.28）：遥控窗口歌词与设置、Lattice 电台、封面取色改进、便携版 YouTube Music 登录和 Steam Audio；保留 Fork 手机布局、Stage 中继及直通音频。
+
 - 并入上游 main 至 5bdade11（v0.7.27）：窄视口一体胶囊、Spotify Soloist 备用播放、推荐偏好与 QQ 后端 3.3.6、IPC 来源与窗口导航校验、歌词及音效链修复；保留 Fork 手机界面、Stage 音频流与直通播放。
 
 ## [1.8.0] - 2026-11-05

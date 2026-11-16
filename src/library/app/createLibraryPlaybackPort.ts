@@ -56,9 +56,9 @@ export const createLibraryPlaybackPort = (
         noteQueueContext(collection, queue);
         surface.onPlaySong(track, queue);
     },
-    playAll: tracks => {
+    playAll: (tracks, options) => {
         noteQueueContext(collection, tracks);
-        surface.onPlayAll?.(tracks);
+        surface.onPlayAll?.(tracks, undefined, options);
     },
     // 单曲入队按来源分流：本地歌交给本地队列，Navidrome 歌交出它的播放载体，其余走在线入队。
     enqueueTrack: (track: SongResult) => {
