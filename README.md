@@ -155,10 +155,10 @@ scripts\start-stage.cmd
 
 ### 在线体验（社区版）
 
-在浏览器里直接试用：[folia.tangbot.xyz](https://folia.tangbot.xyz/)
+在浏览器里直接试用：[folia-ce.cn](https://folia-ce.cn/)
 
 > [!NOTE]
-> 这是社区部署的演示站，仅供体验，部署来源为 [maimai993/folia-sonnet](https://github.com/maimai993/folia-sonnet)。它包含社区作者自己的改动，与官方 Web 版并不完全一致；使用中遇到问题请反馈到该社区仓库。长期使用建议下载桌面版或自行部署。
+> 这是社区部署的演示站，仅供体验，部署来源为 [folia-ce/folia-web](https://github.com/folia-ce/folia-web)。它包含社区作者自己的改动，与官方 Web 版并不完全一致；使用中遇到问题请反馈到该社区仓库。长期使用建议下载桌面版或自行部署。
 
 ### 演示视频
 
@@ -251,9 +251,10 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 
 ## 反馈与贡献
 
-- **本 Fork 特有的功能（Hi-Fi 直通、桌面版、遥控、手机布局、QQ / 酷狗接入、启动脚本等）与部署问题**：到本仓库提 [Issue](https://github.com/AthlonHD/folia-together/issues)。
+- **本 Fork 特有的功能（Hi-Fi 直通、桌面版、遥控、手机布局、QQ / 酷狗接入、启动脚本、音乐 MCP 等）与部署问题**：到本仓库提 [Issue](https://github.com/AthlonHD/folia-together/issues)。
 - **上游已有的功能（歌词动画、桌面版、模组、同步服务等）**：请到[上游 Issues](https://github.com/chthollyphile/folia-major/issues) 反馈；不确定归属时，先在本仓库提即可。
 - 贡献前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。不要在 Issue、日志或截图里公开账号 Cookie、Token、API Key。
+- 上游社区 Discord：[加入](https://discord.gg/dMDBTHxeKd)。Vercel / Cloudflare / 上游安装包等说明以上游 README 为准，见上文「其他部署形态」。
 
 ## 贡献者
 
