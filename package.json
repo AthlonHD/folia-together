@@ -16,7 +16,7 @@
     "url": "https://github.com/AthlonHD/folia-together/issues"
   },
   "private": true,
-  "version": "0.7.28",
+  "version": "0.7.29",
   "foliaReleaseChannel": "internal",
   "license": "AGPL-3.0",
   "type": "module",

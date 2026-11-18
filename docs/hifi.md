@@ -2,6 +2,8 @@
 
 > 桌面版（Windows）专有。网页版、遥控页和手机布局不受影响，仍走浏览器的音频栈。
 
+直通正在准备或接管声音时，分轨调音台暂停处理并显示原因；关闭直通或回退普通播放后恢复。分轨处理只作用于浏览器音频，不修改 WASAPI helper 的输出。回归命令：`npx vitest run -c vitest.config.ts test/unit/stemMixer/stemMixerAvailability.test.ts`。尚未用真实声卡验证此组合。
+
 浏览器和 Electron 的音频输出有两层不由应用控制的环节：Chromium 自己的音频栈，和 Windows 的共享混音器（把所有程序的声音混成一个固定格式，必要时重采样）。对想要「放出来的就是文件里的」的人，这两层都是多余的。
 
 **直通模式**把声音交给一个独立的原生播放器 `folia-audio-helper.exe`（Rust，随安装包 / 便携版一起带），它自己解码，用 WASAPI 把采样直接送给声卡驱动，并且**如实告诉你这一路到底做了什么**。
