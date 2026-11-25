@@ -244,15 +244,18 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 | Hi-Fi 直通 | 本 Fork 重点，Windows 桌面版，见 [Hi-Fi 直通](docs/hifi.md)。 |
 | 桌面音乐 MCP | 本 Fork 重点，桌面版为本机 Agent 提供音乐 API，见 [桌面音乐 MCP](docs/music-mcp.md)。 |
 | 服务器播放与多人遥控 | 本 Fork 新增，见上文与 [Stage Remote 使用文档](docs/stage-remote.md)。 |
-| 多平台在线音乐 | 网易云、QQ 音乐、酷狗，搜索、歌单、收藏、混排队列（QQ / 酷狗的 Fork 侧改动见 [Fork 功能与修复清单](docs/fork-features.md)）。 |
 | 手机布局 | 本 Fork 新增，独立的手机外壳与页面。 |
-| 本地音乐支持 | 导入本地音频文件，在本地保存索引，不上传文件内容。见 [本地音乐库管理](docs/local-library-management.md)。 |
-| 智能歌词匹配 | 本地歌曲自动匹配在线歌词与封面，也可手动修正；自动加载同目录 `.lrc` / `.vtt` / `.ttml` / `.qrc` / `.yrc` / `.krc` 等歌词文件。 |
-| AI 主题生成 | 基于歌曲情绪与歌词内容生成沉浸式背景与视觉参数；自托管服务器提供接口（见上）。 |
-| 全屏歌词动画（上游） | 多种歌词动画与背景，见下方展示与[上游使用指南](https://folia-site.cielaniska.top/guide/)。 |
-| Now Playing 接入（上游） | 通过本机 [Now Playing](https://github.com/Widdit/now-playing-service/) 服务接入外部播放器。 |
-| Folium 模组系统（上游，实验性） | 仅桌面版，见[上游文档](https://github.com/chthollyphile/folia-major#%E6%A8%A1%E7%BB%84%E7%B3%BB%E7%BB%9Ffolium-v1x)与本仓库 [`mods/`](mods/)。 |
-| Sync Server（上游） | 跨设备同步外观设置与 AI 主题库，见 [sync-server](sync-server/README.md) 与[上游部署指南](https://folia-site.cielaniska.top/guide/deploy-sync)。 |
+| 多平台在线音乐 | 网易云、QQ 音乐、酷狗，搜索、歌单、收藏、混排队列（QQ / 酷狗的 Fork 侧改动见 [Fork 功能与修复清单](docs/fork-features.md)）。 |
+| 在线搜索与播放 | 搜索歌曲、歌手或专辑后即可播放，并自动加载相关封面与歌词。 |
+| 本地音乐支持 | 可导入本地音频文件，在本地安全保存索引信息，不上传文件内容。详细用法见 [本地音乐库管理](docs/local-library-management.md)。 |
+| 智能歌词匹配 | 本地歌曲可自动匹配在线歌词与封面，也支持手动修正匹配结果。 |
+| 本地歌词文件识别 | 自动加载同目录同名 `.lrc`、`.vtt`、`.ttml`、`.qrc`、`.yrc`、`.krc` 歌词文件，或歌词文件内嵌 LRC 歌词。适配 LDDC 生成的增强型逐字歌词格式。 |
+| Now Playing 接入 | 支持通过本机 [Now Playing](https://github.com/Widdit/now-playing-service/) 服务接入外部播放器的歌曲、时间轴与歌词信息，并驱动 Folia 的舞台视图与全屏歌词渲染。 |
+| AI 主题生成 | 基于歌曲情绪与歌词内容生成沉浸式背景与视觉参数。自托管服务器提供接口（见上文「部署与启动」）。 |
+| 全屏歌词动画 | 多种歌词动画与背景，见上方展示与[上游使用指南](https://folia-site.cielaniska.top/guide/)。 |
+| 多端体验 | 提供 Web 部署方式，同时支持桌面端打包分发。 |
+| 模组系统 | 桌面版可通过 Folium 模组添加歌词动画、背景、播放页图层、命令、音源等；模组市场就在「设置 → 模组」里，安装、更新、卸载都在应用内完成。详见 [模组系统](#模组系统folium-2)。 |
+| Sync Server | 跨设备同步外观设置与 AI 主题库，见下方 [Sync Server](#sync-server) 与 [sync-server](sync-server/README.md)。 |
 
 ## 文档
 
@@ -268,6 +271,50 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 - **上游已有的功能（歌词动画、桌面版、模组、同步服务等）**：请到[上游 Issues](https://github.com/chthollyphile/folia-major/issues) 反馈；不确定归属时，先在本仓库提即可。
 - 贡献前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。不要在 Issue、日志或截图里公开账号 Cookie、Token、API Key。
 - 上游社区 Discord：[加入](https://discord.gg/dMDBTHxeKd)。Vercel / Cloudflare / 上游安装包等说明以上游 README 为准，见上文「其他部署形态」。
+
+本 Fork 的服务端部署以上文「部署与启动」为准。上游的 Web 一键部署不含 Stage 中继：Vercel 与 Cloudflare 上的 QQ 音乐不再需要额外部署一个常驻 API 实例，把 `VITE_QQ_API_BASE` 填成 `/api/qq`，再配一个 `QQ_SESSION_SECRET`（服务端密钥，**不加 `VITE_` 前缀**）即可。这种形态支持微信扫码和手机 QQ 扫码登录（手机 QQ 扫码要 qq-music-api 3.3.3 或更高版本），且播放前必须先登录；Cloudflare 上可以再绑定一个 Durable Object，让 QQ 扫码改走长连接，并多一个 QQ 音乐 App 扫码。完整步骤见 [QQ 音乐部署指南](docs/qq-music-deployment.md)。安装包、网盘、AUR、Flatpak 与移动端见上文「上游的安装包」与「其他部署形态」。
+
+## 模组系统（Folium 2）
+
+> [!NOTE]
+> 模组系统仅桌面版可用，Folium 2 起默认开启，但只装、只跑官方签名的音源模组；其它模组要先在「设置 → 模组」里打开「社区模组」。
+
+Folium 是 Folia 的模组平台。模组可以添加新的歌词动画模式和背景类型、在播放页上叠加内容、给进度条加按钮和标记、注册命令与设置分区、在歌词显示前改写歌词，也可以通过 Node 入口调用 ffmpeg 等本地能力。模组以可信代码运行，每个模组在启用前都要在原生窗口中确认，文件变化后需要重新确认。
+
+- **模组市场**：「设置 → 模组」把已安装的模组和 [模组市场](https://folium-compound.cielaniska.top) 合在一个视图里，可以按分类和关键词查找，一键安装、更新和卸载（卸载的文件夹进回收站）。也可以在网站上下载 zip，拖进模组页安装。
+- **反馈问题**：模组由各自的作者维护。模组出了问题，请在模组详情里点「反馈问题」，到作者的仓库反馈，不要提交到 Folia 的仓库。
+- **第三方音源与外部作品**：第三方音源模组、系统插件和外部程序不收进模组市场的仓库，以外部链接登记在 Awesome-Folia，同样能在应用里的模组市场找到。
+- **版本声明过期的模组**：清单里写了 `<0.8.0` 之类上界的模组在更新的 Folia 上不会自动加载，但仍能安装，可以在模组详情里手动「仍然尝试加载」。
+- **官方认证**：市场里的模组都带有 Folium 签名，安装后显示「官方认证」；只通过安全审查的先行测试模组显示「先行测试」；没有签名的第三方模组显示「未验证」，同样可以使用。
+- **开发与贡献**：[模组开发与贡献指南](docs/folium/contributing.md)，从写第一个模组、本地调试，到提交到模组市场、审查与签名、发布更新。
+- **API 参考**：[Folium API 参考](docs/folium/api.md)，由契约文件生成的完整接口文档，按注册表、上下文、事件、服务等分类查询。
+- **平台规范**：[Folium 规范](mods/README.md)，包括清单字段、权限、注册表语义、事件、安全模型与版本策略。
+- **示范模组**：仓库的 [`mods/`](mods/) 目录，覆盖歌词动画、调参、进度条、播放页图层与透明视频导出。
+
+## Sync Server
+
+Folia 提供了可选的官方同步服务端 `sync-server`，用于在多个设备之间同步外观设置与 AI 主题库。服务端由用户自行托管，适合希望跨设备同步配色主题的用户。
+
+支持以下部署方式：
+
+- **Cloudflare Workers / D1**：免服务器运维的 Serverless 部署，推荐使用。
+  [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/chthollyphile/folia-major/tree/main/sync-server)
+- **Docker**：镜像与 Compose 入口见 [Docker 部署目录](deploy/docker/README.md)。
+- **Node.js 自托管**：使用 SQLite，适合本地或不方便使用 Docker 的环境。
+
+详细的环境变量、Token 配置与部署步骤请参阅 [Sync-Server 部署指南](https://folia-site.cielaniska.top/guide/deploy-sync)。部署完成后，在 Folia 的「设置 → 连接与集成」中填写服务端地址和 `SYNC_TOKEN` 即可启用同步。
+
+## 本地音乐与匹配说明
+
+Folia 会读取音频文件元数据、同目录歌词和封面，并可通过网易云、QQ 音乐或酷狗音乐补全歌曲信息。自动匹配按网易云、QQ、酷狗依次回退；匹配不准确时，可以手动选择候选、恢复首次导入的本地信息，或进一步合并、拆分艺术家与专辑实体。
+
+完整的导入、重扫、匹配、实体编辑、歌单、缓存和故障排查说明见 [本地音乐库管理](docs/local-library-management.md)。
+
+## Community
+
+加入discord社群，共同交流，获得帮助
+
+[![Discord](https://img.shields.io/discord/1541051241822687232?logo=discord&logoColor=white&label=Join%20our%20Discord)](https://discord.gg/dMDBTHxeKd)
 
 ## 贡献者
 
@@ -295,6 +342,7 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
   - [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi)
   - [paper-design/shaders](https://github.com/paper-design/shaders)
   - [yakult-green-tea/qq-music-api](https://github.com/yakult-green-tea/qq-music-api)
+  - [zzyoxml/md3Music](https://github.com/zzyoxml/md3Music)
   - [rubato](https://github.com/HEnquist/rubato)（重采样）、[libsoxr](https://sourceforge.net/projects/soxr/)（SoXR 重采样）、[Symphonia](https://github.com/pdeljanov/Symphonia)（解码）：直通播放器用到的开源库
 
 本项目接入了 [Apple Music-like Lyrics TTML 逐词歌词库](https://github.com/amll-dev/amll-ttml-db) 以提供高质量的歌词文件，感谢此歌词库的作者和贡献者们。

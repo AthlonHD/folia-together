@@ -14,6 +14,7 @@ import { isStageRemoteMode, remoteSelectQueueSongAfterEdits } from '../../../ser
 export const useScratchpadPlayback = (
     surfaceProps: HomeSurfaceProps,
     playNow: (song: SongResult) => void,
+    seek: (time: number) => void,
 ): ScratchpadPlayback => useMemo(() => {
     const port = createLibraryPlaybackPort(surfaceProps);
     return {
@@ -23,8 +24,9 @@ export const useScratchpadPlayback = (
             port.enqueueAll(songs);
         },
         replaceQueue: port.playAll,
+        seek,
     };
-}, [playNow, surfaceProps]);
+}, [playNow, seek, surfaceProps]);
 
 /**
  * 速记簿「播放队列」页的动作。身份稳定（setQueueOrder 随队列每变一次换一个身份，这里经 ref 读最新的）；

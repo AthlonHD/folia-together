@@ -16,7 +16,7 @@
     "url": "https://github.com/AthlonHD/folia-together/issues"
   },
   "private": true,
-  "version": "0.7.29",
+  "version": "0.8.0",
   "foliaReleaseChannel": "internal",
   "license": "AGPL-3.0",
   "type": "module",
@@ -30,8 +30,10 @@
     "build": "npm run build:vercel-api && vite build",
     "build:vercel-api": "tsc -p api-ts/tsconfig.json",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && node dev/sources/typecheck.mjs",
     "codemap": "node dev/mcp/ts-code-map/codemap.mjs",
+    "sources:build": "node dev/sources/build.mjs",
+    "sources:pack": "node dev/sources/pack.mjs",
     "folium:api": "node dev/folium/api-docs.mjs",
     "folium:types": "node dev/folium/types.mjs",
     "folium:new": "node dev/folium/new.mjs",
@@ -75,15 +77,15 @@
     "stage:serve": "vite build && vite preview --port 3000 --strictPort --host 0.0.0.0",
     "stage:start": "scripts\\start-stage.cmd",
     "stage:stop": "scripts\\stop-stage.cmd",
-    "dev:electron": "cross-env ELECTRON_DEV=true FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer FOLIA_WALLPAPER_HELPER_PATH=build/folia-wallpaper-helper.exe concurrently -k \"vite\" \"wait-on tcp:3000 && electron .\"",
-    "dev:electron:update-preview": "cross-env ELECTRON_DEV=true FOLIA_DEV_UPDATE_PREVIEW=true FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer FOLIA_WALLPAPER_HELPER_PATH=build/folia-wallpaper-helper.exe concurrently -k \"vite\" \"wait-on tcp:3000 && electron .\"",
+    "dev:electron": "cross-env ELECTRON_DEV=true FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer FOLIA_WALLPAPER_HELPER_PATH=build/folia-wallpaper-helper.exe concurrently -k \"vite\" \"node dev/sources/build.mjs --watch\" \"wait-on tcp:3000 && electron .\"",
+    "dev:electron:update-preview": "cross-env ELECTRON_DEV=true FOLIA_DEV_UPDATE_PREVIEW=true FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer FOLIA_WALLPAPER_HELPER_PATH=build/folia-wallpaper-helper.exe concurrently -k \"vite\" \"node dev/sources/build.mjs --watch\" \"wait-on tcp:3000 && electron .\"",
     "dev:electron:wallpaper": "npm run build:windowtolayer && npm run build:wallpaper-helper && npm run dev:electron",
-    "dev:electron:dist": "node build/fetchSteamAudio.mjs --optional && cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer vite build && electron .",
-    "dev:electron:dist:sourcemap": "cross-env-shell ELECTRON_DEV=false ELECTRON=true NODE_OPTIONS=--enable-source-maps FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer \"vite build --sourcemap && electron .\"",
-    "dev:electron:dist:swiftshader": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_LINUX_GRAPHICS_MODE=swiftshader FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer vite build && electron .",
-    "dev:electron:dist:software": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_LINUX_GRAPHICS_MODE=software FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer vite build && electron .",
-    "build:electron:dir": "cross-env ELECTRON_DEV=false ELECTRON=true vite build && npm run build:windowtolayer && npm run build:wallpaper-helper && npm run build:audio-helper && electron-builder --linux dir",
-    "build:electron": "cross-env ELECTRON_DEV=false ELECTRON=true vite build && npm run build:windowtolayer && npm run build:wallpaper-helper && npm run build:audio-helper && electron-builder",
+    "dev:electron:dist": "node dev/sources/build.mjs && node build/fetchSteamAudio.mjs --optional && cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer vite build && electron .",
+    "dev:electron:dist:sourcemap": "node dev/sources/build.mjs && cross-env-shell ELECTRON_DEV=false ELECTRON=true NODE_OPTIONS=--enable-source-maps FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer \"vite build --sourcemap && electron .\"",
+    "dev:electron:dist:swiftshader": "node dev/sources/build.mjs && cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_LINUX_GRAPHICS_MODE=swiftshader FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer vite build && electron .",
+    "dev:electron:dist:software": "node dev/sources/build.mjs && cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_LINUX_GRAPHICS_MODE=software FOLIA_WINDOWTOLAYER_PATH=build/windowtolayer vite build && electron .",
+    "build:electron:dir": "node dev/sources/build.mjs && cross-env ELECTRON_DEV=false ELECTRON=true vite build && npm run build:windowtolayer && npm run build:wallpaper-helper && npm run build:audio-helper && electron-builder --linux dir",
+    "build:electron": "node dev/sources/build.mjs && cross-env ELECTRON_DEV=false ELECTRON=true vite build && npm run build:windowtolayer && npm run build:wallpaper-helper && npm run build:audio-helper && electron-builder",
     "build:windowtolayer": "node packaging/linux/build-windowtolayer.mjs",
     "build:wallpaper-helper": "node packaging/windows/build-wallpaper-helper.mjs",
     "build:audio-helper": "node packaging/windows/build-audio-helper.mjs",
@@ -96,6 +98,7 @@
     "manual:ai-probe": "node test/manual/ai_probe.mjs"
   },
   "build": {
+    "extends": "file:build/bundledSources.mjs",
     "appId": "top.izuna.foliamajor",
     "productName": "Folia",
     "beforePack": "build/beforePack.cjs",
@@ -122,7 +125,6 @@
       "dist/**/*",
       "electron/**/*",
       "shared/**/*",
-      "!**/node_modules/youtubei.js/bundle/**",
       "package.json",
       "build/miao.png",
       "build/thumbar/*.png"
@@ -208,10 +210,6 @@
         {
           "from": "build/mac-helper/darwin-${arch}",
           "to": "."
-        },
-        {
-          "from": "build/apple-music-native/darwin-${arch}/FoliaAppleMusicCompanion.app",
-          "to": "apple-music/FoliaAppleMusicCompanion.app"
         }
       ],
       "target": [
@@ -246,17 +244,6 @@
           "filter": [
             "folia-wallpaper-helper.exe",
             "folia-audio-helper.exe"
-          ]
-        },
-        {
-          "from": "build/apple-music-native/windows",
-          "to": "apple-music/windows",
-          "filter": [
-            "FoliaAppleMusicCompanion.exe",
-            "FoliaAppleMusicCompanion.exe.config",
-            "Microsoft.Web.WebView2.Core.dll",
-            "Microsoft.Web.WebView2.WinForms.dll",
-            "WebView2Loader.dll"
           ]
         }
       ]
@@ -308,7 +295,7 @@
     "@modelcontextprotocol/sdk": "1.30.1",
     "@neteasecloudmusicapienhanced/api": "4.41.1",
     "@xhayper/discord-rpc": "^1.5.1",
-    "@yakult-green-tea/qq-music-api": "3.3.6",
+    "@yakult-green-tea/qq-music-api": "3.3.9",
     "axios": "^1.20.0",
     "bgutils-js": "4.0.3",
     "bodian-music-api": "0.1.2",
@@ -329,6 +316,7 @@
   "devDependencies": {
     "@applemusic-like-lyrics/ttml": "^1.0.1",
     "@chenglou/pretext": "^0.0.9",
+    "@electron/asar": "3.4.1",
     "@emnapi/core": "1.11.3",
     "@emnapi/runtime": "1.11.3",
     "@paper-design/shaders-react": "^0.0.80",
@@ -370,6 +358,7 @@
     "react-dom": "^19.3.0",
     "react-i18next": "^17.0.15",
     "react-window": "^2.3.3",
+    "rolldown": "1.2.11",
     "tailwindcss": "^4.3.3",
     "three": "^0.185.1",
     "twgl.js": "^7.0.0",

@@ -1,7 +1,7 @@
 import type { CommandPaletteContext } from '../../command-palette/types';
 import type { LyricStaffPolicy } from '../../../utils/lyrics/staffCreditsPolicy';
 import type { ThemeGenerationSource } from '../../../services/themePreferences';
-import { useAudioSettingsStore } from '../../../stores/useAudioSettingsStore';
+import { useAudioSettingsStore, isPlaybackReportEnabled } from '../../../stores/useAudioSettingsStore';
 import { useAutomixSettingsStore } from '../../../stores/useAutomixSettingsStore';
 import { useStemMixerStore } from '../../../stores/useStemMixerStore';
 import { stemMixerDeviceBlock } from '../../../services/stemMixer/stemMixerAvailability';
@@ -13,7 +13,7 @@ import { useDesktopSettingsStore } from '../../../stores/useDesktopSettingsStore
 import { usePassthroughSettingsStore } from '../../../stores/usePassthroughSettingsStore';
 import { useLocalLibrarySettingsStore } from '../../../stores/useLocalLibrarySettingsStore';
 import { isLocalLibraryAutoScanSupported } from '../../../services/localLibraryAutoScan';
-import { isPlaybackReportReady } from '../../../services/onlineMusic/playbackReportGate';
+import { isPlaybackReportReady, getPlaybackReportSettingProviderId } from '../../../services/onlineMusic/playbackReportGate';
 import { useLyricSettingsStore } from '../../../stores/useLyricSettingsStore';
 import { useGridViewSettingsStore } from '../../../stores/useGridViewSettingsStore';
 import { useLatticeSettingsStore } from '../../../stores/useLatticeSettingsStore';
@@ -107,6 +107,10 @@ export const buildSettingsCommandContext = (
         setLibraryWallLook: look => useLibraryWallLookStore.getState().setLook(look),
         libraryWallWindowsPerBlock: () => useLibraryWallLookStore.getState().windowsPerBlock,
         setLibraryWallWindowsPerBlock: windowsPerBlock => useLibraryWallLookStore.getState().setWindowsPerBlock(windowsPerBlock),
+        toggleLibraryWallHomeFinite: () => {
+            const wall = useLibraryWallLookStore.getState();
+            wall.setHomeFinite(!wall.homeFinite);
+        },
         toggleLibraryWallStackEdges: () => {
             const wall = useLibraryWallLookStore.getState();
             wall.setCollectionStackEdges(!wall.collectionStackEdges);
@@ -195,6 +199,9 @@ export const buildSettingsCommandContext = (
             const current = usePlayerChromeSettingsStore.getState();
             current.handleSetTitlebarSide(current.titlebarSide === 'left' ? 'right' : 'left');
         },
+        toggleProgressBarChorusMarker: () => chrome.handleToggleProgressBarChorusMarker(
+            !usePlayerChromeSettingsStore.getState().progressBarChorusMarker,
+        ),
         togglePlayerHeaderBlur: () => chrome.handleTogglePlayerHeaderBlur(
             !usePlayerChromeSettingsStore.getState().playerHeaderBlur,
         ),
@@ -231,9 +238,11 @@ export const buildSettingsCommandContext = (
         canAutoScanLocalLibrary: isLocalLibraryAutoScanSupported,
         toggleLocalLibraryAutoScan: () => useLocalLibrarySettingsStore.getState().toggleAutoScan(),
         canReportPlayback: () => isPlaybackReportReady(),
-        togglePlaybackReport: () => audio.handleToggleNeteaseScrobble(
-            !useAudioSettingsStore.getState().neteaseScrobbleEnabled,
-        ),
+        // The setting of the source that takes reports (stored per source, Folium 2.0 S1).
+        togglePlaybackReport: () => {
+            const providerId = getPlaybackReportSettingProviderId();
+            if (providerId) audio.handleSetPlaybackReport(providerId, !isPlaybackReportEnabled(useAudioSettingsStore.getState(), providerId));
+        },
         toggleAutoAiLyricSegmentation: () => {
             const lyric = useLyricSettingsStore.getState();
             lyric.handleToggleAutoAiLyricSegmentation(!lyric.autoAiLyricSegmentation);
@@ -244,6 +253,9 @@ export const buildSettingsCommandContext = (
         },
         voiceInputPauseSupported: deps.voiceInputPauseSupported,
         modSystemEnabled: desktop.modSystemEnabled,
+        toggleCommunityMods: () => {
+            void desktop.handleToggleCommunityMods(!useDesktopSettingsStore.getState().modCommunityEnabled);
+        },
         toggleVoiceInputPause: () => desktop.handleToggleVoiceInputPause(
             !useDesktopSettingsStore.getState().voiceInputPauseEnabled,
         ),

@@ -3,6 +3,7 @@ import { defineCommand, createToggleCommand, createHomeTabCommand } from '../com
 import { omni } from '../../../services/onlineMusic/omni';
 import { isStageRemoteMode } from '../../../services/stageMode';
 import { useCrossPlaylistStore } from '../../app/crossPlaylist/crossPlaylistStore';
+import { useHomeLayoutSettingsStore } from '../../../stores/useHomeLayoutSettingsStore';
 
 // src/components/command-palette/commands/navigationCommands.ts
 // Commands in the `navigation` group: moving between home tabs, the player, and window-level views.
@@ -42,6 +43,11 @@ export const navigationCommands: CommandPaletteCommand[] = [
         isAvailable: (context) => !context?.navigation.isWallpaperMode,
         execute: (_input, context) => context.navigation.toggleBrowserFullscreen(),
     },
+    {
+        ...createHomeTabCommand('folia', 'Open Folia playlists', 'Open the Folia home tab', ['folia', 'folia playlists', 'scratchpad', '聚合歌单', 'Folia 歌单']),
+        // Hidden in settings, there is no Folia tab to open.
+        isAvailable: () => useHomeLayoutSettingsStore.getState().showHomeTabFolia,
+    },
     createHomeTabCommand('playlist', 'Open playlists', 'Open playlist home tab', ['playlist', 'playlists', '歌单']),
     {
         id: 'open-cross-playlists',
@@ -71,7 +77,7 @@ export const navigationCommands: CommandPaletteCommand[] = [
         group: 'navigation',
         title: 'Toggle remote control window',
         description: 'Open or close the remote control window',
-        keywords: ['remote control', 'remote window', 'toggle remote', '遥控窗口', '切换遥控窗口', '打开遥控'],
+        keywords: ['remote control', 'remote window', 'toggle remote', '遥控窗口', '切换遥控窗口', '打开遥控', '妙控窗'],
         execute: (_input, context) => context.navigation.toggleRemoteControlWindow(),
     },
     {

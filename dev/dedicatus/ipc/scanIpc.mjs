@@ -30,7 +30,6 @@ const GUARD_PENDING_READ = /^\(event, readId, response\) => \{\s*if \(typeof rea
  */
 export const GUARD_FACTORIES = {
     createSenderGuardedHandler: { file: 'electron/ipcAccessGuard.cjs', trustedTakes: 'event', check: /if \(!isTrusted\(event\)\)/ },
-    createCompanionRequestHandler: { file: 'electron/appleMusic/companionIpc.cjs', trustedTakes: 'webContents', check: /if \(!isTrusted\(event\.sender\)/ },
 };
 
 const FACTORY_NAMES = Object.keys(GUARD_FACTORIES).join('|');

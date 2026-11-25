@@ -1,8 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePlaybackReportReady } from '../../../../services/onlineMusic/playbackReportGate';
+import { usePlaybackReportReady, getPlaybackReportSettingProviderId } from '../../../../services/onlineMusic/playbackReportGate';
 import { isStageRemoteMode } from '../../../../services/stageRemote';
-import { useAudioSettingsStore } from '../../../../stores/useAudioSettingsStore';
+import { useAudioSettingsStore, isPlaybackReportEnabled } from '../../../../stores/useAudioSettingsStore';
 import { usePlayerChromeSettingsStore } from '../../../../stores/usePlayerChromeSettingsStore';
 import { useStageSettingsStore } from '../../../../stores/useStageSettingsStore';
 import { Button, CopyValue, Group, Reveal, Row, Status, Toggle, Value, type SettingsOptionDef } from '../kit';
@@ -34,10 +34,15 @@ const IntegrationPage: React.FC = () => {
     const transparentPlayerBackground = usePlayerChromeSettingsStore(state => state.transparentPlayerBackground);
     const obsKeepAnimation = useStageSettingsStore(state => state.obsKeepMainWindowAnimation);
     const setObsKeepAnimation = useStageSettingsStore(state => state.handleToggleObsKeepMainWindowAnimation);
-    const scrobbleEnabled = useAudioSettingsStore(state => state.neteaseScrobbleEnabled);
-    const setScrobbleEnabled = useAudioSettingsStore(state => state.handleToggleNeteaseScrobble);
     // Subscribed to, so the row follows the reporting account signing in or out while the page is open.
     const canScrobble = usePlaybackReportReady();
+    // The setting is stored per source (Folium 2.0 S1); the one row is the setting of the source that takes reports.
+    const scrobbleSourceId = getPlaybackReportSettingProviderId();
+    const scrobbleEnabled = useAudioSettingsStore(state => isPlaybackReportEnabled(state, scrobbleSourceId));
+    const handleSetPlaybackReport = useAudioSettingsStore(state => state.handleSetPlaybackReport);
+    const setScrobbleEnabled = (enable: boolean) => {
+        if (scrobbleSourceId) handleSetPlaybackReport(scrobbleSourceId, enable);
+    };
 
     // 本 Fork 的遥控模式:Stage、OBS、Discord、歌词接口、Navidrome 这些都作用在运行播放的那台机器(服务器 Host)上,
     // 在遥控页开关不会影响 Host,也连不到 Host 本机的服务,所以这里只给出说明

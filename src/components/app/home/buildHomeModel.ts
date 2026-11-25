@@ -29,6 +29,9 @@ type HomeModelAmbient = {
     navidromeEnabled: HomeSurfaceProps['navidromeEnabled'];
 };
 
+// The playlists shown without a platform: one array, so that what is drawn from it is not drawn again.
+const NO_PLAYLISTS: HomeSurfaceProps['playlists'] = [];
+
 export type HomeModelDeps = {
     account: LibraryAccountController;
     /** controller 快照里的当前平台摘要（未变时身份稳定）；首页的账户与在线歌单优先取它。 */
@@ -42,15 +45,13 @@ export type HomeModelDeps = {
     /** fb3：按「播放后进入的视图」进入播放视图（播放胶囊的同一个导航）。 */
     enterPlaybackView: NonNullable<HomeSurfaceProps['onEnterPlaybackView']>;
     refreshOnlineProviderPlaylists: () => Promise<unknown>;
-    user: HomeSurfaceProps['user'];
-    playlists: HomeSurfaceProps['playlists'];
-    cloudPlaylist?: HomeSurfaceProps['cloudPlaylist'];
     focusedPlaylistIndex?: HomeSurfaceProps['focusedPlaylistIndex'];
     setFocusedPlaylistIndex?: HomeSurfaceProps['setFocusedPlaylistIndex'];
     navigateToSearch: (args: { query: string; sourceTab: SearchSource; replace?: boolean }) => void;
     localSongs: HomeSurfaceProps['localSongs'];
     localLibraryCatalog: HomeSurfaceProps['localLibraryCatalog'];
     localPlaylists: HomeSurfaceProps['localPlaylists'];
+    onRefreshLocalPlaylists: HomeSurfaceProps['onRefreshLocalPlaylists'];
     onRefreshLocalSongs: HomeSurfaceProps['onRefreshLocalSongs'];
     onAddLocalSongToQueue?: HomeSurfaceProps['onAddLocalSongToQueue'];
     localMusicState: HomeSurfaceProps['localMusicState'];
@@ -85,9 +86,6 @@ export const buildHomeModel = ({
     togglePlayback,
     enterPlaybackView,
     refreshOnlineProviderPlaylists,
-    user,
-    playlists,
-    cloudPlaylist,
     currentSong,
     focusedPlaylistIndex,
     setFocusedPlaylistIndex,
@@ -95,6 +93,7 @@ export const buildHomeModel = ({
     localSongs,
     localLibraryCatalog,
     localPlaylists,
+    onRefreshLocalPlaylists,
     onRefreshLocalSongs,
     onAddLocalSongToQueue,
     localMusicState,
@@ -140,9 +139,10 @@ export const buildHomeModel = ({
             onEnterPlaybackView: enterPlaybackView,
             onRefreshUser: () => refreshOnlineProviderPlaylists(),
             // An anonymous selected provider must not inherit a different platform's account.
-            user: activeProvider ? activeProvider.user : user,
-            playlists: activeProvider?.collections.filter(collection => collection.type !== 'cloud') ?? playlists,
-            cloudPlaylist: activeProvider?.collections.find(collection => collection.type === 'cloud') ?? cloudPlaylist,
+            // The active platform's account, as the account layer holds it; none without a platform (Folium 2.0 §7).
+            user: activeProvider?.user ?? null,
+            playlists: activeProvider?.collections.filter(collection => collection.type !== 'cloud') ?? NO_PLAYLISTS,
+            cloudPlaylist: activeProvider?.collections.find(collection => collection.type === 'cloud') ?? null,
             currentTrack: currentSong,
             onPlayAll: (songs, from, options) => {
                 noteQueueStarted(from ?? null, songs);
@@ -162,6 +162,7 @@ export const buildHomeModel = ({
             localSongs,
             localLibraryCatalog,
             localPlaylists,
+            onRefreshLocalPlaylists,
             onRefreshLocalSongs,
             onAddLocalSongToQueue,
             localMusicState,

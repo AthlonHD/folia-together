@@ -17,11 +17,11 @@
 | test/dev | 1024+ |
 | library | 256+ |
 | services | 256+ |
+| 其他 | 256+ |
 | backend/electron | 128+ |
+| src (其他) | 128+ |
 | utils | 128+ |
 | hooks | 64+ |
-| src (其他) | 64+ |
-| 其他 | 64+ |
 | stores | 32+ |
 | types | 16+ |
 | i18n | 8+ |
@@ -38,6 +38,7 @@
 | 128+ | `src/components/modal/settings/kit/index.ts` |
 | 128+ | `src/services/onlineMusic/omni.ts` |
 | 128+ | `src/stores/usePlaybackStore.ts` |
+| 128+ | `src/stores/useStatusMessageStore.ts` |
 | 128+ | `src/types/ponder.ts` |
 | 128+ | `src/utils/appPlaybackGuards.ts` |
 | 64+ | `src/components/command-palette/types.ts` |
@@ -46,16 +47,16 @@
 | 64+ | `src/library/core/collection/collection.contract.ts` |
 | 64+ | `src/library/core/suite/suite.contract.ts` |
 | 64+ | `src/mods/folium/contract.ts` |
+| 64+ | `src/mods/types.ts` |
 | 64+ | `src/services/db.ts` |
+| 64+ | `src/services/onlineMusic/providerRegistry.ts` |
 | 64+ | `src/services/onlineMusic/songMetadata.ts` |
 | 64+ | `src/stores/useAppViewStore.ts` |
 | 64+ | `src/stores/useAudioSettingsStore.ts` |
 | 64+ | `src/stores/useOnlineProviderAccountStore.ts` |
-| 64+ | `src/stores/useStatusMessageStore.ts` |
 | 64+ | `src/types/hifi.ts` |
 | 64+ | `src/utils/lyrics/renderHints.ts` |
 | 32+ | `dev/probes/definition.ts` |
-| 32+ | `src/components/app/playback/currentSong.ts` |
 | 32+ | `src/components/command-palette/commandRegistry.ts` |
 | 32+ | `src/components/modal/settings/kit/kitTheme.ts` |
 | 32+ | `src/components/modal/settings/kit/motion.ts` |
@@ -76,10 +77,13 @@
 | 32+ | `src/library/core/home/homeModel.contract.ts` |
 | 32+ | `src/library/suites/bravais/bravaisConstants.ts` |
 | 32+ | `src/library/suites/bravais/bravaisLayer.ts` |
-| 32+ | `src/mods/types.ts` |
+| 32+ | `src/mods/folium/api.ts` |
+| 32+ | `src/mods/folium/sources/contract.ts` |
+| 32+ | `src/mods/runtime/status.ts` |
+| 32+ | `src/services/appDatabase.ts` |
 | 32+ | `src/services/baseThemes.ts` |
+| 32+ | `src/services/navidromeService.ts` |
 | 32+ | `src/services/onlineMusic/failure/onlineFailureCase.ts` |
-| 32+ | `src/services/onlineMusic/providerRegistry.ts` |
 | 32+ | `src/stores/motionSignals.ts` |
 | 32+ | `src/stores/storagePrimitives.ts` |
 | 32+ | `src/stores/useCollectionNavigationStore.ts` |
@@ -87,16 +91,15 @@
 | 32+ | `src/stores/useSettingsModalStore.ts` |
 | 32+ | `src/stores/useThemeSettingsStore.ts` |
 | 32+ | `src/stores/useVisualizerSettingsStore.ts` |
+| 32+ | `src/types/foliaPlaylist.ts` |
 | 32+ | `src/types/localLibrary.ts` |
 | 32+ | `src/types/navidrome.ts` |
 | 32+ | `src/utils/colorMix.ts` |
 | 32+ | `src/utils/coverUrl.ts` |
-| 32+ | `src/utils/errorText.ts` |
 | 32+ | `src/utils/fontStacks.ts` |
 | 32+ | `src/utils/lyricRenderQuality.ts` |
 | 32+ | `src/utils/lyrics/graphemeTiming.ts` |
 | 32+ | `src/utils/lyrics/parserCore.ts` |
-| 32+ | `src/utils/platform.ts` |
 | 32+ | `test/component/fixtures.ts` |
 
 ## 动态注册点
@@ -321,7 +324,6 @@
 
 - `src/library/suites/bravais/entry.ts`
 - `src/library/suites/grid/entry.ts`
-- `src/library/suites/phone/entry.ts`
 - `src/library/suites/tui/entry.ts`
 
 ### `test/unit/visualizer/tuningBundleTransport.test.ts`
@@ -351,21 +353,12 @@
 
 下面这些边的依赖方向本身就是错的：
 
-- D105 `src/components/wall/WallToolsQueueIslandHeader.tsx` → `src/components/app/crossPlaylist/crossPlaylistStore.ts`  —— wall 引擎不应依赖 Lattice（components/app）或资料库
-- D105 `src/components/wall/useWallToolsCommonActions.ts` → `src/components/app/crossPlaylist/crossPlaylistStore.ts`  —— wall 引擎不应依赖 Lattice（components/app）或资料库
 - D101 `src/stores/useVisualizerSettingsStore.ts` → `src/components/visualizer/registry.tsx`  —— store 不应依赖组件
-- D102 `src/utils/heartbeatAdvance.ts` → `src/stores/usePlayQueueContextStore.ts`  —— 纯变换不应依赖 UI 或状态
-- D102 `src/utils/heartbeatAvailability.ts` → `src/stores/usePlayQueueContextStore.ts`  —— 纯变换不应依赖 UI 或状态
-- D102 `src/utils/heartbeatAvailability.ts` → `src/stores/usePlaybackStore.ts`  —— 纯变换不应依赖 UI 或状态
-- D102 `src/utils/lyrics/lyricMatchSources.ts` → `src/stores/useOnlineProviderAccountStore.ts`  —— 纯变换不应依赖 UI 或状态
-- D102 `src/utils/shuffleNavigation.ts` → `src/stores/useAudioSettingsStore.ts`  —— 纯变换不应依赖 UI 或状态
-- D102 `src/utils/shuffleNavigation.ts` → `src/stores/usePlayOrderStore.ts`  —— 纯变换不应依赖 UI 或状态
 
 ### 目录归属存疑
 
 这些边命中了规则，但目标模块在运行时根本不含 UI（不传递依赖 react）。
 依赖方向没问题，是文件住在了 UI 目录（`src/components/`、`src/library/` 的 suites / app）下面。修法是移动文件，不是改依赖。
 
-- D190 `src/components/wall/WallToolsQueueIslandHeader.tsx` → `src/components/app/crossPlaylist/crossPlaylistModel.ts`
 - D190 `src/stores/usePlaybackStore.ts` → `src/components/app/playback/createCoverUrlResolver.ts`
 
