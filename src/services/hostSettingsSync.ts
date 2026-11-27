@@ -67,10 +67,12 @@ const ENTRIES: Record<string, HostSettingEntry> = {
         mirrorApply: value => useAudioSettingsStore.setState({ audioEqualizerSettings: value }),
     },
     neteaseScrobbleEnabled: {
-        read: () => audio().neteaseScrobbleEnabled,
+        read: () => audio().playbackReportEnabled.netease ?? false,
         validate: isBoolean,
-        hostApply: value => audio().handleToggleNeteaseScrobble(value),
-        mirrorApply: value => useAudioSettingsStore.setState({ neteaseScrobbleEnabled: value }),
+        hostApply: value => audio().handleSetPlaybackReport('netease', value),
+        mirrorApply: value => useAudioSettingsStore.setState(state => ({
+            playbackReportEnabled: { ...state.playbackReportEnabled, netease: value },
+        })),
     },
     enableMediaCache: {
         read: () => audio().enableMediaCache,

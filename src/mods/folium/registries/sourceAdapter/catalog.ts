@@ -23,6 +23,9 @@ export const buildCatalog = (kit: SourceAdapterKit, catalog: FoliumSourceCatalog
     const getArtistAlbums = catalog.getArtistAlbums?.bind(catalog);
     const getArtistDetail = catalog.getArtistDetail?.bind(catalog);
     const getSubscriptionStatus = catalog.getSubscriptionStatus?.bind(catalog);
+    const getPlaylistPageUrl = (catalog as FoliumSourceCatalog & {
+        getPlaylistPageUrl?(id: string): string;
+    }).getPlaylistPageUrl?.bind(catalog);
     return {
         ...(canResolveSongCatalogRefs ? {
             canResolveSongCatalogRefs: kit.sync('canResolveSongCatalogRefs', (song: UnifiedSong) => canResolveSongCatalogRefs(toSourceSong(song)), () => false),
@@ -36,6 +39,7 @@ export const buildCatalog = (kit: SourceAdapterKit, catalog: FoliumSourceCatalog
         ...(getPlaylistDetail ? {
             getPlaylistDetail: async (id, entry) => kit.collection(await kit.run('getPlaylistDetail', () => getPlaylistDetail(String(id), of(entry)))),
         } : {}),
+        ...(getPlaylistPageUrl ? { getPlaylistPageUrl: (id) => getPlaylistPageUrl(String(id)) } : {}),
         ...(getCloudTracks ? {
             getCloudTracks: async (limit, offset, entry) => songs(offset)(await kit.run('getCloudTracks', () => getCloudTracks(limit, offset, of(entry)))),
         } : {}),

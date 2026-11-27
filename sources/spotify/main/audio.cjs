@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const LIBRESPOT = '@lox-audioserver/' + 'node-librespot';
 const fs = require('node:fs');
 const path = require('node:path');
 const { SpotifyError, describeError, plainWords, spotifyError, statusError, toErrorResult } = require('./errors.cjs');
@@ -109,7 +110,7 @@ let proxyBuild;
 function hasProxyBuild() {
   if (proxyBuild !== undefined) return proxyBuild;
   try {
-    const packageDir = path.dirname(require.resolve('@lox-audioserver/node-librespot/package.json'));
+    const packageDir = path.dirname(require.resolve(LIBRESPOT + '/package.json'));
     const abi = process.platform === 'win32' ? `win32-${process.arch}-msvc` : process.platform === 'darwin' ? `darwin-${process.arch}` : `${process.platform}-${process.arch}-gnu`;
     proxyBuild = fs.existsSync(path.join(packageDir, 'prebuilds', abi, 'folia-proxy.txt'));
   } catch {
@@ -158,7 +159,7 @@ function openLibrespotSession({ accessToken, deviceId, proxy }, loadLibrespot) {
 // `onKept(limitBytes)` is called after a file was written, with the size the cache is to stay under.
 function createSpotifyAudio({
   accessToken, deviceId, fetch, playbackProxy = async () => null, findFile = null,
-  loadLibrespot = () => require('@lox-audioserver/node-librespot'),
+  loadLibrespot = () => require(LIBRESPOT),
   openSession = options => openLibrespotSession(options, loadLibrespot), audioUrl = defaultAudioUrl,
   now = Date.now, quietLimitMs = QUIET_LIMIT_MS,
   randomKey = () => crypto.randomBytes(16).toString('hex'),

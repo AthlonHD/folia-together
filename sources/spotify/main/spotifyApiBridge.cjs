@@ -318,8 +318,8 @@ function createSpotifyApiBridge({
     findFile: (trackId, bitrate) => fileLookup.find(trackId, bitrate), log, warn, disk: audioFiles, onKept: onAudioKept,
     ...(openSession ? { openSession } : {}),
     ...(loadLibrespot ? { loadLibrespot } : {}),
-    // Desktop main passes `audioUrl` (folia-mod). The stage relay does not: it still serves `folia-spotify://audio/…?k=`.
-    audioUrl: audioUrl ?? ((trackId, key) => `folia-spotify://audio/${trackId}?k=${key}`),
+    // Desktop leaves this out and gets folia-mod (audio.cjs). The stage relay passes its own folia-spotify address.
+    ...(audioUrl ? { audioUrl } : {}),
   });
 
   const handlers = {

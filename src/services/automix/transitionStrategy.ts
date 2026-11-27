@@ -1,5 +1,6 @@
 import { CROSSFADE_DEFAULT_SEC, clampCrossfadeSeconds, planCrossfade } from './crossfadePlanner';
 import { chooseExpansionIntensity } from './expansionGesture';
+import { planDjMix } from './djMixPlanner';
 import { planTransition, type TransitionPlan, type TransitionTrack } from './transitionPlanner';
 
 // src/services/automix/transitionStrategy.ts
@@ -17,7 +18,8 @@ export type TransitionMode =
     /** Fixed-length equal-power crossfade. The listener sets the maximum. */
     | 'crossfade'
     /** Measured evidence decides whether, when, how and how long. The listener sets nothing. */
-    | 'automix';
+    | 'automix'
+    | 'djMix';
 
 export interface TransitionSettings {
     mode: TransitionMode;
@@ -44,7 +46,7 @@ export const DEFAULT_TRANSITION_SETTINGS: TransitionSettings = {
 };
 
 export const isTransitionMode = (value: unknown): value is TransitionMode =>
-    value === 'crossfade' || value === 'automix';
+    value === 'crossfade' || value === 'automix' || value === 'djMix';
 
 /**
  * Whether this mode's planner reads a beat grid, and therefore whether analysis should pay for one.
@@ -59,7 +61,7 @@ export const isTransitionMode = (value: unknown): value is TransitionMode =>
  * requires the same plan, so a crossfade that started using bar lines fails there and lands whoever
  * changed it back on this line.
  */
-export const modeNeedsBeatGrid = (mode: TransitionMode): boolean => mode === 'automix';
+export const modeNeedsBeatGrid = (mode: TransitionMode): boolean => mode !== 'crossfade';
 
 /**
  * Whether a track can be measured at all in this environment.
@@ -77,6 +79,8 @@ export const canAnalyseTracks = (): boolean => {
             .webkitOfflineAudioContext;
     return typeof offline === 'function';
 };
+
+export const canUseDjMix = (): boolean => typeof window !== 'undefined' && Boolean(window.electron) && canAnalyseTracks();
 
 /**
  * Whether automix has anything at all to be clever with.
@@ -122,6 +126,10 @@ export const planForMode = (
 ): TransitionPlan => {
     if (settings.mode === 'crossfade') {
         return planCrossfade(from, to, clampCrossfadeSeconds(settings.crossfadeMaxSec), at);
+    }
+    if (settings.mode === 'djMix') {
+        const cue = planDjMix(from, to, at);
+        if (cue) return cue;
     }
     if (hasEvidence(from, to, bpm)) {
         const plan = planTransition(from, to, bpm, at);

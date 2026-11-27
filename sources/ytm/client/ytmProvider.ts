@@ -149,6 +149,9 @@ export const createYtmSource = (env: YtmSourceEnv): FoliumSourceDef => {
                 },
             }),
             'playback.audio@1': following({
+                ...{
+                    audioQualityLabels: { standard: '≈64k Opus', high: '≈160k Opus', ultra: '≈256k AAC' },
+                },
                 // The levels YouTube Music's audio differs at: the main entry picks the format by the level
                 // (`pickAudioFormat` in main/ytmApiBridge.cjs). 'ultra' (about 256 kbit/s) is offered to a Premium
                 // member only: it is listed while the signed-in account has Premium (ytmAccount.ts, which has the

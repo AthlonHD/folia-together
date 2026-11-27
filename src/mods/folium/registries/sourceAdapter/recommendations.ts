@@ -83,6 +83,9 @@ export const buildRecommendations = (kit: SourceAdapterKit, recommendations: Fol
     const getPersonalFmCatalog = r.getPersonalFmCatalog?.bind(r);
     const getDailySongs = r.getDailySongs?.bind(r);
     const getPersonalFm = r.getPersonalFm?.bind(r);
+    const getHeartbeatSongs = (r as FoliumSourceRecommendations & {
+        getHeartbeatSongs?(songId: string, playlistId: string, count?: number): Promise<unknown>;
+    }).getHeartbeatSongs?.bind(r);
     const getRecommendedCollections = r.getRecommendedCollections?.bind(r);
     const getHistoryEntries = r.getHistoryEntries?.bind(r);
     const getHistoryDates = r.getHistoryDates?.bind(r);
@@ -106,6 +109,9 @@ export const buildRecommendations = (kit: SourceAdapterKit, recommendations: Fol
                 const asked = options ?? (r.personalFmModes === true ? getPersonalFmRequestOptions(kit.context.hostId) : undefined);
                 return kit.songs(await kit.run('getPersonalFm', () => getPersonalFm(asked ? { ...asked } : undefined)));
             },
+        } : {}),
+        ...(getHeartbeatSongs ? {
+            getHeartbeatSongs: async (songId, playlistId, count) => kit.songs(await kit.run('getHeartbeatSongs', () => getHeartbeatSongs(String(songId), String(playlistId), count))),
         } : {}),
         ...(getRecommendedCollections ? {
             getRecommendedCollections: async (limit) => kit.collections(await kit.run('getRecommendedCollections', () => getRecommendedCollections(limit))),

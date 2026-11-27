@@ -129,6 +129,8 @@ import { useMacWallpaperHitRegions } from './hooks/useMacWallpaperHitRegions';
 import { useIdleCursorHide } from './hooks/useIdleCursorHide';
 import { usePlaybackAudioBridge } from './components/app/playback/bridges/usePlaybackAudioBridge';
 import { usePassthroughPlayback } from './components/app/passthrough/usePassthroughPlayback';
+import { isPassthroughRequested } from './services/passthrough/passthroughAvailability';
+import { usePassthroughSettingsStore } from './stores/usePassthroughSettingsStore';
 import { useTogetherUpdateCheck } from './components/app/togetherUpdate/useTogetherUpdateCheck';
 import { useQualitySwitchReload } from './components/app/playback/quality/useQualitySwitchReload';
 import { useTranscodeFallback } from './hooks/useTranscodeFallback';
@@ -338,7 +340,7 @@ export default function App() {
     // (From the PR #750 re-review, 2026-10-19: it no longer keeps htdemucs while automix can ask - it
     // releases it a minute after each run - but the moment automix cannot still releases it at once.)
     useEffect(() => {
-        window.electron?.setAutomixEnabled?.(automixEnabled && transitionMode === 'automix');
+        window.electron?.setAutomixEnabled?.(automixEnabled && transitionMode !== 'crossfade');
     }, [automixEnabled, transitionMode]);
 
     const startupExperience = useStartupExperienceGate();
@@ -1140,6 +1142,7 @@ export default function App() {
     // usePlaybackAudioBridge). A ref rather than a prop because the writer does not exist yet at this
     // call - the same ordering the harvest/advance callbacks inside the hook solve the same way.
     const cachePlayedOutRef = useRef<(song: SongResult, src: string | null) => void>(() => { });
+    const cancelRejectedDjCueRef = useRef<() => boolean>(() => false);
     // The active deck's last position on single loop, with the source it was on: a looping track
     // never fires `ended`, so its wrap back to the start is what says it was played through.
     // A wait longer than this is not a fetch any more (the queue ended, the play failed): the listener may start the track again.
@@ -1184,13 +1187,14 @@ export default function App() {
     const hifiBlocksAutomix = useHifiAutomixGate();
     // Nor does a provider's own player have a deck to blend into.
     const externalBlocksAutomix = useExternalAutomixGate();
+    const passthroughBlocksAutomix = usePassthroughSettingsStore(state => isPassthroughRequested(state.passthroughEnabled));
     const automix = useAutomixDecks({
         audioRef,
         audioContextRef,
         currentSongKeyRef: currentSongRef,
         coverUrl,
         loopMode: effectiveLoopMode,
-        isEnabled: automixEnabled && !isNowPlayingStageActive && !hifiBlocksAutomix && !externalBlocksAutomix,
+        isEnabled: automixEnabled && !isNowPlayingStageActive && !hifiBlocksAutomix && !externalBlocksAutomix && !passthroughBlocksAutomix,
         transition: transitionSettings,
         onAdvanceTrack: () => {
             // Same advance the end of a track would trigger, only early enough for the outgoing
@@ -1205,6 +1209,7 @@ export default function App() {
             });
         },
         onDeckPlayedOut: (song, src) => cachePlayedOutRef.current(song, src),
+        onDjCueRejected: () => cancelRejectedDjCueRef.current(),
         getLocalStemBytes,
     });
 
@@ -1394,6 +1399,7 @@ export default function App() {
         getActiveChain: automix.getActiveChain,
         suppressAutoplayRef: automix.suppressAutoplayRef,
         isAutoplayHeld: automix.autoplayHeld,
+        prepareDjEntry: automix.prepareDjEntry,
         syncOutputGain,
         getTargetPlaybackVolume,
         getCoverUrl,
@@ -1401,7 +1407,7 @@ export default function App() {
     });
 
     // 桌面版直通模式:曲目的声音交给 WASAPI 独占播放器,<audio> 退为静音的传输时钟。
-    usePassthroughPlayback({ audioRef, setupAudioAnalyzer });
+    usePassthroughPlayback({ audioRef, setupAudioAnalyzer, transitionPending: automix.autoplayHeld || automix.tailSrc !== null });
     // 本 Fork:启动后问 Fork 的发布页有没有新版(只提示,安装在设置里)
     useTogetherUpdateCheck();
 
@@ -1484,7 +1490,7 @@ export default function App() {
 
     useStageRemoteMirror({
         enabled: stageRemoteMode,
-        userId: user?.id,
+        userId: null,
         setLyrics: setLyricsStable,
         setIsLyricsLoading,
         restoreCachedThemeForSong,
@@ -2081,6 +2087,12 @@ export default function App() {
             + ` staying on "${exitingSong.name}" (${(frozen?.duration ?? 0).toFixed(1)}s long)`,
         );
         return tailElement;
+    };
+    cancelRejectedDjCueRef.current = () => {
+        const tail = automix.getDisplayElement();
+        if (!tail || tail.ended || !cancelBlendToDisplayedTrack(true)) return false;
+        shouldAutoPlay.current = false;
+        return true;
     };
     /**
      * A seek that lands during an automix blend, or false when there is no blend to cancel.
@@ -2757,6 +2769,7 @@ export default function App() {
                 if (isHifiRoute()) return;
                 const audioElement = e.currentTarget;
                 if (!automix.isActiveDeck(audioElement)) return;
+                if (!automix.prepareDjEntry(audioElement)) return;
                 setDuration(audioElement.duration);
                 // While the picture is held, this deck is the track ARRIVING: its length and its
                 // position belong to a song the listener cannot see yet, and writing either here
@@ -3023,7 +3036,7 @@ export default function App() {
                 card was up, which on the lyrics page - the one people watch - meant the ring was never
                 seen again after the card shipped. Two pictures of one blend is now something the
                 listener asks for rather than something this file rules out. */}
-            {transitionAnimation && transitionMode === 'automix' && (
+            {transitionAnimation && transitionMode !== 'crossfade' && (
                 <Suspense fallback={null}>
                     <AutomixTransitionAnimation theme={theme} isDaylight={isDaylight} />
                 </Suspense>

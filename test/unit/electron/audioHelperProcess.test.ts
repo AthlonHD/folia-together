@@ -26,14 +26,17 @@ afterEach(() => {
 describe('stageSource', () => {
     it('registers the new platform stream for native staging', async () => {
         const main = readFileSync(new URL('../../../electron/main.cjs', import.meta.url), 'utf8');
-        const registered = /customSchemes:\s*\[([^\]]+)\]/.exec(main)?.[1];
-        expect(registered).toContain('FN_MUSIC_SCHEME');
-        const { FN_MUSIC_SCHEME } = require('../../../electron/fnmusic/fnmusicApiBridge.cjs');
+        expect(main).toContain('...BUILTIN_LEGACY_MEDIA_SCHEMES.map(entry => entry.scheme)');
+        const { BUILTIN_LEGACY_MEDIA_SCHEMES } = require('../../../electron/modSystem/builtinSources.cjs') as {
+            BUILTIN_LEGACY_MEDIA_SCHEMES: ReadonlyArray<{ scheme: string }>;
+        };
+        const scheme = BUILTIN_LEGACY_MEDIA_SCHEMES.find(entry => entry.scheme === 'folia-fnmusic')?.scheme;
+        expect(scheme).toBe('folia-fnmusic');
         const file = await stageSource({
             directory: scratch(),
-            source: { kind: 'url', url: `${FN_MUSIC_SCHEME}://stream?guid=test-song` },
+            source: { kind: 'url', url: `${scheme}://stream?guid=test-song` },
             fetchImpl: (async () => new Response(new Uint8Array([1, 2, 3]))) as typeof fetch,
-            customSchemes: [FN_MUSIC_SCHEME],
+            customSchemes: [scheme],
         });
         expect([...readFileSync(file)]).toEqual([1, 2, 3]);
         expect(path.basename(file)).toMatch(/^eph-/);

@@ -149,7 +149,7 @@ describe('Spotify audio', () => {
 
         // Two failures, then a server that answers: one connection, three requests.
         const recovers = make(2);
-        await expect(recovers.audio.issue(TRACK, 320)).resolves.toMatchObject({ url: expect.stringMatching(/^folia-spotify:\/\/audio\//) });
+        await expect(recovers.audio.issue(TRACK, 320)).resolves.toMatchObject({ url: expect.stringMatching(/^folia-mod:\/\/spotify\/_media\/audio\//) });
         expect(recovers.open).toHaveBeenCalledTimes(1);
         expect(recovers.session.resolveAudioFileAsync).toHaveBeenCalledTimes(3);
         expect(recovers.session.close).not.toHaveBeenCalled();
@@ -173,7 +173,7 @@ describe('Spotify audio', () => {
             accessToken: async () => 'access-private', deviceId: () => 'device', fetch: base.fetch, openSession: async () => session, findFile,
             quietLimitMs: 30, log: () => {}, warn: () => {},
         });
-        await expect(audio.issue(TRACK, 320)).resolves.toMatchObject({ url: expect.stringMatching(/^folia-spotify:\/\/audio\//) });
+        await expect(audio.issue(TRACK, 320)).resolves.toMatchObject({ url: expect.stringMatching(/^folia-mod:\/\/spotify\/_media\/audio\//) });
         expect(findFile).toHaveBeenCalledWith(TRACK, 320);
         expect(session.requestAudioKeyAsync).toHaveBeenCalledWith('spotify:track:alternativeId0000000000', 'a'.repeat(40));
         expect(session.resolveAudioFileAsync).toHaveBeenCalledTimes(1);

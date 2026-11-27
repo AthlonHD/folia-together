@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { PlayerState } from '../../types';
 import type { LyricData, SongResult, StageLoopMode } from '../../types';
@@ -6,7 +6,7 @@ import type { AudioQualityPreference } from '../../types/onlineMusic';
 import type { PlaybackRecoveryTarget } from '../../types/playbackRecovery';
 import { getPlaybackSongKey, isNavidromePlaybackSong, resolveNavidromePlaybackCarrier } from '../../utils/appPlaybackGuards';
 import { nextTransitionSong } from '../../utils/playbackNeighbors';
-import { getPrefetchedData } from '../prefetchService';
+import { getPrefetchedData, peekPrefetchedLyricLines } from '../prefetchService';
 import { describeProfileState, getTrackProfile, recordPlayedTail } from './profileService';
 import { onPlayWrapped } from '../volumeBalance/balanceMeter';
 import { learnPlayedSong } from '../volumeBalance/balanceRecords';
@@ -16,12 +16,14 @@ import { connectAutomixDeck, type AutomixDeckChain } from './crossfadeGraph';
 import {
     createAutomixSession,
     AUTOMIX_ARM_LEAD_SEC,
+    DJ_ARM_LEAD_SEC,
     type AutomixDeckId,
     type AutomixSession,
 } from './automixSession';
 import { AUTOMIX_MAX_OVERLAP_SEC, linesOnClipClock } from './transitionPlanner';
 import { omni } from '../onlineMusic/omni';
-import type { TransitionSettings } from './transitionStrategy';
+import { canUseDjMix, modeNeedsBeatGrid, type TransitionSettings } from './transitionStrategy';
+import { createDjCueLookup } from './djMixPlanner';
 import { usePlaybackStore, type TransitionDisplay } from '../../stores/usePlaybackStore';
 import { useAudioSettingsStore } from '../../stores/useAudioSettingsStore';
 import { playbackFade } from '../playbackFade';
@@ -164,6 +166,8 @@ type UseAutomixDecksParams = {
     transition: TransitionSettings;
     /** Runs the queue's normal advance, exactly as the end of a track would. */
     onAdvanceTrack: () => void;
+    /** Restore the still-playing outgoing track if a committed DJ cue proves unusable. */
+    onDjCueRejected?: () => boolean;
     /**
      * A deck finished playing a whole track out - the blended equivalent of an `ended` event, which a
      * faded track never fires. Given the track pinned to that deck and the deck's own source, so the
@@ -188,6 +192,7 @@ export function useAutomixDecks({
     isEnabled,
     transition,
     onAdvanceTrack,
+    onDjCueRejected,
     onDeckPlayedOut,
     getLocalStemBytes,
 }: UseAutomixDecksParams) {
@@ -204,6 +209,11 @@ export function useAutomixDecks({
     // 智能平衡 meters every deck as it plays, Auto Mix or not.
     const balancing = usePlaybackStore(state => state.replayGainMode === 'auto');
     const audioQuality = useAudioSettingsStore(state => state.audioQuality);
+    const lookupDjCue = useMemo(createDjCueLookup, [currentSong, audioSrc, transition.mode]);
+    const outgoingLines = useMemo(() => linesOnClipClock(lyrics?.lines ?? null, audioSrc ? omni.previewClipStartMsOfAudioSource(audioSrc) / 1000 : 0), [lyrics, audioSrc]);
+    const blockedDjSrcRef = useRef<string | null>(null);
+    const rejectDjCueRef = useRef(onDjCueRejected);
+    rejectDjCueRef.current = onDjCueRejected;
 
     const [activeDeck, setActiveDeck] = useState<AutomixDeckId>('A');
     const [tailSrc, setTailSrc] = useState<string | null>(null);
@@ -440,6 +450,12 @@ export function useAutomixDecks({
     }
     const session = sessionRef.current;
 
+    useEffect(() => {
+        if (session.getPhase() === 'idle' && audioSrc !== blockedDjSrcRef.current && usePlaybackStore.getState().audioSrc === audioSrc) {
+            blockedDjSrcRef.current = null;
+        }
+    }, [audioSrc, session, tailSrc]);
+
     const bindDeck = useCallback((deck: AutomixDeckId, element: HTMLAudioElement | null) => {
         // A deck swapping to a DIFFERENT element mid-session means React unmounted and remounted
         // it. The replacement starts empty, so whatever was playing is gone and the fresh element
@@ -569,7 +585,9 @@ export function useAutomixDecks({
         // The longest blend, plus the lead it is armed ahead of. Everything this function does
         // happens inside that window, warming included - which gives the idle deck the better part
         // of ten seconds to buffer before anything is asked of it.
-        if (duration - time > AUTOMIX_MAX_OVERLAP_SEC + AUTOMIX_ARM_LEAD_SEC) return;
+        const djMix = transition.mode === 'djMix' && canUseDjMix() && blockedDjSrcRef.current !== audioSrc;
+        if (!djMix && duration - time > AUTOMIX_MAX_OVERLAP_SEC + AUTOMIX_ARM_LEAD_SEC) return;
+        if (djMix && time < Math.min(25, duration * 0.3) && duration - time > AUTOMIX_MAX_OVERLAP_SEC + AUTOMIX_ARM_LEAD_SEC) return;
 
         if (!isEnabled) return report('disabled', 'off - the Blend icon at the end of the volume row switches it on');
         // The report keys carry the mode: switching strategy mid-track otherwise reads as the same
@@ -592,6 +610,16 @@ export function useAutomixDecks({
         // media cache, the prefetcher reports 'CACHED_IN_DB', and the line below turns it into null. The
         // warm slot belongs to the transition holding it until settle gives it back.
         if (session.getPhase() !== 'idle') return;
+
+        const fromProfile = getTrackProfile(currentSong);
+        const toProfile = getTrackProfile(nextSong);
+        const incomingLines = djMix ? peekPrefetchedLyricLines(nextSong) : null;
+        const cue = djMix ? lookupDjCue(
+            { duration, lines: outgoingLines, profile: fromProfile },
+            { duration: nextSong.durationMs / 1000, lines: incomingLines, profile: toProfile }, time,
+        ) : null;
+        const nearTail = duration - time <= AUTOMIX_MAX_OVERLAP_SEC + AUTOMIX_ARM_LEAD_SEC;
+        if (!nearTail && (!cue || cue.outStart - time > AUTOMIX_MAX_OVERLAP_SEC + AUTOMIX_ARM_LEAD_SEC)) return;
 
         const prefetched = getPrefetchedData(nextSong, audioQuality);
         // Buffer ahead, well before anything arms. 'CACHED_IN_DB' is the prefetcher's sentinel for
@@ -616,6 +644,8 @@ export function useAutomixDecks({
         const idleDeck = activeDeck === 'A' ? 'B' : 'A';
         deckSongRef.current[idleDeck] = nextWarmSrc ? nextSong : null;
         setWarmSrc(nextWarmSrc);
+        const armLead = cue?.djCue ? DJ_ARM_LEAD_SEC : AUTOMIX_ARM_LEAD_SEC;
+        if (cue && time < cue.outStart - armLead) return;
 
         const plan = session.requestTransition({
             time,
@@ -624,18 +654,18 @@ export function useAutomixDecks({
             // song: the lines are moved onto the clip's clock to be read against it.
             from: {
                 duration,
-                lines: linesOnClipClock(lyrics?.lines ?? null, omni.previewClipStartMsOfAudioSource(audioSrc) / 1000),
-                profile: getTrackProfile(currentSong),
+                lines: outgoingLines,
+                profile: fromProfile,
             },
             to: {
                 duration: nextSong.durationMs / 1000,
                 // Already in memory for online tracks: the queue prefetcher fetches the next few
                 // songs' lyrics on every song change. Local files have no such cache, so they get
                 // the planner's default-length blend instead of a vocal-placed one.
-                lines: prefetched?.lyrics?.lines ?? null,
-                profile: getTrackProfile(nextSong),
+                lines: djMix ? incomingLines : prefetched?.lyrics?.lines ?? null,
+                profile: toProfile,
             },
-            settings: transition,
+            settings: transition.mode === 'djMix' && !djMix ? { ...transition, mode: 'automix' } : transition,
             nextKey: getPlaybackSongKey(nextSong),
             fromKey: getPlaybackSongKey(currentSong),
         });
@@ -664,7 +694,7 @@ export function useAutomixDecks({
         } else if (time >= plan.outStart) {
             report(`${audioSrc}:${modeTag}unwired`, `wanted a ${plan.overlap}s blend but the decks are not on the audio graph`);
         }
-    }, [activeDeck, audioQuality, audioSrc, currentSong, duration, isEnabled, isFmMode, loopMode, lyrics, playQueue, report, session, transition]);
+    }, [activeDeck, audioQuality, audioSrc, currentSong, duration, isEnabled, isFmMode, loopMode, outgoingLines, lookupDjCue, playQueue, report, session, transition]);
 
     /**
      * Reads the ref rather than the `currentSong` prop, and that is the whole correctness of it.
@@ -679,10 +709,29 @@ export function useAutomixDecks({
      * playSong sets the ref synchronously, at the moment it commits to the track, so the ref and the deck
      * can never disagree the way the state and the deck can.
      */
+    const handleRejectedDjCue = useCallback((element: HTMLAudioElement, rejection: ReturnType<AutomixSession['validateDjEntry']>) => {
+        if (!rejection) return true;
+        blockedDjSrcRef.current = rejection.source;
+        console.log(`[Automix] DJ Mix cue rejected: ${rejection.reason}; returning to ordinary playback`);
+        if (rejectDjCueRef.current?.()) return false;
+        session.degradeDjEntry(element);
+        return true;
+    }, [session]);
+
     const handleActiveDeckPlaying = useCallback(() => {
         const key = currentSongKeyRef.current;
+        const element = audioRef.current;
+        const src = usePlaybackStore.getState().audioSrc;
+        if (element && src && element.getAttribute('src') === src && !handleRejectedDjCue(element, session.validateDjEntry(element, typeof key === 'string' ? key : null, src, true))) return;
         session.handleActiveDeckPlaying(typeof key === 'string' ? key : null);
-    }, [currentSongKeyRef, session]);
+    }, [audioRef, currentSongKeyRef, handleRejectedDjCue, session]);
+
+    const prepareDjEntry = useCallback((element: HTMLAudioElement) => {
+        const src = usePlaybackStore.getState().audioSrc;
+        const key = currentSongKeyRef.current;
+        if (src && element.getAttribute('src') === src) return handleRejectedDjCue(element, session.prepareDjEntry(element, typeof key === 'string' ? key : null, src));
+        return true;
+    }, [currentSongKeyRef, handleRejectedDjCue, session]);
 
     const handleTailEnded = useCallback(() => session.handleTailEnded(), [session]);
 
@@ -757,7 +806,7 @@ export function useAutomixDecks({
      * otherwise, which is what every build before stems did.
      */
     useEffect(() => {
-        if (!isEnabled || !currentSong || transition.mode !== 'automix') return;
+        if (!isEnabled || !currentSong || !modeNeedsBeatGrid(transition.mode)) return;
         if (!canSeparateStems()) return;
 
         const next = nextTransitionSong(playQueue, currentSong, loopMode, isFmMode);
@@ -887,6 +936,7 @@ export function useAutomixDecks({
         connectDecks,
         getActiveChain,
         checkTransitionPoint,
+        prepareDjEntry,
         handleActiveDeckPlaying,
         handleTailEnded,
         isTransitionAudible,

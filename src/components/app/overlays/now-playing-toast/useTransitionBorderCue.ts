@@ -48,7 +48,7 @@ export const useTransitionBorderCue = (): TransitionBorderCue | null => {
     // 描边会自顾自画完剩下的十几秒，卡片也被 holdOpen 一起按住不退场——而屏幕圆环那边关开关
     // 是直接卸载、立刻停。两个开关该是一样的手感。
     const switchedOn = useAutomixSettingsStore(
-        state => state.transitionAnimationCard && state.transitionMode === 'automix',
+        state => state.transitionAnimationCard && state.transitionMode !== 'crossfade',
     );
 
     const [active, setActive] = useState<TransitionBorderCue | null>(() => nextBorderCue(null, switchedOn));

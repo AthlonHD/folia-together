@@ -6,7 +6,7 @@ import type { PassthroughHelperEvent } from '../../../services/passthrough/types
 import { usePassthroughSettingsStore } from '../../../stores/usePassthroughSettingsStore';
 import { usePlaybackStore } from '../../../stores/usePlaybackStore';
 import { setStatusMessage } from '../../../stores/useStatusMessageStore';
-import { runsOnWindows } from '../../../utils/platform';
+import { isPassthroughRequested } from '../../../services/passthrough/passthroughAvailability';
 import { buildPassthroughSource, classifyAudioSrc, startSecFor } from './passthroughSource';
 
 // src/components/app/passthrough/usePassthroughPlayback.ts
@@ -23,15 +23,17 @@ const DRIFT_TOLERANCE_SEC = 0.3;
 
 type UsePassthroughPlaybackParams = {
     audioRef: RefObject<HTMLAudioElement | null>;
+    /** Let an already armed or audible Web Audio blend settle before taking over. */
+    transitionPending?: boolean;
     /** Builds the audio graph; the element has to be routed through it before the web output can be silenced. */
     setupAudioAnalyzer: () => void;
 };
 
-export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer }: UsePassthroughPlaybackParams) {
+export function usePassthroughPlayback({ audioRef, setupAudioAnalyzer, transitionPending = false }: UsePassthroughPlaybackParams) {
     const { t } = useTranslation();
     const api = typeof window !== 'undefined' ? window.electron?.audioHelper : undefined;
     const playbackRoute = usePlaybackStore(state => state.playbackRoute);
-    const enabled = usePassthroughSettingsStore(state => state.passthroughEnabled) && Boolean(api) && runsOnWindows() && playbackRoute !== 'hifi';
+    const enabled = usePassthroughSettingsStore(state => isPassthroughRequested(state.passthroughEnabled)) && playbackRoute !== 'hifi' && !transitionPending;
     const deviceId = usePassthroughSettingsStore(state => state.passthroughDeviceId);
     const rateStrategy = usePassthroughSettingsStore(state => state.passthroughRateStrategy);
     const fixedRate = usePassthroughSettingsStore(state => state.passthroughFixedRate);

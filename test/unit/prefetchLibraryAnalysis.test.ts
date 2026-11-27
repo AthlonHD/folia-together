@@ -131,6 +131,14 @@ describe('prefetchNearbySongs on a library queue', () => {
         expect(await run(queue[0], queue)).toEqual([]);
     });
 
+    it('requests the current and next profiles when DJ Mix is enabled mid-song', async () => {
+        useAutomixSettingsStore.setState({ automixEnabled: false });
+        const queue = [local('a', 'Alpha'), local('b', 'Bravo'), local('c', 'Charlie')];
+        expect(await run(queue[0], queue)).toEqual([]);
+        useAutomixSettingsStore.setState({ automixEnabled: true, transitionMode: 'djMix' });
+        expect(ensureTrackProfile.mock.calls.map(([{ song }]) => song.name)).toEqual(['Alpha', 'Bravo']);
+    });
+
     // The request made at the track change went out under the original's key; a transcode registering
     // later moves the analysis to its own key, and only this asks about it before the track leaves.
     it('analyses the current track again when its transcode registers', async () => {

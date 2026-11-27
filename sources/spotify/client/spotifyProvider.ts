@@ -196,6 +196,9 @@ export const createSpotifySource = (env: SpotifySourceEnv): FoliumSourceDef => {
                 // Spotify's files are Ogg Vorbis at 160 and at 320 kbit/s and nothing above (`BITRATES` on
                 // the desktop side): two levels, and a preference above `high` is asked for as `high`.
                 audioQualityLevels: ['standard', 'high'] as const,
+                ...{
+                    audioQualityLabels: { standard: '160 kbit/s', high: '320 kbit/s' },
+                },
                 // Through Soloist the host asks for no file: Soloist streams at the level set for it in the Spotify
                 // app (its device menu; Soloist ships a FLAC decoder and lets the controlling app set its quality).
                 get audioQualityNotice(): FoliumText | undefined {
@@ -303,7 +306,12 @@ export const createSpotifySource = (env: SpotifySourceEnv): FoliumSourceDef => {
                 getSetup: getSpotifySetup,
                 runSetupAction: runSpotifySetupAction,
             },
-            'catalog@1': following(spotifyCatalog),
+            'catalog@1': following({
+                ...spotifyCatalog,
+                ...{
+                    getPlaylistPageUrl: (id: string) => 'https://open.spotify.com/playlist/' + encodeURIComponent(id),
+                },
+            }),
             'library@1': createSpotifyLibrary(() => env.translate('likedSongs')),
             // The radio tab: a personal FM, daily songs and playlists, each made of what Spotify has for the
             // account (spotifyRecommendations.ts). No FM modes. Spotify's recommendation page is the explore tab.

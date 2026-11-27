@@ -11,6 +11,7 @@ import type {
     ProviderSongAvailability,
 } from '@/types/onlineMusic';
 import type {
+    FoliumSourceAudioQuality,
     FoliumSourceAudioPlayback,
     FoliumSourceDef,
     FoliumSourceExternalPlayback,
@@ -97,6 +98,10 @@ const audioSourceOf = (answer: unknown, quality: AudioQualityPreference): Provid
     };
 };
 
+const sourceQuality = (quality: AudioQualityPreference): FoliumSourceAudioQuality => (
+    quality === 'spatial' || quality === 'master' ? 'hires' : quality
+);
+
 /** The internal `playback`: songs by id from songs@1, audio from playback.audio@1. */
 export const buildPlayback = (
     kit: SourceAdapterKit,
@@ -122,7 +127,7 @@ export const buildPlayback = (
             },
         } : {}),
         getAudioSource: async (song, quality) => (
-            getAudioSource ? audioSourceOf(await kit.run('getAudioSource', () => getAudioSource(toSourceSong(song), quality)), quality) : null
+            getAudioSource ? audioSourceOf(await kit.run('getAudioSource', () => getAudioSource(toSourceSong(song), sourceQuality(quality))), quality) : null
         ),
         ...(getAvailability ? {
             getAvailability: kit.sync('getAvailability', (song: SongResult) => availabilityOf(getAvailability(toSourceSong(song))), () => UNKNOWN_AVAILABILITY),
@@ -166,6 +171,9 @@ export const buildPlayback = (
             },
         },
         audioQualityLevels: { enumerable: true, get: () => audio?.audioQualityLevels },
+        ...('audioQualityLabels' in (audio ?? {}) ? {
+            audioQualityLabels: { enumerable: true, get: () => (audio as { audioQualityLabels?: unknown }).audioQualityLabels },
+        } : {}),
         audioQualityNoticeKey: {
             enumerable: true,
             get: () => {
@@ -352,7 +360,10 @@ export const buildReports = (kit: SourceAdapterKit, reports: FoliumSourceReports
     return {
         ...(canReport ? { canReport: kit.sync('canReport', (song: SongResult) => canReport(toSourceSong(song)), () => false) } : {}),
         reportPlayback: async (song, report) => {
-            await kit.run('report', () => reports.report(toSourceSong(song), { ...report }));
+            await kit.run('report', () => reports.report(toSourceSong(song), {
+                ...report,
+                quality: report.quality ? sourceQuality(report.quality) : undefined,
+            }));
         },
     };
 };

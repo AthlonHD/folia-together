@@ -138,6 +138,7 @@ exports[`command palette registry contract > keeps the registered command order 
   "stem-mixer-reset",
   "transition-mode-crossfade",
   "transition-mode-automix",
+  "transition-mode-dj-mix",
   "transition-performance-toggle",
   "settings-discord-presence",
   "settings-obs-browser-source",

@@ -43,6 +43,8 @@ type UsePlaybackAudioBridgeParams = {
     suppressAutoplayRef: MutableRefObject<boolean>;
     /** True while automix has the next track loaded but its blend is not due to start yet. */
     isAutoplayHeld: boolean;
+    /** Sets an armed DJ cue on the committed audio source just before autoplay. */
+    prepareDjEntry: (element: HTMLAudioElement) => boolean;
     syncOutputGain: (targetVolume: number, smoothing?: number) => void;
     getTargetPlaybackVolume: () => number;
     getCoverUrl: () => string | null;
@@ -68,6 +70,7 @@ export function usePlaybackAudioBridge({
     getActiveChain,
     suppressAutoplayRef,
     isAutoplayHeld,
+    prepareDjEntry,
     syncOutputGain,
     getTargetPlaybackVolume,
     getCoverUrl,
@@ -381,6 +384,7 @@ export function usePlaybackAudioBridge({
                 }
 
                 syncOutputGain(getTargetPlaybackVolume(), 0);
+                if (prepareDjEntry?.(audioRef.current) === false) return;
                 const playPromise = audioRef.current.play();
                 if (playPromise !== undefined) {
                     playPromise
@@ -413,7 +417,7 @@ export function usePlaybackAudioBridge({
                 }
             }
         }
-    }, [audioRef, audioSrc, getTargetPlaybackVolume, isAutoplayHeld, isLyricsLoading, setPlayerState, setStatusMsg, setupAudioAnalyzer, shouldAutoPlayRef, suppressAutoplayRef, syncOutputGain, t]);
+    }, [audioRef, audioSrc, getTargetPlaybackVolume, isAutoplayHeld, isLyricsLoading, prepareDjEntry, setPlayerState, setStatusMsg, setupAudioAnalyzer, shouldAutoPlayRef, suppressAutoplayRef, syncOutputGain, t]);
 
     // Tells this bridge that the active deck ALREADY holds `src` and is sounding it, so the next time
     // `audioSrc` settles on that value the reload effect above treats it as a no-op instead of calling

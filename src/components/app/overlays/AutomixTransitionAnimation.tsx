@@ -67,7 +67,7 @@ const readRunningCue = (): DrawnRun | null => {
     const running = getActiveTransitionCue();
     if (!running) return null;
   const settingsAutomixSettings = useAutomixSettingsStore.getState();
-    return shouldDrawCue(running.cue, settingsAutomixSettings.transitionAnimation && settingsAutomixSettings.transitionMode === 'automix', 'ring')
+    return shouldDrawCue(running.cue, settingsAutomixSettings.transitionAnimation && settingsAutomixSettings.transitionMode !== 'crossfade', 'ring')
         ? { cue: running.cue, startAtMs: running.elapsedMs }
         : null;
 };
@@ -141,7 +141,7 @@ const AutomixTransitionAnimation: React.FC<AutomixTransitionAnimationProps> = ({
         // Nothing is touched when the answer is no - not even a dismissal. The card's own settings
         // preview comes down this same channel, and it is not this ring's business either to draw
         // it or to cut short whatever this ring is already drawing.
-        if (!shouldDrawCue(next, settingsAutomixSettings.transitionAnimation && settingsAutomixSettings.transitionMode === 'automix', 'ring')) return;
+        if (!shouldDrawCue(next, settingsAutomixSettings.transitionAnimation && settingsAutomixSettings.transitionMode !== 'crossfade', 'ring')) return;
         dismissAnimationRef.current?.cancel();
         dismissAnimationRef.current = null;
         leavingRef.current = false;

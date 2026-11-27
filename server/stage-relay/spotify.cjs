@@ -1,6 +1,6 @@
 // server/stage-relay/spotify.cjs
 // Spotify for the web build (Fork): the same bridge the desktop app runs in its main process
-// (electron/spotify/spotifyApiBridge.cjs), run here in the relay's Node process, so the Host page and
+// (sources/spotify/main/spotifyApiBridge.cjs), run here in the relay's Node process, so the Host page and
 // the remote pages can use Spotify through the relay instead of through Electron IPC.
 //
 // - The account (tokens) is kept on the machine of the relay, sealed with a key file next to it, and
@@ -23,7 +23,7 @@ const net = require('node:net');
 const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
 const { Readable } = require('node:stream');
-const { createSpotifyApiBridge } = require('../../electron/spotify/spotifyApiBridge.cjs');
+const { createSpotifyApiBridge } = require('../../sources/spotify/main/spotifyApiBridge.cjs');
 
 const SPOTIFY_HOST = /(^|\.)(spotify\.com|spotifycdn\.com|scdn\.co)$/i;
 const PROBE_HOST = 'accounts.spotify.com';
@@ -277,6 +277,7 @@ const createSpotifyRelay = ({
       log,
       warn,
       ...(deps.openSession ? { openSession: deps.openSession } : {}),
+      audioUrl: (trackId, key) => `folia-spotify://audio/${trackId}?k=${key}`,
     });
     bridges.set(id, entry);
     return entry;

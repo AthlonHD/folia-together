@@ -85,6 +85,12 @@ export const spotifyCodeOf = (error: unknown): { code: string; message: string }
 /** An error of the host's, with the bridge's code (or `invalid-response` for one the host does not know) and sentence. */
 export const spotifyError = (code: string | undefined, message: string, reason?: string): FoliumSourceError => {
     const known = code !== undefined && CODES.has(code) ? code as FoliumSourceErrorCode : 'invalid-response';
+    // 网页版中继在音源 activate 之前就会拒绝登录：这时还没有宿主的 error，错本身带上 code 即可。
+    if (!env) {
+        const error = new Error(message) as FoliumSourceError;
+        (error as { code: string }).code = known;
+        return error;
+    }
     if (!reason) return host().error(known, message);
     const cause: SpotifyReason = Object.freeze({ reason });
     reasons.add(cause);

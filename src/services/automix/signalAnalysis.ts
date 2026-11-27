@@ -521,6 +521,10 @@ export interface BandBlendRequest {
     swapBass: boolean;
     /** The outgoing track is filtered out of the way as it leaves, not only turned down. */
     sweepOut: boolean;
+    /** The outgoing top starts leaving at the beginning of the blend, not only after the seam. */
+    sweepFromStart?: boolean;
+    /** A fast, full outgoing track: the top and the middle both recede, or the fade-out is only a bass swap. */
+    strongFadeOut?: boolean;
     /** dB the incoming deck's mid and top start bent by, so it arrives wearing the outgoing
      *  track's tone and returns to its own. Clamped; zero disables the match. */
     tiltDb: readonly [number, number];
@@ -576,8 +580,15 @@ export const buildBandCurves = (request: BandBlendRequest): BandBlendCurves => {
         // 0 while the outgoing track still owns the low end, 1 once the incoming one has it.
         const handover = clamp((progress - (seam - width / 2)) / width, 0, 1);
         // Nothing at the seam, then accelerating: the top thins out as the track leaves rather
-        // than stepping down the moment the two change places.
-        const leaving = clamp((progress - seam) / Math.max(1e-3, 1 - seam), 0, 1) ** 2;
+        // than stepping down the moment the two change places. A long overlap that is not
+        // beatmatched starts that thinning at once, and holds the arriving top back with it,
+        // so two sets of cymbals are not both open while the songs are still crossing.
+        const leaving = request.sweepFromStart
+            ? clamp(progress / Math.max(1e-3, seam), 0, 1)
+            : clamp((progress - seam) / Math.max(1e-3, 1 - seam), 0, 1) ** 2;
+        const arriving = request.sweepFromStart
+            ? clamp(1 - progress / Math.max(1e-3, seam), 0, 1)
+            : 0;
         // Full at the start of the blend, gone by the time the two change places.
         const settling = clamp(1 - progress / Math.max(1e-3, seam), 0, 1);
 
@@ -586,10 +597,12 @@ export const buildBandCurves = (request: BandBlendRequest): BandBlendCurves => {
             incoming[0][index] = -BASS_KILL_DB * (1 - handover);
         }
         if (request.sweepOut) {
-            out[2][index] = -SWEEP_OUT_HIGH_DB * leaving;
+            const highCut = request.strongFadeOut ? 16 : SWEEP_OUT_HIGH_DB;
+            out[2][index] = -highCut * leaving;
+            if (request.strongFadeOut) out[1][index] = -8 * leaving;
         }
         incoming[1][index] = tiltMid * settling;
-        incoming[2][index] = tiltHigh * settling;
+        incoming[2][index] = tiltHigh * settling - (request.sweepOut ? SWEEP_OUT_HIGH_DB * 0.65 * arriving : 0);
     }
 
     return { out, in: incoming };

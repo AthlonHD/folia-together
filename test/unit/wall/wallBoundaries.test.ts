@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 // 共享 wall 引擎（src/components/wall）与内容无关：Lattice 和资料库 suite 都 import 它，它不能反过来依赖
 // 任何一方——不碰 components/app（Lattice 在 components/app/lattice）和 src/library。与 Dedicatus 的
 // BOUNDARY_RULES（dev/dedicatus/rules.mjs）同一条规则；这里连 `import type` 一起查，类型依赖同样会把两边绑死。
+// 本 Fork 的跨平台歌单（components/app/crossPlaylist）是墙面工具和播放页共用的，墙面可以引用它。
 
 const ROOT = path.resolve(__dirname, '../../..');
 const WALL = 'src/components/wall';
@@ -42,7 +43,11 @@ describe('shared wall engine boundaries', () => {
 
     it('does not depend on Lattice, the app layer or the library', () => {
         const offenders = files.flatMap(file => specifiersOf(file)
-            .filter(specifier => /^src\/(components\/app|library)\//.test(resolveSpecifier(file, specifier)))
+            .filter(specifier => {
+                const resolved = resolveSpecifier(file, specifier);
+                if (/^src\/components\/app\/crossPlaylist\//.test(resolved)) return false;
+                return /^src\/(components\/app|library)\//.test(resolved);
+            })
             .map(specifier => `${file} -> ${specifier}`));
         expect(offenders).toEqual([]);
     });

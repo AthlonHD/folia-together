@@ -1,3 +1,4 @@
+// @builtin-sources
 import { describe, expect, it } from 'vitest';
 import type { SongResult } from '@/types';
 import { describeDeliveredAudio, getDeliveredAudio, isDowngraded, noteDeliveredAudio } from '@/services/onlineMusic/deliveredAudio';

@@ -213,6 +213,9 @@ export const buildAuth = (kit: SourceAdapterKit, auth: FoliumSourceAuth): Online
                 await kit.run('openLoginPage', () => openLoginPage(key));
             },
         } : {}),
+        ...((auth as FoliumSourceAuth & { pasteBackLoginAddress?: OnlineAuthProvider['pasteBackLoginAddress'] }).pasteBackLoginAddress
+            ? { pasteBackLoginAddress: (auth as FoliumSourceAuth & { pasteBackLoginAddress: NonNullable<OnlineAuthProvider['pasteBackLoginAddress']> }).pasteBackLoginAddress }
+            : {}),
         ...(opensLoginPageItself ? { opensLoginPageItself: kit.sync('opensLoginPageItself', (key: string) => opensLoginPageItself(key), () => false) } : {}),
         // The state is the host's to hand on: its shape is the contract's FoliumSourceLoginState.
         ...(checkLogin ? { checkLogin: async (key) => await kit.run('checkLogin', () => checkLogin(key)) as LoginState } : {}),

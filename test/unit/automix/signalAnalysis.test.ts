@@ -491,6 +491,18 @@ describe('buildBandCurves', () => {
         expect(shared / points).toBeLessThan(0.2);
     });
 
+    it('thins the outgoing top from the start when the overlap is a long unmatched fade', () => {
+        const { out, in: incoming } = buildBandCurves({ ...base, sweepFromStart: true });
+        const seam = Math.round(0.5 * (out[2].length - 1));
+        expect(out[2][0]).toBeCloseTo(0, 5);
+        expect(out[2][seam]).toBeCloseTo(-9, 5);
+        expect(incoming[2][0]).toBeLessThan(-5);
+        expect(incoming[2][seam]).toBeCloseTo(0, 5);
+        const hard = buildBandCurves({ ...base, sweepFromStart: true, strongFadeOut: true });
+        expect(hard.out[2][seam]).toBeCloseTo(-16, 5);
+        expect(hard.out[1][seam]).toBeCloseTo(-8, 5);
+        expect(buildBandCurves({ ...base }).out[2][0]).toBeCloseTo(0, 5);
+    });
     it('hands the low end over at the crossover, not in the middle', () => {
         const { out } = buildBandCurves({ ...base, crossover: 0.25 });
         const swapped = out[0].findIndex(value => value < -12);

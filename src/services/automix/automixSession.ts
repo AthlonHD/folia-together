@@ -41,6 +41,7 @@ import {
     type TransitionTrack,
 } from './transitionPlanner';
 import { planForMode, type TransitionSettings } from './transitionStrategy';
+import { DJ_PREROLL_LIMIT_SEC, djPhaseError, djPhaseShift, djPrerollEntry } from './djMixTiming';
 import { announceTransition, whyCueNotDrawn, type TransitionCue } from './transitionCue';
 import { programIsWholeTrack, type TrackProfile } from './trackProfile';
 
@@ -91,6 +92,16 @@ const otherDeck = (deck: AutomixDeckId): AutomixDeckId => (deck === 'A' ? 'B' : 
  * protecting.
  */
 export const AUTOMIX_ARM_LEAD_SEC = 1;
+
+/**
+ * How early a DJ cue arms.
+ *
+ * An end-of-track blend only has to open a file the idle deck has often already buffered. A DJ cue
+ * seeks into the middle of the next file, and one second is not enough for that seek to land before
+ * the phrase: the blend then starts late and is clipped down to a fade. Six seconds is loading time,
+ * spent paused — playback itself still starts at the cue.
+ */
+export const DJ_ARM_LEAD_SEC = 6;
 
 /**
  * How early the hold is lifted, to pay for the round trip between letting go and hearing it.
@@ -183,9 +194,11 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
     let plan: TransitionPlan | null = null;
     let plannedNextKey: string | null = null;
     let plannedFromKey: string | null = null;
+    let plannedFromSrc: string | null = null;
     /** Both offline profiles, kept from planning until the blend is actually scheduled. */
     let plannedFrom: TrackProfile | null = null;
     let plannedTo: TrackProfile | null = null;
+    let plannedToDuration = 0;
     /** The mode the armed plan was made in: the crossfade mode is all plain fades, and says so once in settings. */
     let plannedMode: AutomixTransitionRequest['settings']['mode'] | null = null;
     let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
@@ -266,6 +279,75 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         };
         if (element.readyState >= 1) apply();
         else element.addEventListener('loadedmetadata', apply, { once: true });
+    };
+
+    const isDjEntry = (element: HTMLAudioElement, key: string | null, src: string) => (
+        phase === 'armed' && plan?.djCue && plan.overlap > 0 && key === plannedNextKey && element === ports.getElement(activeDeck)
+        && (src !== plannedFromSrc || plannedFromKey === plannedNextKey)
+    );
+
+    /** A changed media representation or a missed window is no longer a valid interior cue. */
+    const validateDjEntry = (element: HTMLAudioElement, key: string | null, src: string, verifyPosition = false) => {
+        if (!isDjEntry(element, key, src) || !plan || !plannedFromSrc) return null;
+        const tail = ports.getElement(otherDeck(activeDeck));
+        const stretch = Math.min(1, Math.max(0.01, plan.stretch));
+        const hold = verifyPosition && tail ? Math.max(0, plan.outStart - tail.currentTime) / (Math.max(0.01, tail.playbackRate) * stretch) : 0;
+        const expectedEntry = tail ? djPrerollEntry(plan.inStart, plan.outStart, tail.currentTime, tail.playbackRate * plan.stretch) : plan.inStart;
+        const entryAt = verifyPosition ? Math.max(plan.inStart, element.currentTime + hold) : plan.inStart;
+        // A couple of seconds of metadata drift is normal and must not cancel the mix. A different
+        // edit — tens of seconds off — would put the cue in the wrong part of the file.
+        // The listing and the analysis can disagree while the file that is actually playing matches
+        // the analysis. Cancelling then seeks back to the song already on, which is the glitch.
+        // A file that matches neither, or that cannot hold the cue, is still refused.
+        const fileDuration = element.duration;
+        const listingDrift = plannedToDuration > 0 && Number.isFinite(fileDuration)
+            ? Math.abs(fileDuration - plannedToDuration) : 0;
+        const profileDrift = plannedTo && plannedTo.duration > 0 && Number.isFinite(fileDuration)
+            ? Math.abs(fileDuration - plannedTo.duration) : Infinity;
+        const durationDrift = Math.min(listingDrift, profileDrift);
+        const reference = profileDrift < listingDrift ? plannedTo!.duration : plannedToDuration;
+        const durationLimit = Math.max(15, reference * 0.08);
+        const reason = element.readyState >= 1 && (!Number.isFinite(element.duration)
+            || durationDrift > durationLimit
+            || element.duration - entryAt < plan.overlap / stretch)
+            ? 'incoming media duration differs from its profile'
+            : verifyPosition && Math.abs(element.currentTime - expectedEntry) > DJ_PREROLL_LIMIT_SEC
+                ? 'incoming DJ entry seek did not reach its cue'
+                : tail && tail.currentTime > plan.outStart + plan.overlap - plan.minOverlap
+                    ? 'the interior mix window has passed' : null;
+        return reason ? { source: plannedFromSrc, reason } : null;
+    };
+
+    const writeDjEntry = (element: HTMLAudioElement, position: number) => {
+        if (Math.abs(element.currentTime - position) < 0.02) return true;
+        try {
+            // Before metadata, currentTime sets the media element's default playback start position.
+            // The metadata handler repeats the write on this same committed source if needed.
+            element.currentTime = position;
+            return true;
+        } catch (error) {
+            console.warn('[Automix] DJ entry seek failed', error);
+            return false;
+        }
+    };
+
+    /** DJ entries belong to the committed incoming source, never the idle deck's previous file. */
+    const prepareDjEntry = (element: HTMLAudioElement, key: string | null, src: string) => {
+        if (!isDjEntry(element, key, src) || !plan) return null;
+        const rejection = validateDjEntry(element, key, src);
+        if (rejection) return rejection;
+        const tail = ports.getElement(otherDeck(activeDeck));
+        const entry = tail ? djPrerollEntry(plan.inStart, plan.outStart, tail.currentTime, tail.playbackRate * plan.stretch) : plan.inStart;
+        if (!writeDjEntry(element, entry) && plannedFromSrc) return { source: plannedFromSrc, reason: 'incoming DJ entry seek failed' };
+        return null;
+    };
+
+    /** Last resort if the outgoing deck has already ended and cannot be restored. */
+    const degradeDjEntry = (element: HTMLAudioElement) => {
+        if (!plan?.djCue || phase !== 'armed') return;
+        const tail = ports.getElement(otherDeck(activeDeck));
+        plan = { ...plan, style: 'plainBlend', stretch: 1, inStart: 0, outStart: tail?.currentTime ?? plan.outStart, overlap: 0, minOverlap: 0 };
+        writeDjEntry(element, 0);
     };
 
     /**
@@ -744,14 +826,19 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // fitted to its position describes a track nobody is listening to any more.
         clocks[tailDeck].reset();
 
+        // A finished DJ handoff is a played-out track too: the cache is the only consumer that does
+        // not already refuse a song left before its end. ReplayGain and the tail profile do.
+        const harvest = options.harvest !== false;
         phase = 'idle';
         plan = null;
         plannedNextKey = null;
         plannedFromKey = null;
+        plannedFromSrc = null;
         plannedFrom = null;
         plannedTo = null;
+        plannedToDuration = 0;
         plannedMode = null;
-        ports.onTailSrcChange(null, { harvest: options.harvest ?? true, end: options.end ?? 'handedOver' });
+        ports.onTailSrcChange(null, { harvest, end: options.end ?? 'handedOver' });
         // Last, and unconditional: this is the only settle, so it is the only place that
         // can tell the screen a blend is over when the blend was cut short rather than
         // finished. A cue with a length is not enough on its own - a skipped track would
@@ -814,7 +901,8 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         );
         // Early by the lead, not on the dot: everything between here and `outStart` is what the
         // next track gets to load in, instead of taking it out of the blend.
-        if (nextPlan.kind !== 'fade' || request.time < nextPlan.outStart - AUTOMIX_ARM_LEAD_SEC) {
+        const armLead = nextPlan.djCue ? DJ_ARM_LEAD_SEC : AUTOMIX_ARM_LEAD_SEC;
+        if (nextPlan.kind !== 'fade' || request.time < nextPlan.outStart - armLead) {
             return nextPlan;
         }
 
@@ -831,7 +919,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // Silence the incoming deck before it is allowed to make a sound, so the blend owns its
         // first sample instead of the track punching in at full level.
         rampGain(context, incomingChain.fade, 0);
-        seekTo(incomingElement, nextPlan.inStart);
+        if (!nextPlan.djCue) seekTo(incomingElement, nextPlan.inStart);
         // Its old readings describe wherever this deck was left after the last transition.
         clocks[incoming].reset();
 
@@ -846,8 +934,10 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         plan = nextPlan;
         plannedNextKey = request.nextKey;
         plannedFromKey = request.fromKey;
+        plannedFromSrc = request.audioSrc;
         plannedFrom = request.from.profile ?? null;
         plannedTo = request.to.profile ?? null;
+        plannedToDuration = Number.isFinite(request.to.duration) ? request.to.duration : 0;
         plannedMode = request.settings.mode;
 
         // The order matters: pin the outgoing source to the deck it is already playing on before
@@ -873,7 +963,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
                 () => {
                     // Last write before play(): whatever else touched this element during the
                     // advance, the entry point is what it starts from.
-                    seekTo(incomingElement, nextPlan.inStart);
+                    if (!nextPlan.djCue) seekTo(incomingElement, nextPlan.inStart);
                     setAutoplayHold(false);
                 },
                 (startIn - RELEASE_MARGIN_SEC) * 1000,
@@ -919,6 +1009,46 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // the beat snap a track's trailing silence to move the handover into, the one place it must never
         // land. Clamped by the element as well: the profile and the media are two independent measurements
         // of the same file and can disagree.
+        // A seek lands off the beat more often than on it. A DJ nudges the incoming platter;
+        // throwing the phrase away for a three-second fade is what made every mix sound like a cut.
+        if (plan.djCue && plannedFrom?.bpm && plannedTo?.bpm) {
+            const incoming = ports.getElement(activeDeck);
+            if (incoming && Number.isFinite(incoming.currentTime)) {
+                const outAt = Math.max(plan.outStart, tailElement.currentTime);
+                const hold = Math.max(0, outAt - tailElement.currentTime) / (Math.max(0.01, tailElement.playbackRate) * Math.max(0.01, plan.stretch));
+                // The prepare-time seek can be a second off by the time this deck actually speaks.
+                // Put it on the beat the outgoing track is on now; the nudge below only finishes
+                // the fraction of a beat a seek cannot land.
+                const caughtUp = djPrerollEntry(plan.inStart, plan.outStart, tailElement.currentTime, tailElement.playbackRate * Math.max(0.01, plan.stretch));
+                const endBefore = Number.isFinite(incoming.duration) && incoming.duration > 0 ? incoming.duration - 0.05 : caughtUp;
+                if (Math.abs(incoming.currentTime - caughtUp) > 0.08 && caughtUp >= 0 && caughtUp <= endBefore) {
+                    try {
+                        incoming.currentTime = caughtUp;
+                    } catch (error) {
+                        console.warn('[Automix] DJ Mix beat catch-up failed', error);
+                    }
+                }
+                const projected = incoming.currentTime + hold;
+                const shift = djPhaseShift(outAt, projected, plannedFrom.beatOffset, plannedTo.beatOffset, plannedFrom.bpm, plannedTo.bpm, plan.stretch);
+                const nudged = incoming.currentTime + shift;
+                const end = Number.isFinite(incoming.duration) && incoming.duration > 0 ? incoming.duration - 0.05 : nudged;
+                if (Math.abs(shift) >= 0.012 && nudged >= 0 && nudged <= end) {
+                    try {
+                        incoming.currentTime = nudged;
+                        console.log(`[Automix] DJ Mix nudged the incoming deck ${shift >= 0 ? '+' : ''}${shift.toFixed(3)}s onto the beat`);
+                    } catch (error) {
+                        console.warn('[Automix] DJ Mix beat nudge failed', error);
+                    }
+                }
+                const error = djPhaseError(outAt, incoming.currentTime + hold, plannedFrom.beatOffset, plannedTo.beatOffset, plannedFrom.bpm, plannedTo.bpm, plan.stretch);
+                if (plan.style === 'bassSwap' && error > 0.35) {
+                    const beat = 60 / plannedFrom.bpm;
+                    const overlap = Math.min(plan.overlap, Math.max(4, beat * 8));
+                    console.log(`[Automix] DJ Mix phase error ${error.toFixed(3)} beats after the nudge; shortening to ${overlap.toFixed(2)}s`);
+                    plan = { ...plan, style: 'plainBlend', overlap, minOverlap: Math.min(plan.minOverlap, overlap / 2) };
+                }
+            }
+        }
         const soundingLeft = Math.min(tailElement.duration, plan.outStart + plan.overlap);
 
         // Where the outgoing track really is, to a fraction of a millisecond, rather than to the
@@ -961,7 +1091,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
                 `[Automix] blend clipped to ${overlap}s of the planned ${plan.overlap}s: `
                 + (lateBy > 0.05
                     ? `the handover point went by ${lateBy.toFixed(2)}s before this deck spoke`
-                    + ` (its ${AUTOMIX_ARM_LEAD_SEC}s of lead started later than that)`
+                    + ` (its ${(plan.djCue ? DJ_ARM_LEAD_SEC : AUTOMIX_ARM_LEAD_SEC)}s of lead started later than that)`
                     : `the outgoing track stops ${(plan.outStart + plan.overlap - tailElement.duration).toFixed(2)}s`
                     + ' earlier than the plan was built for'),
             );
@@ -1006,6 +1136,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         const fromStems = ports.getStems?.(plannedFromKey, 'tail') ?? null;
         const toStems = ports.getStems?.(plannedNextKey, 'head') ?? null;
         const useStems = Boolean(fromStems && toStems)
+            && !plan.djCue
             && plan.style !== 'beatCut'
             && overlap >= AUTOMIX_MIN_OVERLAP_SEC;
 
@@ -1042,13 +1173,16 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
             ?? tailChain.analyser.nextBeatIn(now + alignHold);
         const fade = planBlendShape({
             overlap,
-            outgoingDb,
+            // A loud outgoing section would otherwise hand over early, which is a fade that gives
+            // way, not a mix the next track arrives into. DJ cues cross near the middle.
+            outgoingDb: plan.djCue ? null : outgoingDb,
             nextBeatIn,
             periodSec,
-            minOverlap: plan.minOverlap,
+            // A DJ handoff that the beat snap shortens by a whole beat stops sounding like a blend.
+            minOverlap: plan.djCue ? Math.max(plan.minOverlap, overlap * 0.9) : plan.minOverlap,
             maxOverlap: remaining,
         });
-        const shape = shapeBlend({
+        const shaped = shapeBlend({
             style: plan.style,
             room: overlap,
             overlap: fade.overlap,
@@ -1057,6 +1191,21 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
             periodSec,
             incomingLeadIn: plannedTo?.leadIn ?? null,
         });
+        // The plateau is what a listener reads as "both records are playing". A DJ cue keeps one
+        // even when the tempos would not carry a bass swap, and the bands take the low end and the
+        // top out of each other's way across that plateau.
+        const drivingFade = plan.djCue && (plannedFrom?.bpm ?? 0) >= 126 && (plannedTo?.bpm ?? 0) >= 126;
+        const shape = plan.djCue && shaped.style !== 'beatCut'
+            ? {
+                ...shaped,
+                // A plain blend fades across its whole length. Two fast tracks still need the
+                // outgoing one to actually descend: a wide plateau leaves it at full level, which
+                // on a loud track does not read as a fade-out.
+                together: shaped.style === 'plainBlend' ? 0.2 : (drivingFade ? 0.12 : 0.4),
+                shapeBands: shaped.overlap >= 2,
+                sweepOut: shaped.overlap >= 2,
+            }
+            : shaped;
 
         // Everything above is in the outgoing track's own seconds. Everything below is on the audio
         // clock, and the two stop being the same unit the moment that track is bent to meet the
@@ -1189,7 +1338,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // and "never saw the animation" was a report with nothing in any log to explain it.
         const notDrawn = whyCueNotDrawn(cue);
         // Not in the crossfade mode: every handover there is a plain fade, and nothing is ever drawn.
-        if (notDrawn && plannedMode === 'automix') console.log(`[Automix] the transition animations skip this one: ${notDrawn}`);
+        if (notDrawn && plannedMode !== 'crossfade') console.log(`[Automix] the transition animations skip this one: ${notDrawn}`);
         diagMark(
             `blend ${shape.style}${shape.style === plan.style ? '' : ` (planned ${plan.style})`} ${cue.seconds.toFixed(2)}s`
             + `, profiles: outgoing ${plannedFrom ? 'yes' : 'no'}, incoming ${plannedTo ? 'yes' : 'no'}`
@@ -1210,6 +1359,8 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
                 crossover: shape.crossover,
                 swapBass: true,
                 sweepOut: shape.sweepOut,
+                sweepFromStart: plan.djCue && (shape.style === 'plainBlend' || drivingFade),
+                strongFadeOut: drivingFade,
                 tiltDb: plan.tiltDb,
             });
         }
@@ -1257,6 +1408,10 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // URL resolve, a cold buffer. There is no blend left to have, but the deck loading the next track
         // keeps the role: it is where audioSrc is already headed and the only element anything will press
         // play on.
+        if (plan?.djCue) {
+            const incoming = ports.getElement(activeDeck);
+            if (incoming) writeDjEntry(incoming, 0);
+        }
         settle({ pauseTail: false });
     };
 
@@ -1321,6 +1476,9 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         getPhase: () => phase,
         sampleDecks,
         requestTransition,
+        prepareDjEntry,
+        validateDjEntry,
+        degradeDjEntry,
         handleActiveDeckPlaying,
         handleTailEnded,
         handleSongChanged,

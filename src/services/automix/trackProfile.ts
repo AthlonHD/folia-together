@@ -1,4 +1,5 @@
 import { gridFromBeats, type BeatGrid } from '../analysis/beatThis';
+import { measureDjSections, type DjSection } from './djMixAnalysis';
 import { YIELD_BUDGET_MS, yieldToUi } from './uiYield';
 import {
     estimateDownbeat,
@@ -24,7 +25,7 @@ import {
 // the beat grid, the key - is about the *incoming* song.
 
 /** Bumped whenever the maths changes, so stored profiles from an older build are re-measured. */
-export const TRACK_PROFILE_VERSION = 10;
+export const TRACK_PROFILE_VERSION = 11;
 
 /**
  * What the analysis runs at.
@@ -197,6 +198,8 @@ export interface TrackProfile {
      * reports. Empty when the window analysed was too short to hold the kernel.
      */
     sections: number[];
+    /** Full-file structural sections with weighted energy; absent when the full file was not read. */
+    djSections?: DjSection[];
     /** Seconds of near-silence after it stops. Null when only the head was read. */
     leadOut: number | null;
     /**
@@ -1005,6 +1008,7 @@ export const analyseTrack = async (
         vocalStart: side ? firstSustained(centre, hopSec) : null,
         sectionStart: sections[0] ?? null,
         sections,
+        djSections: partial ? undefined : measureDjSections(levels, hopSec, sections, duration),
         leadOut: partial ? null : Math.max(0, duration - edges.soundingEnd),
         bodyOut: partial ? null : Math.max(0, duration - edges.bodyEnd),
         startsHot: edges.startsHot,

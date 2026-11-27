@@ -5,12 +5,13 @@ import { CROSSFADE_MAX_SEC, CROSSFADE_MIN_SEC } from '../../../../services/autom
 import { modelsPresent, subscribeModelAvailability } from '../../../../services/analysis/modelAvailability';
 import { transitionCapabilities } from '../../../../services/automix/stems';
 import { announceTransition, type TransitionRenderer } from '../../../../services/automix/transitionCue';
-import { canAnalyseTracks } from '../../../../services/automix/transitionStrategy';
+import { canAnalyseTracks, canUseDjMix } from '../../../../services/automix/transitionStrategy';
 import { useAudioSettingsStore } from '../../../../stores/useAudioSettingsStore';
 import { useAutomixSettingsStore } from '../../../../stores/useAutomixSettingsStore';
 import { useDesktopSettingsStore } from '../../../../stores/useDesktopSettingsStore';
 import { runsOnWindows } from '../../../../utils/platform';
 import { usePassthroughSettingsStore } from '../../../../stores/usePassthroughSettingsStore';
+import { isPassthroughRequested } from '../../../../services/passthrough/passthroughAvailability';
 import { Button, Chips, Group, Reveal, Row, Segmented, Slider, Status, Toggle, option, type SettingsGroupDef, type SettingsOptionDef } from '../kit';
 import PlayTargetGroup, { PLAY_TARGET_OPTIONS } from '../PlayTargetPanel';
 import { HEARTBEAT_INTERVAL_OPTIONS } from '../../../../utils/heartbeatPlan';
@@ -95,7 +96,7 @@ const PlaybackPage: React.FC = () => {
         setShuffleRoundNoRepeat: state.handleToggleShuffleRoundNoRepeat,
     })));
     // With pass-through on, the sound is made by the separate player: the web player's output device, ReplayGain and fade do nothing to it.
-    const passthroughOn = usePassthroughSettingsStore(state => state.passthroughEnabled) && Boolean(window.electron?.audioHelper) && runsOnWindows();
+    const passthroughOn = usePassthroughSettingsStore(state => isPassthroughRequested(state.passthroughEnabled));
     const notApplied = passthroughOn ? t('passthrough.notApplied') : undefined;
     const preventSleep = useDesktopSettingsStore(state => state.preventDisplaySleepDuringPlayback);
     const setPreventSleep = useDesktopSettingsStore(state => state.handleTogglePreventDisplaySleepDuringPlayback);
@@ -105,10 +106,11 @@ const PlaybackPage: React.FC = () => {
     React.useSyncExternalStore(subscribeModelAvailability, modelsPresent);
     const analysable = canAnalyseTracks();
     const capabilities = transitionCapabilities();
-    const usesAutomix = automix.mode === 'automix';
+    const usesAutomix = automix.mode !== 'crossfade';
     // Automix without a full engine says why in place of what Automix does.
     const modeHint = !usesAutomix
         ? t('options.transitionCrossfadeDesc')
+        : automix.mode === 'djMix' ? t('options.transitionDjMixDesc')
         : !analysable || capabilities.full
             ? t('options.transitionAutomixDesc')
             : t(capabilities.desktop ? 'options.transitionEngineNeedsModels' : 'options.transitionEngineLiteDesc');
@@ -132,10 +134,10 @@ const PlaybackPage: React.FC = () => {
             {isElectron && <RemoteServerGroup />}
             {isElectron && <HifiSettings />}
             <Group def={TRANSITION}>
-                <Row option={O.transition}>
-                    <Toggle checked={automix.enabled} onChange={automix.setEnabled} />
+                <Row option={O.transition} hint={passthroughOn ? t('options.transitionPassthroughBlocked') : undefined} disabled={passthroughOn}>
+                    <Toggle checked={automix.enabled} onChange={automix.setEnabled} disabled={passthroughOn} />
                 </Row>
-                <Reveal when={automix.enabled}>
+                <Reveal when={automix.enabled && !passthroughOn}>
                     <Row sub option={O.mode} hint={modeHint}>
                         {/* The mode that runs is not always the chosen one: Automix that cannot
                             measure a track runs as a crossfade, and without the models as the
@@ -152,6 +154,7 @@ const PlaybackPage: React.FC = () => {
                             options={[
                                 { value: 'crossfade', label: t('options.transitionCrossfade') },
                                 { value: 'automix', label: t('options.transitionAutomix'), disabled: !analysable },
+                                { value: 'djMix', label: t('options.transitionDjMix'), disabled: !canUseDjMix() },
                             ]}
                             onChange={automix.setMode}
                         />

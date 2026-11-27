@@ -9,6 +9,37 @@ import {
 // Verifies Navidrome playback-report session dedupe and threshold behavior.
 
 describe('NavidromeScrobbleSessionTracker', () => {
+    it('submits a song parked by a deck handoff once that deck crosses the line', () => {
+        const reports: NavidromeScrobbleReport[] = [];
+        const tracker = new NavidromeScrobbleSessionTracker(report => reports.push(report));
+
+        tracker.startSession('song-1', 120_000);
+        tracker.handlePlaybackStart(10);
+        tracker.parkCurrent();
+        tracker.startSession('song-2', 180_000);
+        tracker.handlePlaybackStart(0);
+        tracker.progressParked(56);
+        expect(reports.filter(report => report.kind === 'submission')).toEqual([]);
+
+        tracker.progressParked(60);
+        tracker.progressParked(90);
+        expect(reports.filter(report => report.kind === 'submission').map(report => report.songId)).toEqual(['song-1']);
+        expect(tracker.getCurrentSongId()).toBe('song-2');
+    });
+
+    it('does not submit a parked song that stops before the line', () => {
+        const reports: NavidromeScrobbleReport[] = [];
+        const tracker = new NavidromeScrobbleSessionTracker(report => reports.push(report));
+
+        tracker.startSession('song-1', 120_000);
+        tracker.parkCurrent();
+        tracker.startSession('song-2', 120_000);
+        tracker.progressParked(50);
+        tracker.dropParked();
+        tracker.progressParked(80);
+        expect(reports.filter(report => report.kind === 'submission')).toEqual([]);
+    });
+
     it('uses half duration capped at 60 seconds for the submission threshold', () => {
         expect(getNavidromeScrobbleThresholdSeconds(240_000)).toBe(60);
         expect(getNavidromeScrobbleThresholdSeconds(80_000)).toBe(40);

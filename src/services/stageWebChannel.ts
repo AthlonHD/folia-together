@@ -10,7 +10,7 @@ import type {
     StagePlayerSnapshot,
 } from '../types';
 import { readProviderSessionValue } from './onlineMusic/providerStorage';
-import { getKugouWebSessionCookie } from './onlineMusic/kugou/kugouTransport';
+import { getKugouWebSessionCookie } from '../../sources/kugou/core/kugouTransport';
 import { getHostRpcHandler } from './hostRpcRegistry';
 import { getStageToken } from './stageMode';
 

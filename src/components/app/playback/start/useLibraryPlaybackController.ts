@@ -339,11 +339,11 @@ export function useLibraryPlaybackController({
         if (!isStageRemoteMode()) return;
         const reload = () => {
             void loadLocalSongs();
-            void loadLocalPlaylists();
+            void loadFoliaPlaylists();
         };
         window.addEventListener(HOST_LOCAL_LIBRARY_CHANGED_EVENT, reload);
         return () => window.removeEventListener(HOST_LOCAL_LIBRARY_CHANGED_EVENT, reload);
-    }, [loadLocalPlaylists, loadLocalSongs]);
+    }, [loadFoliaPlaylists, loadLocalSongs]);
 
     const onRefreshLocalSongs = useCallback(async () => {
         const [songs, catalog] = await Promise.all([

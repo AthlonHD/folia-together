@@ -7,6 +7,7 @@ import { usePassthroughStatusStore } from '../../../src/services/passthrough/pas
 import type { AudioHelperApi, PassthroughHelperEvent } from '../../../src/services/passthrough/types';
 import { usePassthroughSettingsStore } from '../../../src/stores/usePassthroughSettingsStore';
 import { usePlaybackStore } from '../../../src/stores/usePlaybackStore';
+import { isPassthroughRequested } from '../../../src/services/passthrough/passthroughAvailability';
 
 // Helper failures must release native output before Web playback resumes; clearing a song must release it too.
 vi.mock('react-i18next', async (importOriginal) => ({
@@ -58,6 +59,13 @@ const mountBridge = async () => {
 };
 
 describe('native playback fallback', () => {
+    it('blocks Web Audio transitions while native output is requested, even before the helper is ready', async () => {
+        await mountBridge();
+        expect(isPassthroughRequested(true)).toBe(true);
+        expect(isPassthroughRequested(false)).toBe(false);
+        expect(usePassthroughStatusStore.getState().engaged).toBe(false);
+    });
+
     it.each(['resample-failed', 'unsupported-channels'])('stops native output on %s and restores Web audio', async (code) => {
         const { api, dispatch } = await mountBridge();
         vi.mocked(api.stop).mockClear();

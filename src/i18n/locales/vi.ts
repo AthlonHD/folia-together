@@ -844,6 +844,7 @@ export default {
         "rendererPhone": "Phone",
         "phoneFilter": "Filter",
         "phonePlayAll": "Play all",
+        "playFilteredTracks": "Phát {{count}} bài",
         "phoneEnqueueAll": "Add to queue",
         "phoneLoadMore": "Keep loading",
         "phoneRetry": "Retry",
@@ -1431,6 +1432,7 @@ export default {
       "automix-toggle": { "title": "Chuyển tiếp thông minh", "description": "Bật hoặc tắt chuyển tiếp thông minh FOLIA" },
       "transition-mode-crossfade": { "title": "Chế độ chuyển tiếp: Folia Crossfade", "description": "Dùng hiệu ứng chuyển mờ đơn giản ra/vào" },
       "transition-mode-automix": { "title": "Chế độ chuyển tiếp: Folia Automix", "description": "Phân tích cả hai bài và tự động phối trộn" },
+      "transition-mode-dj-mix": { "title": "Chế độ chuyển tiếp: Folia DJ Mix", "description": "Phối trộn đoạn giàu năng lượng và bỏ qua đoạn ít phù hợp" },
       "transition-performance-toggle": { "title": "Chế độ hiệu ứng chuyển tiếp", "description": "Bật/tắt chuyển tiếp táo bạo hơn (cần mô hình tách stem)" },
       "settings-discord-presence": { "title": "Trạng thái phát Discord", "description": "Mở cài đặt Discord Rich Presence" },
       "lyric-staff-policy-cycle": { "title": "Xử lý thông tin sản xuất (Credits)", "description": "Chuyển đổi cách xử lý khối thông tin sản xuất (Credits) ở đầu bài" },
@@ -1726,6 +1728,7 @@ export default {
   },
   "ui": {
         "phoneMore": "More",
+        "backToPlayer": "Về trình phát",
         "audioQualityActual": "Now playing: {{actual}}",
         "audioQualityDowngraded": "Lower than the quality you chose: playing {{actual}} (chosen {{requested}})",
     "visualizerRandom": "Ngẫu nhiên",
@@ -3023,6 +3026,7 @@ export default {
     "lyricMatchPriorityDesc": "Khi nhiều nguồn lời đều có kết quả khớp độ tin cậy cao, ưu tiên nguồn này trước."
   },
   "options": {
+    "integrationHostOnly": "Các tích hợp này chạy trên Host của máy chủ. Hãy đổi chúng ở trang Host.",
     "musicMcp": "MCP âm nhạc",
     "musicMcpHint": "Kết nối tác nhân trên máy này với thư viện Folia và các dịch vụ đã đăng nhập.",
     "musicMcpRunning": "Đang chạy",
@@ -3242,7 +3246,10 @@ export default {
     "transitionCrossfade": "Folia Crossfade",
     "transitionCrossfadeDesc": "Bài cũ mờ dần và bài mới rõ dần.",
     "transitionAutomix": "Folia Automix",
+    "transitionDjMix": "Folia DJ Mix",
+    "transitionDjMixDesc": "Khớp nhịp theo câu nhạc: bài mới fade vào, bài hiện tại fade ra, và hai bài chồng lên nhau. Khi tempo không khóa, đoạn chồng đó vẫn giữ, không cắt bài thành lát ngắn (chỉ trên máy tính).",
     "transitionAutomixDesc": "Phân tích và tự động hòa âm giữa hai bài hát.",
+    "transitionPassthroughBlocked": "Tắt pass-through để dùng chuyển tiếp thông minh. Tùy chọn chuyển tiếp của bạn được giữ nguyên.",
     "transitionFellBack": "Dùng crossfade",
     "crossfadeMaxSeconds": "Thời lượng chuyển tiếp tối đa",
     "crossfadeSecondsValue": "{{seconds}}s",

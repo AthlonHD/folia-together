@@ -1312,6 +1312,9 @@ export const createKugouSource = (env: KugouSourceTexts, transport: KugouTranspo
                 },
             },
             'playback.audio@1': {
+                ...{
+                    audioQualityLabels: { standard: '128k', high: '320k', lossless: 'FLAC' },
+                },
                 async getAudioSource(song, quality): Promise<FoliumSourceAudio | null> {
                     const isCloud = song.variant === 'cloud';
                     const hash = (dataText(song.data, 'hash') || song.lyricIds?.kugou || song.id).toUpperCase();

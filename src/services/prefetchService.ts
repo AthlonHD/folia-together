@@ -155,9 +155,19 @@ const prefetchCache = new Map<string, PrefetchedSongData>();
 
 const getPrefetchSongKey = (song: SongResult): string => getSongResourceCacheKey('audio', song);
 
+/** Read only prefetched lyric evidence without refreshing audio URL state or touching the LRU. */
+export const peekPrefetchedLyricLines = (song: SongResult) => prefetchCache.get(getPrefetchSongKey(song))?.lyrics?.lines ?? null;
+
 // Switched on mid-song: the playing and the next track are measured now, not from the next song change.
 usePlaybackStore.subscribe((state, previous) => {
     if (state.replayGainMode !== 'auto' || previous.replayGainMode === 'auto') return;
+    analysisScopeSongs.forEach(song => analyseForAutomix(song, prefetchCache.get(getPrefetchSongKey(song))?.audioUrl ?? libraryAudioUrl(song)));
+});
+
+// DJ Mix needs both full profiles before an interior cue, including when selected mid-song.
+useAutomixSettingsStore.subscribe((state, previous) => {
+    if (!state.automixEnabled || state.transitionMode !== 'djMix'
+        || (previous.automixEnabled && previous.transitionMode === 'djMix')) return;
     analysisScopeSongs.forEach(song => analyseForAutomix(song, prefetchCache.get(getPrefetchSongKey(song))?.audioUrl ?? libraryAudioUrl(song)));
 });
 

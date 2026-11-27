@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 // and the requests made.
 
 const require = createRequire(import.meta.url);
-const { base62ToHex, createSpotifyFileLookup, hexToBase62, pickFile } = require('../../../electron/spotify/fileLookup.cjs');
+const { base62ToHex, createSpotifyFileLookup, hexToBase62, pickFile } = require('../../../sources/spotify/main/fileLookup.cjs');
 
 const SPCLIENT = 'https://spclient.test';
 const fileOf = (format: string, digit: string) => ({ file_id: digit.repeat(40), format });

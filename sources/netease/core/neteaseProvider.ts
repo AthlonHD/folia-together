@@ -579,6 +579,10 @@ export const createNeteaseSource = (): FoliumSourceDef => {
                 // 本 Fork:网易云真有的档位(接口 level: standard / exhigh / lossless / hires / jyeffect / jymaster)。
                 // 杜比全景声 / 沉浸环绕声是多声道，浏览器放不了，不列。
                 audioQualityLevels: ['standard', 'high', 'lossless', 'hires', 'spatial', 'master'] as unknown as readonly FoliumSourceAudioQuality[],
+                // 本 Fork：设置里这一档显示的规格。公开契约没有这项，适配层在音源对象上读到才交给宿主。
+                ...{
+                    audioQualityLabels: { standard: '128k', high: '320k', lossless: 'FLAC', hires: '24bit/192kHz', master: '24bit/192kHz' },
+                },
                 async getAudioSource(song, quality) {
                     const attempt = async (level: string) => {
                         const response = await neteaseApi.getSongUrl(toNeteaseId(song.id), level);
@@ -813,6 +817,10 @@ export const createNeteaseSource = (): FoliumSourceDef => {
                 },
             },
             'catalog@1': {
+                // 本 Fork：歌单在网易云网页上的地址。公开契约没有这项。
+                ...{
+                    getPlaylistPageUrl: (id: string) => 'https://music.163.com/#/playlist?id=' + encodeURIComponent(id),
+                },
                 async getPlaylistTracks(id, limit, offset) {
                     const response = await neteaseApi.getPlaylistTracks(toNeteaseId(id), limit, offset);
                     if (isRefusedNeteaseAnswer(response)) throw neteaseAnswerError(response, 'the playlist tracks');
@@ -1002,7 +1010,7 @@ export const createNeteaseSource = (): FoliumSourceDef => {
                     };
                 },
                 async updatePlaylistTracks(operation, playlist, tracks, expectedAccountId?: string | number) {
-                    const response = await neteaseApi.updatePlaylistTracks(operation, toNeteaseId(idOf(playlist)), tracks.map(track => toNeteaseId(idOf(track))), expectedAccountId);
+                    const response = await neteaseApi.updatePlaylistTracks(operation, toNeteaseId(idOf(playlist)), tracks.map(track => toNeteaseId(idOf(track))), ...(expectedAccountId !== undefined ? [expectedAccountId] : []));
                     // The API answers a refusal (a song already in the playlist, not the owner's list, signed out) with
                     // HTTP 200 and NetEase's own body; a success comes wrapped as { status, body: { code } }.
                     const code = Number(response?.body?.code ?? response?.code);

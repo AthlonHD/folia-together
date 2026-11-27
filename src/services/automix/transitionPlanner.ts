@@ -58,6 +58,8 @@ export interface TransitionTrack {
 export type TransitionKind = 'hardCut' | 'fade';
 
 export interface TransitionPlan {
+    /** An interior DJ cue, outside the ordinary head/tail stem windows. */
+    djCue?: boolean;
     kind: TransitionKind;
     /** Which of the four joins this is. Decided here, realised by shapeBlend. */
     style: TransitionStyle;

@@ -1,4 +1,4 @@
-import type { LocalLibrarySnapshot, LocalPlaylist, LocalSong } from '../types';
+import type { LocalLibrarySnapshot, LocalSong } from '../types';
 import type { LocalLibraryAssignment, LocalLibraryEntity } from '../types/localLibrary';
 import { getStageAuthHeaders, handleStageAuthFailure } from './stageMode';
 
@@ -9,7 +9,14 @@ import { getStageAuthHeaders, handleStageAuthFailure } from './stageMode';
 export interface HostLocalLibrary {
     revision: string;
     songs: LocalSong[];
-    playlists: LocalPlaylist[];
+    playlists: Array<{
+        id: string;
+        name: string;
+        songIds: string[];
+        createdAt?: number;
+        updatedAt?: number;
+        isFavorite?: boolean;
+    }>;
     entities: LocalLibraryEntity[];
     assignments: LocalLibraryAssignment[];
     snapshots: LocalLibrarySnapshot[];

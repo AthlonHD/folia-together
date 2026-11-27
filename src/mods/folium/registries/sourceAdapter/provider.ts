@@ -33,6 +33,9 @@ const buildRaw = (kit: SourceAdapterKit, raw: FoliumSourceRaw): OnlineRawRequest
             checkParams: kit.sync('checkParams', (endpoint: string, params: Record<string, JsonValue>) => checkParams(endpoint, params), () => 'invalid-params'),
         } : {}),
         request: (endpoint: string, params: Record<string, JsonValue>, signal: AbortSignal) => kit.run('request', () => raw.request(endpoint, params, signal)),
+        ...((raw as FoliumSourceRaw & { listEndpoints?(): readonly string[] }).listEndpoints
+            ? { listEndpoints: () => (raw as FoliumSourceRaw & { listEndpoints(): readonly string[] }).listEndpoints().filter((item): item is string => typeof item === 'string') }
+            : {}),
     };
     // Read where the host reads them; a getter of the source's answers now.
     Object.defineProperties(built, {

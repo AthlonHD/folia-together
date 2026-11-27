@@ -7,6 +7,7 @@ import { hasUploadedObsAsset } from '../../../services/obs/visualSettingsConfig'
 import type { CommandPaletteCommand, CommandPaletteContext } from '../types';
 import type { GpuPreference } from '../../../stores/useDesktopSettingsStore';
 import { createToggleCommand, createAppLanguageCommand, createSettingsCommand, createSettingsAnchorCommand, defineCommand } from '../commandFactories';
+import { canUseDjMix } from '../../../services/automix/transitionStrategy';
 import { nowPlayingCardPositionCommand } from './nowPlayingCardPositionCommand';
 import { sleepTimerCommand } from './sleepTimerCommand';
 import { providerSetupCommand } from './providerSetupCommand';
@@ -267,6 +268,20 @@ export const settingsCommands: CommandPaletteCommand[] = [
             return true;
         },
     },
+    defineCommand({
+        id: 'transition-mode-dj-mix',
+        platform: ['electron'],
+        isAvailable: context => canUseDjMix() && context?.settings.transitionMode !== 'djMix',
+        group: 'settings',
+        title: 'Transition mode: Folia DJ Mix',
+        description: 'Mix high-energy sections and skip less suitable passages',
+        keywords: ['dj mixing', 'highlight', 'cue points', '高潮', '段落混音'],
+        execute: (_input, context) => {
+            if (!canUseDjMix() || context.settings.transitionMode === 'djMix') return false;
+            context.settings.setTransitionMode('djMix');
+            return true;
+        },
+    }),
     {
         id: 'transition-performance-toggle',
         platform: ['electron'],

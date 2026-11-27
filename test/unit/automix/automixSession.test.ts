@@ -138,6 +138,134 @@ describe('automix session', () => {
         expect(harness.advanceTrack).not.toHaveBeenCalled();
     });
 
+    it('arms an interior DJ cue, seeks the next deck, and settles without reaching the file end', () => {
+        const harness = createHarness();
+        const from = { duration: 100, lines: null, profile: makeProfile({ duration: 100, djSections: [
+            { start: 0, end: 20, levelDb: -22 }, { start: 20, end: 70, levelDb: -12 }, { start: 70, end: 100, levelDb: -20 },
+        ] }) };
+        const to = { duration: 100, lines: null, profile: makeProfile({ duration: 100, djSections: [
+            { start: 0, end: 16, levelDb: -22 }, { start: 16, end: 60, levelDb: -12 }, { start: 60, end: 100, levelDb: -20 },
+        ] }) };
+        const settings = { ...DEFAULT_TRANSITION_SETTINGS, mode: 'djMix' as const };
+        expect(harness.arm({ time: 55, from, to, settings })?.outStart).toBe(62);
+        expect(harness.session.getPhase()).toBe('idle');
+        harness.elements.A.currentTime = 56;
+        expect(harness.arm({ time: 56, from, to, settings })?.djCue).toBe(true);
+        expect(harness.session.getPhase()).toBe('armed');
+        // Release is not permission to seek a stale deck; the actual source may still be resolving.
+        expect(harness.elements.B.currentTime).toBe(0);
+        expect(harness.advanceTrack).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(1000);
+        harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'outgoing.mp3');
+        expect(harness.elements.B.currentTime).toBe(0);
+        harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:wrong-song', 'incoming.mp3');
+        expect(harness.elements.B.currentTime).toBe(0);
+        harness.elements.B.duration = 30;
+        expect(harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3')?.reason).toContain('duration');
+        expect(harness.elements.B.currentTime).toBe(0);
+        harness.elements.B.duration = 100;
+        harness.elements.A.currentTime = 70;
+        expect(harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3')?.reason).toContain('window');
+        expect(harness.elements.B.currentTime).toBe(0);
+        harness.elements.A.currentTime = 61;
+        harness.elements.B.readyState = 0;
+        harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3');
+        expect(harness.elements.B.currentTime).toBe(11.5);
+        expect(harness.elements.B.addEventListener).not.toHaveBeenCalled();
+        harness.elements.A.currentTime = 62;
+        harness.elements.B.currentTime = 16;
+        harness.session.handleActiveDeckPlaying('local:next-song');
+        expect(harness.session.getPhase()).toBe('fading');
+        vi.advanceTimersByTime(10000);
+        expect(harness.session.getPhase()).toBe('idle');
+        expect(harness.elements.A.pause).toHaveBeenCalled();
+        // A late callback after settling/cancelling cannot seek a later track.
+        harness.elements.B.currentTime = 30;
+        harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3');
+        expect(harness.elements.B.currentTime).toBe(30);
+    });
+
+    it('nudges a late incoming deck onto the beat and keeps the phrase', () => {
+        const harness = createHarness();
+        const from = { duration: 100, lines: null, profile: makeProfile({ duration: 100, djSections: [
+            { start: 20, end: 70, levelDb: -12 },
+        ] }) };
+        const to = { duration: 100, lines: null, profile: makeProfile({ duration: 100, djSections: [
+            { start: 16, end: 60, levelDb: -12 },
+        ] }) };
+        const settings = { ...DEFAULT_TRANSITION_SETTINGS, mode: 'djMix' as const };
+        harness.elements.A.currentTime = 61;
+        const plan = harness.arm({ time: 61, from, to, settings });
+        expect(plan).toMatchObject({ style: 'bassSwap' });
+        expect(plan!.overlap).toBeGreaterThan(4);
+        harness.elements.A.currentTime = plan!.outStart;
+        harness.elements.B.currentTime = plan!.inStart + 0.25;
+        harness.session.handleActiveDeckPlaying('local:next-song');
+        expect(harness.elements.B.currentTime).toBeCloseTo(plan!.inStart, 2);
+        expect(lastCurve(harness.chains.A.fadeNode)?.duration).toBeGreaterThan(4);
+    });
+
+    it('restores the outgoing deck on a rejected DJ cue and resets a prepared entry if the tail runs out', () => {
+        const from = { duration: 100, lines: null, profile: makeProfile({ duration: 100, djSections: [
+            { start: 0, end: 20, levelDb: -22 }, { start: 20, end: 70, levelDb: -12 }, { start: 70, end: 100, levelDb: -20 },
+        ] }) };
+        const to = { duration: 100, lines: null, profile: makeProfile({ duration: 100, djSections: [
+            { start: 0, end: 16, levelDb: -22 }, { start: 16, end: 60, levelDb: -12 }, { start: 60, end: 100, levelDb: -20 },
+        ] }) };
+        const settings = { ...DEFAULT_TRANSITION_SETTINGS, mode: 'djMix' as const };
+        const harness = createHarness();
+        harness.elements.A.currentTime = 61;
+        harness.arm({ time: 61, from, to, settings });
+        harness.elements.B.duration = 30;
+        expect(harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3')).not.toBeNull();
+        expect(harness.session.abort(true)).toBe(true);
+        expect(harness.session.getActiveDeck()).toBe('A');
+        expect(harness.elements.A.pause).not.toHaveBeenCalled();
+        expect(harness.tailEnds).toContain('cancelled');
+
+        harness.elements.B.duration = 100;
+        harness.arm({ time: 61, from, to, settings });
+        harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3');
+        expect(harness.elements.B.currentTime).toBe(11.5);
+        harness.elements.A.currentTime = 100;
+        harness.session.handleTailEnded();
+        expect(harness.elements.B.currentTime).toBe(0);
+        expect(harness.session.getPhase()).toBe('idle');
+    });
+
+    it('arms and seeks a default DJ entry even when neither track has an offline profile', () => {
+        const harness = createHarness();
+        const from = { duration: 100, lines: null };
+        const to = { duration: 100, lines: null };
+        const settings = { ...DEFAULT_TRANSITION_SETTINGS, mode: 'djMix' as const };
+        harness.elements.A.currentTime = 66;
+        expect(harness.arm({ time: 66, from, to, settings })).toMatchObject({ djCue: true, outStart: 66, inStart: 20, overlap: 12 });
+        expect(harness.session.getPhase()).toBe('armed');
+        harness.elements.A.currentTime = 67.5;
+        expect(harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3')).toBeNull();
+        expect(harness.elements.B.currentTime).toBe(21.5);
+        harness.elements.B.currentTime = 0;
+        expect(harness.session.validateDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3', true)?.reason).toContain('seek');
+        Object.defineProperty(harness.elements.B, 'currentTime', { get: () => 0, set: () => { throw new Error('not seekable'); } });
+        expect(harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3')?.reason).toContain('seek');
+    });
+
+    it('rejects a DJ cue that would exceed the actual short incoming media', () => {
+        const harness = createHarness();
+        const settings = { ...DEFAULT_TRANSITION_SETTINGS, mode: 'djMix' as const };
+        harness.elements.A.currentTime = 73;
+        const plan = harness.arm({ time: 73, from: { duration: 100, lines: null }, to: { duration: 2, lines: null }, settings });
+        expect(plan?.djCue).toBe(true);
+        harness.elements.B.duration = 0.2;
+        expect(harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3')?.reason).toContain('duration');
+        harness.elements.B.duration = 2;
+        expect(harness.session.prepareDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3')).toBeNull();
+        harness.elements.A.currentTime = plan!.outStart;
+        harness.elements.B.currentTime = plan!.inStart;
+        harness.elements.B.duration = plan!.inStart + plan!.overlap / 2;
+        expect(harness.session.validateDjEntry(asElement(harness.elements.B), 'local:next-song', 'incoming.mp3', true)?.reason).toContain('duration');
+    });
+
     it('requests the next track a lead ahead of the blend, not at the moment it is due', () => {
         // The lead pays for playSong's own cache reads, the React commit and play(). The audio
         // itself is loaded well before this, on the idle deck - see resolveDeckSrc.

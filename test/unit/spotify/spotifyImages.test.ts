@@ -1,12 +1,12 @@
 import { createRequire } from 'node:module';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { spotifyImageUrl } from '../../../src/services/onlineMusic/spotify/spotifyImageUrl';
+import { spotifyImageUrl } from '../../../sources/spotify/client/spotifyImageUrl';
 
 // test/unit/spotify/spotifyImages.test.ts
 // Spotify's pictures through the main process: which hosts are served, what is passed on, and the address the page uses for one.
 
 const require = createRequire(import.meta.url);
-const { createSpotifyImages, imageRouteAddress, isImageRequest } = require('../../../electron/spotify/images.cjs');
+const { createSpotifyImages, imageRouteAddress, isImageRequest } = require('../../../sources/spotify/main/images.cjs');
 
 const picture = (type = 'image/jpeg') => new Response('bytes', { status: 200, headers: { 'Content-Type': type, 'Cache-Control': 'max-age=60' } });
 const ask = (images: { handle: (request: Request) => Promise<Response> }, address: string, init?: RequestInit) => images.handle(new Request(address, init));
