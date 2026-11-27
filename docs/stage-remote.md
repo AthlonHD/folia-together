@@ -66,7 +66,7 @@ Host 上登录的网易云、QQ 音乐、酷狗账号，遥控端可以直接借
 
 ## Spotify（网页版）
 
-上游的 Spotify 只在桌面版里能用（要借 Electron 做登录回调和本地解密播放）。本 Fork 把桌面版的 Spotify 桥搬到了 Stage 中继里（`server/stage-relay/spotify.cjs`），所以网页版也能用，**账号和解密都在服务器上**。
+上游的 Spotify 只在桌面版里能用（要借 Electron 做登录回调和本地解密播放）。本 Fork 把音源模组里的同一座桥（`sources/spotify/main/spotifyApiBridge.cjs`）放进 Stage 中继（`server/stage-relay/spotify.cjs`），所以网页版也能用，**账号和解密都在服务器上**。中继发出的音频地址仍是 `folia-spotify://audio/…`；桌面端用 `folia-mod://spotify/_media/audio/…`。网页版没有 Folia DJ Mix（那一项只在桌面端，而且要能读到音频做分析）。
 
 **两种账号，互相独立**
 

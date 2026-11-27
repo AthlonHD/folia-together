@@ -37,6 +37,7 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 **本仓库（[AthlonHD/folia-together](https://github.com/AthlonHD/folia-together)）是它的长期维护 Fork**。GitHub 默认分支与开发分支均为 `stage-remote`（`upstream-sync` 只用来对齐上游，不要在上面开发）。在保留上游全部播放与歌词能力的基础上，围绕这些方向做了扩展：
 
 - **Hi-Fi 直通（Windows 桌面版，重点之一）**：绕开浏览器音频栈，独占时绕过 Windows 共享混音器，支持 WASAPI 独占 / 共享输出；整数采样、只做一次重采样（rubato 或 SoXR 可选）、链路显示稳态 PCM 判定和转换情况。详见下方「重点：Hi-Fi 直通」。
+- **Folia DJ Mix（桌面端，重点之一）**：曲中按乐句把两首歌叠在一起切过去。速度对得上时按小节交接；对不上时仍有一段淡入淡出，不把歌切成短片。与直通互斥。详见下方「重点：Folia DJ Mix」。
 - **桌面音乐 MCP（桌面版，重点之一）**：本机 Agent 经 loopback 读取多平台资料、建单与控播；不依赖 Stage 遥控。详见下方「重点：桌面音乐 MCP」。
 - **一台机器放歌、一群人遥控**：服务器（或常开的电脑）上的浏览器出声，朋友和家人用手机、电脑打开同一个网址点歌、切歌、管队列。
 - **手机也能完整使用**：独立的手机布局，功能与电脑一致。
@@ -59,6 +60,17 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 - **多种音源**：在线歌曲、本地文件、Navidrome，以及 Spotify / YouTube Music 解密后的流；超过双声道回落普通播放，避免丢弃环绕声道。
 - **老实说边界**：播放器这一段是透明的，但「设备接受」不等于「设备内部不转换」，有损源也不会变无损；端到端是否逐位一致取决于你的下游（如虚拟声卡）。这些都写在文档里。
 
+## 重点：Folia DJ Mix
+
+> 桌面端专有（设置 → 播放控制 → 混音过渡 → Folia DJ Mix）。网页版没有这一项。直通开着时混音过渡整项关掉。完整档位、不能混的来源和代码见 **[Folia DJ Mix](docs/dj-mix.md)**。
+
+上游 Automix 主要在歌尾相接。DJ Mix 在曲中重叠一段：下一首先淡进来，当前这首再淡出去。
+
+- **对得上拍**：按乐句交接，低音只留一边，不把两段副歌叠满。不改变正在听的这首歌的速度。
+- **对不上拍**：仍重叠大约 12 秒，不再收成两三秒的切断。
+- **两首都很燥**（大约 126 BPM 以上）：按乐句交接，出歌的高音和中频一起往下收，淡出比慢歌更明显。
+- **读不到音频就不能混**：Apple Music 伴随播放、Spotify Soloist 不行；Spotify 标准播放、网易云、QQ、酷狗、本地文件可以。
+
 ## 重点：桌面音乐 MCP
 
 > 桌面版专有（设置 → 连接与集成 → 音乐 MCP）。Folia 需在运行（窗口可收起）；**不需要** Stage 中继。完整工具表、鉴权与排错见 **[桌面音乐 MCP](docs/music-mcp.md)**。
@@ -75,13 +87,14 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 | 方向 | 新增内容 |
 | --- | --- |
 | **Hi-Fi 直通（桌面版，重点）** | 自研 WASAPI helper（与上游 mpv HiFi 不同）：独占 / 共享、整数倍优先重采样、真实链路读数、边下边放；可覆盖在线等更多音源。对照见 [Hi-Fi 直通](docs/hifi.md#与上游-mpv-hifi-的关系)。 |
+| **Folia DJ Mix（桌面端，重点）** | 曲中乐句重叠切歌。对拍时低音换手；对不上速度时保留长叠化。与直通互斥。详见 [Folia DJ Mix](docs/dj-mix.md)。 |
 | **桌面音乐 MCP（重点）** | 本机 Agent 经 `127.0.0.1:38451/mcp` 读多平台资料、建单与控播；设置里开关并复制配置。详见上方重点节与 [music-mcp.md](docs/music-mcp.md)。 |
 | 桌面版 | 自己的 Windows 安装包与免安装便携版（每次推送由 GitHub Actions 构建）、自己的检测更新、桌面版当遥控端（打开服务器的遥控页）、Spotify / YouTube Music 代理设置。 |
 | 服务器播放 + 多人遥控 | Host 页在服务器上出声，其他人用网址遥控；访问令牌鉴权与限流；遥控端可切回「本机播放」，账号与队列互相独立；可浏览 Host 本地曲库；Host 防后台卡顿。详见 [Stage Remote 使用文档](docs/stage-remote.md)。 |
 | 多平台 | 接入 QQ 音乐、酷狗；网页版也能用 Spotify（桥在服务器上，需会员，登录在服务器上做一次）；多平台歌可混排进同一队列，切换平台不清队列；混排时播放条与队列列表标出平台；搜索按平台分标签；「+」选歌单跟随歌曲所属平台；启动默认平台按 网易云 > QQ > 酷狗 选第一个已登录的。 |
 | 手机适配 | 独立的手机布局：设备自动判断（可在设置里手动指定）、底部迷你播放器与展开控制条、竖向列表的歌单 / 专辑 / 歌手页、统一避让防遮挡。电脑界面不受影响。 |
 | 跨平台歌单 | 一个歌单里放任意在线平台的歌，保存在本机（每个浏览器 / 每台电脑各自一份），新建、改名、排序、播放、队列互转、导出导入；不能播的歌标出并跳过；把当前队列并进已有歌单；从已登录账号的歌单导入并保持同步最新数据；用「同步码」在多台设备间同步（歌单存在你自己的服务器上）；首页、队列面板、命令面板、底部控制条、歌曲「+」都能进。 |
-| 播放体验 | 播放条显示平台实际给的音质（被降级会标出）、各平台自己的音质档位（网易云新增高清臻音 / 超清母带）、点播放改为插队、循环增加「随机」与网易云「心动模式」（仅播放「我喜欢的音乐」时出现）、清空播放队列、大歌单入队修复、播放状态自动校正、底部控制条增加「喜欢」。 |
+| 播放体验 | 播放条显示平台实际给的音质（被降级会标出）、各平台自己的音质档位（网易云新增高清臻音 / 超清母带）、点播放改为插队、循环增加「随机」与网易云「心动模式」（仅播放「我喜欢的音乐」时出现）、清空播放队列、大歌单入队修复、播放状态自动校正、底部控制条增加「喜欢」、桌面端 Folia DJ Mix。 |
 | AI（自托管） | 自托管服务器提供 AI 主题 / 歌词分段接口，Key 仅在服务端，按网络状态自动选直连或系统代理。 |
 | 运维 | `scripts\start-stage.cmd` 单窗口一键启动全部服务，重启自动清理旧进程，不误杀其他程序。 |
 
@@ -97,10 +110,10 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 | `Folia-Together-v<版本>-<提交>-Portable.exe` | 免安装便携版：设置、登录、缓存都在 exe 旁的 `FoliaData` 里，整个文件夹拷走即带走全部数据 |
 | 各文件的 `.sha256` | 更新时用来校验 |
 
-- 没有数字签名，Windows 会弹 SmartScreen，点「更多信息 → 仍要运行」。
+- 没有数字签名，Windows 会弹 SmartScreen，点「更多信息 → 仍要运行」。装了卡巴斯基时，页面进程可能被「系统监控」拦住，窗口是黑的并弹出崩溃提示。把 `Folia.exe` 加进「受信任的应用程序」并勾选「不监控应用程序活动」，然后退出再打开。只改信任组不够。上游对官方包的说明见 [#1346](https://github.com/chthollyphile/folia-major/issues/1346)。
 - 应用内「设置 → 通用 → 本 Fork 更新」检查并安装新版（便携版会下载新的便携文件放到旁边）。**不会**去检查上游的更新。
 - 桌面版自带全套后端和本机播放，**只当遥控端、不能被遥控**：在「设置 → 播放控制 → 遥控服务器」填服务器地址和令牌，即可打开服务器的遥控页。
-- 直通模式用法见 [Hi-Fi 直通](docs/hifi.md)。
+- 直通模式用法见 [Hi-Fi 直通](docs/hifi.md)。DJ Mix 见 [Folia DJ Mix](docs/dj-mix.md)；直通开着时不要同时开混音过渡。
 - 本机 Agent 可接音乐 MCP（设置 → 连接与集成 → 音乐 MCP；默认 `http://127.0.0.1:38451/mcp`）。启用、工具与安全边界见 [桌面音乐 MCP](docs/music-mcp.md)。
 
 ## 部署与启动（服务端）
@@ -152,7 +165,7 @@ scripts\start-stage.cmd
 ## 上游的安装包
 
 > [!NOTE]
-> 以下是**上游**发布的桌面安装包，不包含本 Fork 的 Hi-Fi 直通、音乐 MCP、遥控、手机布局等功能；要本 Fork 的桌面版请用上文「下载桌面版」。
+> 以下是**上游**发布的桌面安装包，不包含本 Fork 的 Hi-Fi 直通、Folia DJ Mix、音乐 MCP、遥控、手机布局等功能；要本 Fork 的桌面版请用上文「下载桌面版」。
 >
 > - **GitHub**：[Latest Release](https://github.com/chthollyphile/folia-major/releases/latest)，提供 Windows / macOS / Linux 全平台安装包。
 > - **网盘**：[夸克网盘](https://pan.quark.cn/s/6e4c6fa3bc6f) · [百度云](https://pan.baidu.com/s/1f0x3g-8PMcNCO-TJ5z1rPw?pwd=flia)（提取码 `flia`），适合国内网络，仅提供 Windows 与 Apple silicon 的正式版安装包。
@@ -242,6 +255,7 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 | 模块 | 说明 |
 | --- | --- |
 | Hi-Fi 直通 | 本 Fork 重点，Windows 桌面版，见 [Hi-Fi 直通](docs/hifi.md)。 |
+| Folia DJ Mix | 本 Fork 重点，桌面端曲中乐句混音，见 [Folia DJ Mix](docs/dj-mix.md)。与直通互斥。 |
 | 桌面音乐 MCP | 本 Fork 重点，桌面版为本机 Agent 提供音乐 API，见 [桌面音乐 MCP](docs/music-mcp.md)。 |
 | 服务器播放与多人遥控 | 本 Fork 新增，见上文与 [Stage Remote 使用文档](docs/stage-remote.md)。 |
 | 手机布局 | 本 Fork 新增，独立的手机外壳与页面。 |
@@ -260,14 +274,14 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 ## 文档
 
 - [文档索引](docs/README.md)：本 Fork 文档与上游文档的分类入口
-- [Hi-Fi 直通](docs/hifi.md) · [桌面音乐 MCP](docs/music-mcp.md) · [Fork 功能与修复清单](docs/fork-features.md) · [Stage Remote](docs/stage-remote.md)
+- [Hi-Fi 直通](docs/hifi.md) · [Folia DJ Mix](docs/dj-mix.md) · [桌面音乐 MCP](docs/music-mcp.md) · [Fork 功能与修复清单](docs/fork-features.md) · [Stage Remote](docs/stage-remote.md)
 - [技术与开发说明](docs/technical.md)：环境变量、本地开发、脚本、技术栈
 - [贡献指南](CONTRIBUTING.md)：包含本 Fork 的提交与反馈约定
 - 上游使用指南与站点：[Folia Guide](https://folia-site.cielaniska.top/guide/)
 
 ## 反馈与贡献
 
-- **本 Fork 特有的功能（Hi-Fi 直通、桌面版、遥控、手机布局、QQ / 酷狗接入、启动脚本、音乐 MCP 等）与部署问题**：到本仓库提 [Issue](https://github.com/AthlonHD/folia-together/issues)。
+- **本 Fork 特有的功能（Hi-Fi 直通、Folia DJ Mix、桌面版、遥控、手机布局、QQ / 酷狗接入、启动脚本、音乐 MCP 等）与部署问题**：到本仓库提 [Issue](https://github.com/AthlonHD/folia-together/issues)。
 - **上游已有的功能（歌词动画、桌面版、模组、同步服务等）**：请到[上游 Issues](https://github.com/chthollyphile/folia-major/issues) 反馈；不确定归属时，先在本仓库提即可。
 - 贡献前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。不要在 Issue、日志或截图里公开账号 Cookie、Token、API Key。
 - 上游社区 Discord：[加入](https://discord.gg/dMDBTHxeKd)。Vercel / Cloudflare / 上游安装包等说明以上游 README 为准，见上文「其他部署形态」。

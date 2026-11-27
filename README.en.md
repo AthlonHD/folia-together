@@ -7,6 +7,8 @@
 
 # Folia
 
+> **Fork note.** This checkout is [AthlonHD/folia-together](https://github.com/AthlonHD/folia-together), a long-lived fork. Fork-only features (Hi-Fi passthrough, Folia DJ Mix, Stage remote, phone layout, Music MCP) are documented in the Chinese [README](README.md) and [docs/fork-features.md](docs/fork-features.md). The rest of this English file follows upstream.
+
 Lyrics Reimagined // 辞曲新境
 
 [简体中文](README.md) | English

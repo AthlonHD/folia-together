@@ -1,5 +1,7 @@
 # Automix — 智能过渡
 
+> **Fork 说明**：本 Fork 在上游的交叉淡化 / Automix 之外加了桌面端的 **Folia DJ Mix**（`transitionMode: 'djMix'`）。听感、边界和代码入口见 [docs/dj-mix.md](../../../docs/dj-mix.md)。下面正文是上游 Automix 的实现说明，参数仍按原文，不要为了 DJ Mix 去改这里记下的门槛。
+
 播放器「混音过渡」功能的全部实现。业务代码集中在本目录，目录外接线集中列在[目录外接线点](#目录外接线点)。
 单元测试位于 `test/unit/automix/`，与本目录文件一一对应。
 
@@ -56,7 +58,10 @@ Automix 回答一个问题：**上一首快放完了，下一首该怎么接进�
 | `transitionChooser.ts` | 选择四种接法之一，并计算音色差、是否抛回声 |
 | `transitionPlanner.ts` | Automix 规划器：过渡时长、出场曲落点、进场曲起点 |
 | `crossfadePlanner.ts` | Crossfade 规划器：固定形状，只看用户设定的秒数 |
-| `transitionStrategy.ts` | 按模式选择上述两个规划器之一 |
+| `transitionStrategy.ts` | 按模式选择规划器；本 Fork 的 `djMix` 走 `planDjMix` |
+| `djMixPlanner.ts` | 本 Fork：曲中乐句混音的落点（见 [docs/dj-mix.md](../../../docs/dj-mix.md)） |
+| `djMixTiming.ts` | 本 Fork：人声窗口、入场相位、预卷上限 |
+| `djMixAnalysis.ts` | 本 Fork：曲中段落的响度，给规划器当证据 |
 
 ### 执行层
 

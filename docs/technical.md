@@ -1,4 +1,4 @@
-> **Fork 说明**：本文以上游内容为基础。桌面端、发布通道、Linux 打包等章节描述的是[上游](https://github.com/chthollyphile/folia-major)的产品形态，上游的安装包不含本 Fork 的功能；本 Fork 自己的 Windows 安装包与便携版在 [together-latest 发布页](https://github.com/AthlonHD/folia-together/releases/tag/together-latest)，其中的直通播放器见 [Hi-Fi 直通](hifi.md)、本机 Agent 接口见 [桌面音乐 MCP](music-mcp.md)；本 Fork 的部署与启动方式见 [Stage Remote 使用文档](stage-remote.md) 与[根 README](../README.md#部署与启动)，新增功能见 [Fork 功能与修复清单](fork-features.md)。
+> **Fork 说明**：本文以上游内容为基础。桌面端、发布通道、Linux 打包等章节描述的是[上游](https://github.com/chthollyphile/folia-major)的产品形态，上游的安装包不含本 Fork 的功能；本 Fork 自己的 Windows 安装包与便携版在 [together-latest 发布页](https://github.com/AthlonHD/folia-together/releases/tag/together-latest)，其中的直通播放器见 [Hi-Fi 直通](hifi.md)、曲中混音见 [Folia DJ Mix](dj-mix.md)、本机 Agent 接口见 [桌面音乐 MCP](music-mcp.md)；本 Fork 的部署与启动方式见 [Stage Remote 使用文档](stage-remote.md) 与[根 README](../README.md#部署与启动)，新增功能见 [Fork 功能与修复清单](fork-features.md)。当前已并入上游 **v0.8.2**（`d88a6f056`）。
 
 # Folia 技术与开发说明
 
@@ -290,6 +290,7 @@ vercel dev
 | 共享类型和默认 tuning | `src/types.ts` |
 | 桌面音乐 MCP（本 Fork） | `electron/mcp/`、`src/components/app/musicMcp/`；说明见 [music-mcp.md](music-mcp.md) |
 | Hi-Fi 直通（本 Fork） | `packaging/windows/audio-helper/`、`electron/audioHelper/`、`src/components/app/passthrough/`；说明见 [hifi.md](hifi.md) |
+| Folia DJ Mix（本 Fork） | `src/services/automix/djMixPlanner.ts` 及同目录的 `djMixTiming.ts`、`djMixAnalysis.ts`；说明见 [dj-mix.md](dj-mix.md)。仅桌面端，与直通互斥 |
 | Stage 中继（本 Fork） | `server/stage-relay/`；说明见 [stage-remote.md](stage-remote.md) |
 
 新增设置时遵守项目 skill：视觉相关设置需要进入外观页的配置导入导出；功能性设置和可执行动作需要注册到 command palette。

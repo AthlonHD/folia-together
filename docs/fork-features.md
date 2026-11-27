@@ -5,9 +5,11 @@
 - 上游的功能说明、使用指南与许可证条款不变，见根目录 [README](../README.md)。
 - 与上游重叠的部分，原则是「不改上游行为，只加不替换」：新增能力放在独立模块或受开关控制，上游新版本通过合并（merge）引入，冲突在本 Fork 内解决。
 - 上游新增的 Stage 指定平台搜索仍只接入 Electron；Web Host 的 Stage 通道尚未接入该新增接口，原有搜索路径保留。
-- 当前已合并上游 main 至 `a8885a875`（**v0.7.29**）：界面缩放、分轨混音、Folium 1.10 主题接口及歌词与电台改进。本 Fork 保留 Stage 中继、手机布局、跨平台歌单、随机播放、代理设置、桌面音乐 MCP 与直通。完整记录见 [Fork 更新日志](../FORK_CHANGELOG.md)。
+- 当前已合并上游 main 至 `d88a6f056`（**v0.8.2**）：Electron 43.8.13、安装目录读取权限、卡巴斯基拦住页面进程时的崩溃说明、旧文件夹句柄失效后重新选择并保留原 id、墙面切歌自动聚焦。本 Fork 保留 Stage 中继、手机布局、跨平台歌单、随机播放、代理设置、桌面音乐 MCP、直通与 DJ Mix。完整记录见 [Fork 更新日志](../FORK_CHANGELOG.md)。
 
 **重点功能：[Hi-Fi 直通（桌面版）](hifi.md)**——WASAPI 独占 / 共享直出、整数采样、整数倍优先、单次重采样（rubato / SoXR）、真实链路读数。完整说明、实测数据与边界在 [hifi.md](hifi.md)，本文第 8 节只保留与其他功能交叉的部分、构建与脚本。
+
+**重点功能：[Folia DJ Mix（桌面端）](dj-mix.md)**——曲中按乐句重叠切歌：下一首先淡入，当前这首再淡出。速度对得上时按小节交接并只留一边的低音；对不上时仍保留大约 12 秒的叠化，不再切成短片。两首都很燥时淡出更明显。与直通互斥。完整说明在 [dj-mix.md](dj-mix.md)，本文第 3 节只保留和播放设置的交叉。
 
 **重点扩展：[桌面音乐 MCP](music-mcp.md)**（第 9.2 节；根 README 有重点节）——本机 Agent 经 loopback 读取多平台资料并在指定账号建单 / 控播。
 
@@ -48,6 +50,7 @@
 - **各平台自己的音质档位**:音质下拉只列当前平台真有的档,并标实际规格。网易云 标准 128k / 极高 320k / 无损 FLAC / Hi-Res / **高清臻音 / 超清母带**(新增两档,拿不到时按 母带→臻音→Hi-Res→无损→极高→标准 逐档降;杜比全景声、沉浸环绕声是多声道格式,浏览器放不了,不列);QQ 标准 128k / 极高 320k / 无损 FLAC(后端没有 Hi-Res);酷狗 128k / 320k / FLAC / 高解析;Spotify 160 / 320 kbit/s;YouTube Music 标准 / 极高 /(会员)超高。偏好仍是一个全局值,平台没有的档自动落到它最接近且不高于的那一档。
 - **底部控制条槽位**：右侧原来的「歌词时间轴」默认位换成「喜欢」（加入「我喜欢的音乐」），旧默认自动迁移，仍可在设置里改回。
 - **混排队列的平台标记**：队列里混了多个在线平台时，播放条与三处队列列表（队列面板、命令面板队列、墙面工具队列）标出每首歌来自哪个平台；只有一个平台时不显示。代码：`src/components/shared/SongPlatformBadge.tsx`、`songPlatform.ts`。
+- **Folia DJ Mix（桌面端，重点）**：混音过渡的第三种模式。曲中按乐句把两首歌叠在一起，不拉伸正在听的这首。直通开着时这一整项关掉。Apple Music 伴随播放和 Spotify Soloist 拿不到音频，不能进 DJ Mix；Spotify 标准播放可以。听感、档位和代码见 [Folia DJ Mix](dj-mix.md)。
 
 ## 4. 手机适配（独立的手机布局）
 
@@ -170,19 +173,19 @@
 | --- | --- | --- | --- |
 | 界面 | `src/` | `src/` | **同一份** |
 | 各平台的包与版本 | 仓库依赖（`package-lock.json`） | 同一个依赖 | **同一份** |
-| 网易云 | `scripts/start-netease-api.cjs` | `electron/netease/` 工作线程 | **同一份代码与补丁**（服务端直接启动桌面版的工作线程；不再用仓库外的 `api-enhanced`，`API_DIR` 仍可改用旧办法） |
-| QQ 音乐 | `scripts/start-qq-api.cjs` | `electron/qq/` | **启动逻辑同一份**（`startQqApi`）；登录态保存方式不同（服务端文件加密，桌面版系统凭据），有意不同 |
+| 网易云 | `scripts/start-netease-api.cjs` | `sources/netease/main/` 工作线程 | **同一份代码与补丁**（服务端直接 `require` 音源模组的 host；不再用仓库外的 `api-enhanced`） |
+| QQ 音乐 | `scripts/start-qq-api.cjs` | `sources/qq/main/` | **启动逻辑同一份**（`startQqApi`）；登录态保存方式不同（服务端文件加密，桌面版系统凭据），有意不同 |
 | 遥控接口 | `server/stage-relay` | 同一个 `electron/stageApi.cjs` | **同一份路由与状态逻辑** |
-| Spotify | `server/stage-relay/spotify.cjs` | `electron/spotify/` | 中继直接用桌面版的桥接代码 |
-| 酷狗 | `scripts/start-kugou-api.cjs`（库自带的 HTTP 服务 + 一处内存补丁） | `electron/kugou/kugouApiBridge.cjs`（进程内、白名单操作、加密会话） | **包同一个，调用方式不同，有意不合并**：桌面版不开端口、只放行白名单操作，服务端的库只绑本机、前面有中继 |
+| Spotify | `server/stage-relay/spotify.cjs` | `sources/spotify/main/` | 中继直接用音源模组的桥。桌面端音频地址是 `folia-mod://spotify/_media/audio/…`；中继不传这个地址时仍用 `folia-spotify://audio/…` |
+| 酷狗 | `scripts/start-kugou-api.cjs`（库自带的 HTTP 服务 + 一处内存补丁） | `sources/kugou/main/kugouApiBridge.cjs`（进程内、白名单操作、加密会话） | **包同一个，调用方式不同，有意不合并**：桌面版不开端口、只放行白名单操作，服务端的库只绑本机、前面有中继 |
 | 版本与更新 | 从仓库 `git pull`（`start-stage.cmd --auto-update`） | 从同一个提交构建的安装包（应用内更新） | 同一个提交，见第 10 节 |
 | 音乐 MCP | 无 | `electron/mcp/` + `src/components/app/musicMcp/` | **仅桌面**（loopback，不经中继） |
 
-只在一边的功能（有意）：桌面版有直通播放、遥控窗口、检测更新、本地文件与登录窗口、壁纸、**音乐 MCP**；网页版有中继、Host 页、手机遥控。
+只在一边的功能（有意）：桌面版有直通播放、**Folia DJ Mix**、遥控窗口、检测更新、本地文件与登录窗口、壁纸、**音乐 MCP**；网页版有中继、Host 页、手机遥控。DJ Mix 需要读到音频做分析，网页版没有这一项。
 
 还没有合进来的两条部署路径：`deploy/docker/`（自带的网易云、酷狗镜像与网关）和 Vercel 的 `api/` 函数，它们各有自己的后端，改后端行为时要单独看一眼。
 
-**改后端时的做法**：先看这张表。放在 `electron/` 里、不依赖 Electron 的模块（网易云、QQ 启动、遥控接口）服务端可以直接用，所以优先改那里；只在酷狗这类「有意不同」的地方才分别改。
+**改后端时的做法**：先看这张表。音源实现在 `sources/<id>/`，不依赖 Electron 的启动代码服务端可以直接 `require`；遥控接口仍在 `electron/stageApi.cjs`。只在酷狗这类「有意不同」的地方才分别改。
 
 ## 10. 安装包自动发布
 
@@ -206,3 +209,4 @@
 - **设置存储**：新增设置项的 localStorage 键记录在 `test/unit/stores/storeContract.test.ts` 的快照里，新增或改名时需要更新快照。
 - **推送即出包**：每次推送 `stage-remote` 都会自动生成新的安装包发布（见上一节）；推送后要到 Actions 里确认这次构建成功，失败了要修。
 - **不提交**：`.env.local`、令牌文件（`~/.folia-stage/token`）、任何账号 Cookie 与 API Key、音乐 MCP 连接密钥。
+- **桌面混音过渡**：上游 Automix 与本 Fork 的 DJ Mix 共用双轨 Web Audio。开启 Windows 直通时这一整项禁用，关闭直通后恢复；即使单曲回退普通播放也不新开一次混音，避免下一曲切回直通时冲突。DJ Mix 的听感见 [dj-mix.md](dj-mix.md)。
