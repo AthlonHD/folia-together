@@ -63,6 +63,10 @@ jobs:
           ELECTRON: 'true'
         run: npm run build
 
+      # Folium 2 packs sources/ as builtin mods. electron-builder refuses to start unless dist-mods/ matches that selection.
+      - name: Build bundled source mods
+        run: npm run sources:build
+
       # The analysis models' runtime is built from the pinned MNN source in build/beforePack.cjs; cached because it is minutes of compile.
       - name: Cache MNN runtime build
         uses: actions/cache@v4
